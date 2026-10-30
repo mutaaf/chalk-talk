@@ -10,8 +10,10 @@ import { playShape, view, particleBudget } from './engine/field.js';
 import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
 import { listener, say, hush, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
-import { drawPlay, smartPlayers, filmRoom, setApi, key, keyKind, NAMES } from './ai.js';
+import { drawPlay, smartPlayers, filmRoom, setApi, transcribe, key, keyKind, NAMES } from './ai.js';
 import { CSS } from './style.js';
+import { readStroke } from './engine/sketch.js';
+import { icon } from './icons.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -22,28 +24,27 @@ const TEMPLATE = `
   <div class="ct-word">Chalk <i>Talk</i> <small>Say the play. Watch it draw.</small></div>
   <div class="ct-sports" data-r="sports" role="tablist" aria-label="Sport"></div>
   <span class="ct-sp"></span>
-  <button class="ct-pill" data-r="viewBtn" title="Orbit, zoom and lock the view">View</button>
-  <button class="ct-pill" data-r="namesBtn" title="Show your players' names (saved on this device only)" hidden>Names</button>
-  <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself (or just use a pencil), then let the AI take over">Sketch</button>
-  <button class="ct-pill" data-r="defBtn" title="Add defenders who guard on their own">Defense</button>
-  <button class="ct-pill" data-r="infoBtn">About this play</button>
-  <button class="ct-pill" data-r="narrate" aria-pressed="true" title="The broadcaster calls each step">Call it</button>
-  <button class="ct-pill ct-keypill" data-r="keyBtn" title="Your AI key">AI</button>
+  <button class="ct-pill" data-r="viewBtn" title="Orbit, zoom and lock the view (L locks)">${icon('view')}<span>View</span></button>
+  <button class="ct-pill" data-r="namesBtn" title="Show your players' names (saved on this device only)" hidden>${icon('names')}<span>Names</span></button>
+  <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself (or just use a pencil), then let the AI take over (S)">${icon('sketch')}<span>Sketch</span></button>
+  <button class="ct-pill" data-r="defBtn" title="Add defenders who guard on their own (D)">${icon('shield')}<span>Defense</span></button>
+  <button class="ct-pill" data-r="infoBtn">${icon('info')}<span>About</span></button>
+  <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="Narrate each step">${icon('mute')}<span>Narrate</span></button>
+  <button class="ct-pill ct-keypill" data-r="keyBtn" title="AI settings and your own keys">${icon('sparkle')}<span>AI</span></button>
 </header>
-<div class="ct-view" data-r="viewPop" hidden>
-  <div class="ct-vrow"><span>View</span><button data-p="coach">Coach</button><button data-p="top">Top-down</button><button data-p="side">Sideline</button></div>
-  <div class="ct-vrow"><span>Zoom</span><button data-z="-1">−</button><button data-z="0">Fit</button><button data-z="1">+</button></div>
-  <button class="ct-lock" data-r="lockBtn">Lock this view</button>
-  <p class="ct-fine">Drag the field to orbit, scroll or pinch to zoom, then lock it. Saved for each sport on this device.</p>
-</div>
 <div class="ct-sketchbar" data-r="sketchbar">
-  <span data-r="sketchHint">Drag from a player to draw · tap the field to add one</span>
-  <button data-r="addO" class="on">+ O</button><button data-r="addX">+ X</button>
-  <button data-r="undo">Undo</button><button data-r="wipe">Clear</button>
-  <button class="go" data-r="done">Done</button>
+  <div class="ct-tools" data-r="tools">
+    <button data-t="draw" class="on" title="Draw from a player: what they do (D)">${icon('draw')}<span>Draw</span></button><button data-t="move" title="Drag a player to a new spot (M)">${icon('move')}<span>Move</span></button>
+    <button data-t="erase" title="Tap a line or a player to erase it (E)">${icon('erase')}<span>Erase</span></button><button data-t="ball" title="Tap a player to give them the ball (B)">${icon('ball')}<span>Ball</span></button>
+    <button data-t="O" title="Tap the field to add an O (O)">${icon('plusO')}</button><button data-t="X" title="Tap the field to add an X (X)">${icon('plusX')}</button>
+  </div>
+  <label class="ct-together" title="The next strokes happen at the same time (T)"><input type="checkbox" data-r="together"> Same time</label>
+  <div class="ct-steps" data-r="steps"></div>
+  <div class="ct-skend"><button data-r="undo" title="Undo (⌘Z)">${icon('undo')}</button><button data-r="wipe">Clear</button><button class="go" data-r="done" title="Done: play it, and let the AI take over (Esc)">${icon('check')}<span>Done</span></button></div>
 </div>
+<div class="ct-sklabel" data-r="sklabel"></div>
 <nav class="ct-lib" data-r="lib" aria-label="Concepts"></nav>
-<aside class="ct-card" aria-live="polite">
+<aside class="ct-card" aria-live="polite"><button type="button" class="ct-x ct-cardx" data-r="cardX" aria-label="Close">${icon('close')}</button>
   <div class="ct-eyebrow" data-r="concept"></div>
   <h1 data-r="title"></h1>
   <p data-r="summary"></p>
@@ -52,7 +53,7 @@ const TEMPLATE = `
   <ul class="ct-cues" data-r="cues"></ul>
   <h2 data-r="readsHead">Options</h2>
   <ul class="ct-reads" data-r="reads"></ul>
-  <button class="ct-filmbtn" data-r="filmBtn" title="Each position's own AI brain watches the play">🎬 Film room</button>
+  <button class="ct-filmbtn" data-r="filmBtn" title="Each position's own AI brain watches the play">${icon('film')}<span>Film room</span></button>
   <ul class="ct-film" data-r="film"></ul>
 </aside>
 <div class="ct-legend" data-r="legend"></div>
@@ -83,11 +84,11 @@ const TEMPLATE = `
 <div class="ct-toast" data-r="toast" role="status"></div>
 <dialog class="ct-dlg" data-r="keyDlg">
   <form data-r="keyForm" method="dialog">
-    <h3>Bring your own key</h3>
+    <header class="ct-dlghead"><h3>AI settings</h3><button type="button" class="ct-x" data-r="keyX" aria-label="Close">${icon('close')}</button></header>
     <p data-r="keyWhy"></p>
     <label>Play key <span class="ct-badge" data-r="keyBadge"></span></label>
     <input data-r="keyInput" type="password" placeholder="paste it here: sk-ant-… or sk-…" autocomplete="off" spellcheck="false">
-    <p class="ct-fine">Draws plays from your own words and sketches. Get one from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Claude</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a>; we can tell which. It stays in this browser and goes only to them.</p>
+    <p class="ct-fine">Without a key, plays are drawn by the free open-source AI (a daily limit applies). With your own key they use Claude or OpenAI. Get one from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Claude</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a>; we can tell which. It stays in this browser and goes only to them.</p>
     <label>Broadcaster voice key <span class="ct-badge" data-r="voiceBadge"></span></label>
     <input data-r="voiceInput" type="password" placeholder="optional: OpenAI sk-… or ElevenLabs sk_…" autocomplete="off" spellcheck="false">
     <p class="ct-fine" data-r="voiceFine"></p>
@@ -103,7 +104,7 @@ const HINTS = {
 
 let styled = false;
 export function mount(root, options) {
-  const opts = Object.assign({ sport: 'basketball', sports: null, play: null, narrate: true, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
+  const opts = Object.assign({ sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
   if (opts.api) setApi(opts.api);
   if (!styled && !document.querySelector('style[data-chalk-talk]')) { const s = document.createElement('style'); s.dataset.chalkTalk = ''; s.textContent = CSS; document.head.appendChild(s); styled = true; }
   root.classList.add('ct'); if (opts.fullscreen) root.classList.add('ct-full');
@@ -362,37 +363,61 @@ export function mount(root, options) {
     raf = requestAnimationFrame(loop);
   })(0);
 
+  // ---- panels: every popup opens inside the board, has a title and a close, and closes on Esc or a tap outside.
+  // On phones and narrow hosts they're bottom sheets.
+  function openPanel(anchor, title, body, onMount, cls) {
+    closePanel();
+    const host = root.getBoundingClientRect(), el2 = document.createElement('div');
+    el2.className = 'ct-panel' + (cls ? ' ' + cls : ''); el2.setAttribute('role', 'dialog'); el2.setAttribute('aria-label', title);
+    el2.innerHTML = `<header><h4>${esc(title)}</h4><button type="button" class="ct-x" aria-label="Close">${icon('close')}</button></header><div class="ct-pbody">${body}</div>`;
+    el2.style.visibility = 'hidden'; root.appendChild(el2);
+    const sheet = host.width < 640;
+    if (sheet) el2.classList.add('sheet');
+    else {
+      const a = anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left: host.left + anchor.x, right: host.left + anchor.x, top: host.top + anchor.y, bottom: host.top + anchor.y, width: 0 };
+      const w = el2.offsetWidth, h = Math.min(el2.offsetHeight, host.height - 24), cx = a.left + a.width / 2 - host.left;
+      let x = Math.max(12, Math.min(host.width - w - 12, cx - w / 2)), y = a.bottom - host.top + 10;
+      if (y + h > host.height - 12) y = a.top - host.top - h - 10;
+      if (y < 12) y = Math.max(12, host.height - h - 12);
+      el2.style.left = x + 'px'; el2.style.top = y + 'px'; el2.style.maxHeight = (host.height - 24) + 'px';
+    }
+    el2.style.visibility = '';
+    el2.querySelector('.ct-x').onclick = closePanel;
+    const outside = e => { if (!el2.contains(e.target) && !(anchor.contains && anchor.contains(e.target))) closePanel(); };
+    setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
+    el2._off = () => document.removeEventListener('pointerdown', outside, true);
+    onMount && onMount(el2.querySelector('.ct-pbody'), el2);
+    const first = el2.querySelector('.ct-pbody input, .ct-pbody button'); if (first && !sheet) first.focus();
+    return el2;
+  }
+  function closePanel() { root.querySelectorAll('.ct-panel').forEach(p => { p._off && p._off(); p.remove(); }); }
+  const markAnchor = i => { const m = ink.marks[i]; return { x: +m.hot.getAttribute('cx'), y: +m.hot.getAttribute('cy') + (+m.hot.getAttribute('r') || 10) }; };
+
   // ---- labels: tap a player (or say "label 5 the big") to tag a role ----
   function editRole(id) {
-    closeEditor();
     const p = byId(id); if (!p) return;
-    const i = state.play.players.indexOf(p), lb = ink.lbls[i];
-    const box = document.createElement('form'); box.className = 'ct-edit';
-    const chips = (state.sport.ai.roles || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
-    box.innerHTML = `<input value="${esc(p.role || '')}" placeholder="Label ${esc(posName(id))}" maxlength="18" aria-label="Label"><div class="chips">${chips.map(c => `<button type="button">${esc(c)}</button>`).join('')}</div><button>Set</button>` +
-      `<div class="ct-edrow"><input data-n value="${esc(names.all()[id] || '')}" placeholder="Player's name (this device only)" maxlength="24" aria-label="Name, saved on this device only" autocomplete="off"></div>` +
-      `<div class="ct-edrow"><button type="button" data-s="1">🧠 ${p.smart ? 'Ask the AI again' : 'Smart (AI) plays ' + esc(posName(id))}</button><button type="button" data-s="all">🧠 Whole team smart</button></div>`;
-    const r = lb.getBoundingClientRect(), host = root.getBoundingClientRect();
-    box.style.left = (r.left + r.width / 2 - host.left) + 'px'; box.style.top = (r.top - host.top + 4) + 'px';
-    root.appendChild(box);
-    const input = box.querySelector('input'); input.focus(); input.select();
-    box.querySelectorAll('.chips button').forEach(b => b.onclick = () => { input.value = b.textContent; box.requestSubmit(); });
-    const nameIn = box.querySelector('[data-n]');
-    box.onsubmit = e => {
-      e.preventDefault();
-      const nm = nameIn.value.trim(); if (nm !== (names.all()[id] || '')) { names.set(id, nm); if (nm) { state.showNames = true; try { localStorage.setItem('chalktalk.showNames', '1'); } catch (er) {} } }
-      setRole(id, input.value); closeEditor();
-    };
-    box.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
-      closeEditor();
-      const team = state.play.players.filter(q => q.side === p.side && q.id !== state.play.ball && !(state.sport.autonomy && state.sport.autonomy.skip && state.sport.autonomy.skip(q))).map(q => q.id);
-      makeSmart(b.dataset.s === 'all' ? team : [id]);
+    const i = state.play.players.indexOf(p);
+    const chips = (state.sport.ai.roles || '').split(',').map(c => c.trim()).filter(Boolean).slice(0, 6);
+    const body = `<form class="ct-form"><label>Label</label><div class="ct-row"><input data-role value="${esc(p.role || '')}" placeholder="e.g. ${esc(chips[0] || 'Shooter')}" maxlength="18" autocomplete="off"><button class="go">Save</button></div>
+      <div class="ct-chips">${chips.map(c => `<button type="button" data-chip>${esc(c)}</button>`).join('')}</div>
+      <label>Name <small>saved on this device only, never sent to the AI</small></label><input data-n value="${esc(names.all()[id] || '')}" placeholder="Player's first name" maxlength="24" autocomplete="off"></form>
+      <div class="ct-brains"><button type="button" data-s="1">${icon('brain')}<span>${p.smart ? 'Ask this brain again' : 'Let the AI play ' + esc(posName(id))}</span></button><button type="button" data-s="all">${icon('brain')}<span>Every ${p.side === 'O' ? 'teammate' : 'defender'} thinks</span></button></div>`;
+    openPanel(markAnchor(i), (p.side === 'O' ? 'Offense ' : 'Defense ') + posName(id), body, pb => {
+      const form = pb.querySelector('form'), roleIn = pb.querySelector('[data-role]'), nameIn = pb.querySelector('[data-n]');
+      pb.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { roleIn.value = b.textContent; form.requestSubmit(); });
+      form.onsubmit = e => {
+        e.preventDefault();
+        const nm = nameIn.value.trim(); if (nm !== (names.all()[id] || '')) { names.set(id, nm); if (nm) { state.showNames = true; try { localStorage.setItem('chalktalk.showNames', '1'); } catch (er) {} } }
+        closePanel(); setRole(id, roleIn.value);
+      };
+      pb.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+        closePanel();
+        const team = state.play.players.filter(q => q.side === p.side && q.id !== state.play.ball && !(state.sport.autonomy && state.sport.autonomy.skip && state.sport.autonomy.skip(q))).map(q => q.id);
+        makeSmart(b.dataset.s === 'all' ? team : [id]);
+      });
     });
-    setTimeout(() => document.addEventListener('pointerdown', outside), 0);
-    function outside(e) { if (!box.contains(e.target)) closeEditor(); }
-    box._off = () => document.removeEventListener('pointerdown', outside);
   }
-  function closeEditor() { const b = root.querySelector('.ct-edit'); if (b) { b._off && b._off(); b.remove(); } }
+  const closeEditor = closePanel;
   function setRole(id, role) {
     role = String(role || '').trim().slice(0, 18);
     const raw = JSON.parse(JSON.stringify(state.raw));
@@ -452,8 +477,11 @@ export function mount(root, options) {
   R.prev.onclick = () => act('back');
   R.next.onclick = () => act('next');
   R.speed.onclick = () => { const s = state.sim.speed(); state.sim.speed(s >= 2 ? 0.5 : s >= 1 ? 2 : 1); renderDots(); };
-  R.narrate.onclick = () => { state.narrate = !state.narrate; if (!state.narrate) hush(); R.narrate.classList.toggle('off', !state.narrate); R.narrate.setAttribute('aria-pressed', state.narrate); };
+  function renderNarrate() { R.narrate.classList.toggle('off', !state.narrate); R.narrate.classList.toggle('on', state.narrate); R.narrate.setAttribute('aria-pressed', state.narrate); R.narrate.innerHTML = icon(state.narrate ? 'speaker' : 'mute') + '<span>Narrate</span>'; }
+  R.narrate.onclick = () => { state.narrate = !state.narrate; if (!state.narrate) hush(); renderNarrate(); if (state.narrate) toast('Narration on.'); };
+  renderNarrate();
   R.infoBtn.onclick = () => root.classList.toggle('ct-info');
+  R.cardX.onclick = () => root.classList.remove('ct-info');
   R.defBtn.onclick = () => act('defense');
   R.sketchBtn.onclick = () => act('sketch');
 
@@ -511,17 +539,11 @@ export function mount(root, options) {
   }
   R.routeBtn.onclick = () => { state.routeMode = !state.routeMode; renderFootball(); if (state.routeMode) toast('Tap a receiver, then pick a route.'); else closeEditor(); };
   function pickRoute(id) {
-    closeEditor();
-    const p = byId(id), i = state.play.players.indexOf(p), lb = ink.lbls[i];
-    const box = document.createElement('div'); box.className = 'ct-edit ct-tree';
-    box.innerHTML = `<div class="ct-treehead">${esc(nameOf(id))} runs…</div>` + ROUTE_TREE.map(r => `<button data-r="${r.name}">${r.n != null ? '<i>' + r.n + '</i>' : ''}${r.name}</button>`).join('');
-    const rc = lb.getBoundingClientRect(), host = root.getBoundingClientRect();
-    box.style.left = clampN(rc.left + rc.width / 2 - host.left, 140, host.width - 140) + 'px'; box.style.top = clampN(rc.top - host.top + 4, 60, host.height - 240) + 'px';
-    root.appendChild(box);
-    box.onclick = e => { const b = e.target.closest('button'); if (b) { closeEditor(); setRoute(id, b.dataset.r); } };
-    setTimeout(() => document.addEventListener('pointerdown', outside), 0);
-    function outside(e) { if (!box.contains(e.target)) closeEditor(); }
-    box._off = () => document.removeEventListener('pointerdown', outside);
+    const p = byId(id), i = state.play.players.indexOf(p);
+    const body = `<div class="ct-tree">${ROUTE_TREE.map(r => `<button data-route="${r.name}">${r.n != null ? '<i>' + r.n + '</i>' : '<i>·</i>'}${r.name}</button>`).join('')}</div>`;
+    openPanel(markAnchor(i), nameOf(id) + ' runs…', body, pb => {
+      pb.onclick = e => { const b = e.target.closest('[data-route]'); if (b) { closePanel(); setRoute(id, b.dataset.route); } };
+    }, 'ct-wide');
   }
   const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
   function setRoute(id, name) {
@@ -589,10 +611,7 @@ export function mount(root, options) {
       if (u.label) { if (byId(u.label.id)) setRole(u.label.id, u.label.role); else toast(`There's no ${u.label.id} on the board.`); return; }
       if (footballWords(text)) return;
     }
-    if (!keyKind(key.get())) {
-      if (o.sketch) return;
-      openKey('To draw a play from your own words, add a Claude or OpenAI key. The concepts, sketching and voice commands work without one.'); return;
-    }
+
     if (state.busy) state.busy.abort();
     const ctl = state.busy = new AbortController(), sport = state.sport;
     root.classList.add('ct-drawing'); R.status.textContent = o.sketch ? 'The AI is taking over your sketch…' : 'Drawing your play…';
@@ -600,7 +619,7 @@ export function mount(root, options) {
     try {
       const raw = await drawPlay(text, state.play ? strip(state.play) : null, { signal: ctl.signal, glossary: opts.glossary || sport.glossary, sport, library: sport.plays, sketch: !!o.sketch });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
-      if (o.sketch) { offer(raw, o.mine); R.status.textContent = raw.reply || ''; return; }
+      if (o.sketch) { offer(raw, o.mine); R.status.textContent = raw.reply || ''; film(); return; }
       load(raw, { say: raw.reply, keepAI: true });
       showAI(raw, null);
       R.status.textContent = raw.reply || '';
@@ -640,17 +659,17 @@ export function mount(root, options) {
     const base = state.play && state.sim ? strip(state.play) : blank();
     base.beats = []; base.title = 'My sketch'; base.concept = 'Sketch'; base.summary = 'Drawn by hand.'; base.reads = []; base.cues = [];
     if (state.sim) { const P = state.sim.posAt(0); base.players = state.play.players.map((p, i) => ({ id: p.id, side: p.side, role: p.role, at: { x: P[i][0], y: P[i][1] } })); }
-    state.sketch = { raw: base, strokes: [], add: 'O', lastAt: 0 };
+    state.sketch = { raw: base, strokes: [], tool: 'draw', lastAt: 0 };
     root.classList.add('ct-sketch'); R.sketchBtn.classList.add('on'); R.aiCard.hidden = true;
-    R.addO.classList.add('on'); R.addX.classList.remove('on');
-    R.caption.innerHTML = 'Sketch: drag from a player to draw what they do. Draw two strokes quickly and they happen together.';
+    setTool('draw'); R.together.checked = false;
+    R.caption.innerHTML = 'Sketch: draw from a player. Zigzag = dribble, end on a teammate = pass, finish with a short T = screen. Strokes drawn quickly (or with “Same time”) happen together.';
     loadSketch();
   }
   function loadSketch() {
     const sk = state.sketch;
     load(sk.raw, { quiet: true });
     state.sim.seek(state.sim.beats); state.sim.playing(false);   // everyone where the sketch leaves them
-    renderDots();
+    renderDots(); renderSteps();
   }
   function finishSketch() {
     const sk = state.sketch; state.sketch = null;
@@ -664,9 +683,25 @@ export function mount(root, options) {
   }
   R.done.onclick = () => finishSketch();
   R.undo.onclick = () => { const sk = state.sketch; if (!sk) return; const last = sk.strokes.pop(); if (last) { sk.raw = last.before; loadSketch(); } };
-  R.wipe.onclick = () => { if (!state.sketch) return; state.sketch.raw = Object.assign(blank(), { title: 'My sketch', concept: 'Sketch', summary: 'Drawn by hand.' }); state.sketch.strokes = []; loadSketch(); };
-  R.addO.onclick = () => { state.sketch.add = 'O'; R.addO.classList.add('on'); R.addX.classList.remove('on'); };
-  R.addX.onclick = () => { state.sketch.add = 'D'; R.addX.classList.add('on'); R.addO.classList.remove('on'); };
+  R.wipe.onclick = () => { if (!state.sketch) return; const sk = state.sketch; sk.strokes.push({ before: JSON.parse(JSON.stringify(sk.raw)) }); sk.raw = Object.assign(blank(), { title: 'My sketch', concept: 'Sketch', summary: 'Drawn by hand.' }); loadSketch(); };
+  R.tools.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTool(b.dataset.t); });
+  function setTool(t) {
+    if (!state.sketch) return;
+    state.sketch.tool = t;
+    R.tools.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+    root.dataset.tool = t;
+  }
+  // the steps so far, each one deletable
+  function renderSteps() {
+    const sk = state.sketch; if (!sk) { R.steps.innerHTML = ''; return; }
+    R.steps.innerHTML = sk.raw.beats.map((b, k) => `<span class="ct-step"><b>${k + 1}</b>${mark(b.say)}<button data-del="${k}" aria-label="Delete step ${k + 1}">×</button></span>`).join('') || '<span class="ct-step empty">Your steps show up here</span>';
+  }
+  R.steps.addEventListener('click', e => {
+    const b = e.target.closest('[data-del]'); if (!b || !state.sketch) return;
+    const sk = state.sketch; sk.strokes.push({ before: JSON.parse(JSON.stringify(sk.raw)) });
+    sk.raw.beats.splice(+b.dataset.del, 1); loadSketch();
+  });
+  const snapshot = () => { const sk = state.sketch; sk.strokes.push({ before: JSON.parse(JSON.stringify(sk.raw)) }); };
 
   // screen → field: invert the projection with a few Newton steps (the view is smooth and nearly flat)
   function unproject(sx, sy) {
@@ -678,15 +713,23 @@ export function mount(root, options) {
     }
     return [x, y];
   }
+  const inField = pt => { const F = state.sport.field; return pt[0] >= F.x[0] && pt[0] <= F.x[1] && pt[1] >= F.y[0] && pt[1] <= F.y[1]; };
+  function nearestPlayer(pt, within) {
+    const P = state.sim.posAt(state.sim.time()); let best = -1, bd = within * state.sport.mark;
+    P.forEach((p, i) => { const d = Math.hypot(p[0] - pt[0], p[1] - pt[1]); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  // what the sketch means if the stroke ended here (shared by the live label and the commit)
+  function interpret(d) {
+    const sim = state.sim, P = sim.posAt(sim.time()), who = state.play.players[d.i];
+    return readStroke(state.sport, d.pts, { who, holder: d.i === sim.holderAt(sim.time()), players: state.play.players, P, spots: state.sport.spots, los: state.play.los });
+  }
   let drag = null;
   R.ink.addEventListener('pointerdown', e => {
     if (!state.sketch) return;
     const host = R.ink.getBoundingClientRect(), sx = e.clientX - host.left, sy = e.clientY - host.top, pt = unproject(sx, sy);
-    const F = state.sport.field; if (pt[0] < F.x[0] || pt[0] > F.x[1] || pt[1] < F.y[0] || pt[1] > F.y[1]) return;
-    const P = state.sim.posAt(state.sim.time());
-    let best = -1, bd = 1.8 * state.sport.mark;
-    P.forEach((p, i) => { const d = Math.hypot(p[0] - pt[0], p[1] - pt[1]); if (d < bd) { bd = d; best = i; } });
-    drag = { i: best, pts: [pt], screen: [[sx, sy]], t: performance.now() };
+    if (!inField(pt)) return;
+    drag = { i: nearestPlayer(pt, 1.8), pts: [pt], screen: [[sx, sy]], t: performance.now(), tool: state.sketch.tool, n: 0 };
     R.ink.setPointerCapture(e.pointerId); e.preventDefault();
   });
   R.ink.addEventListener('pointermove', e => {
@@ -696,73 +739,97 @@ export function mount(root, options) {
     drag.screen.push([sx, sy]); drag.pts.push(unproject(sx, sy));
     ink.stroke.setAttribute('d', 'M' + drag.screen.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L'));
     if (e.pointerType === 'pen') ink.stroke.setAttribute('stroke-width', (1.6 + (e.pressure || 0.5) * 4).toFixed(1));   // the pencil's pressure
+    // say what it means while it's being drawn, and light up who it's for
+    if (drag.tool === 'draw' && drag.i >= 0 && ++drag.n % 3 === 0 && drag.pts.length > 3) {
+      const r = interpret(drag);
+      R.sklabel.innerHTML = `${mark(drag.i >= 0 ? state.play.players[drag.i].id : '')} ${mark(r.label)}`;
+      R.sklabel.style.transform = `translate(${sx + 16}px, ${sy - 30}px)`; R.sklabel.classList.add('on');
+      ink.marks.forEach(m => m.glyph.classList.toggle('target', !!r.target && m.p.id === r.target));
+    }
   });
+  const clearLive = () => { ink && ink.stroke.setAttribute('d', ''); R.sklabel.classList.remove('on'); ink && ink.marks.forEach(m => m.glyph.classList.remove('target')); };
   const endDrag = () => {
-    if (!drag) return; const d = drag; drag = null; ink.stroke.setAttribute('d', '');
+    if (!drag) return; const d = drag; drag = null; clearLive();
     const sk = state.sketch; if (!sk) return;
-    const moved = d.pts.length > 2 && Math.hypot(d.pts[d.pts.length - 1][0] - d.pts[0][0], d.pts[d.pts.length - 1][1] - d.pts[0][1]) > state.sport.mark;
-    if (!moved) { if (d.i < 0) addPlayer(d.pts[0]); else editRole(state.play.players[d.i].id); return; }
-    if (d.i < 0) return;
-    strokeToAction(d);
+    const end = d.pts[d.pts.length - 1], moved = d.pts.length > 2 && Math.hypot(end[0] - d.pts[0][0], end[1] - d.pts[0][1]) > state.sport.mark;
+    const tool = d.tool;
+    if (tool === 'O' || tool === 'X') { if (d.i < 0) addPlayer(d.pts[0], tool === 'O' ? 'O' : 'D'); return; }
+    if (tool === 'ball') { if (d.i >= 0) giveBall(state.play.players[d.i]); return; }
+    if (tool === 'erase') { erase(d.pts[0], d.i); return; }
+    if (tool === 'move') { if (d.i >= 0 && moved && inField(end)) movePlayer(state.play.players[d.i].id, end); return; }
+    if (!moved) { if (d.i < 0) addPlayer(d.pts[0], 'O'); else editRole(state.play.players[d.i].id); return; }
+    if (d.i >= 0) commitStroke(d);
   };
-  R.ink.addEventListener('pointerup', endDrag); R.ink.addEventListener('pointercancel', () => { drag = null; ink && ink.stroke.setAttribute('d', ''); });
+  R.ink.addEventListener('pointerup', endDrag); R.ink.addEventListener('pointercancel', () => { drag = null; clearLive(); });
 
-  function addPlayer(pt) {
-    const sk = state.sketch, per = state.sport.roster.perSide, side = sk.add, letter = side === 'O' ? 'O' : 'X';
+  function addPlayer(pt, side) {
+    const sk = state.sketch, per = state.sport.roster.perSide, letter = side === 'O' ? 'O' : 'X';
     const used = new Set(sk.raw.players.map(p => String(p.id).toUpperCase()));
     let n = 1; while (n <= per && used.has(letter + n)) n++;
-    if (n > per) { toast(`All ${per} ${side === 'O' ? 'O' : 'X'}'s are on the field.`); return; }
-    const before = JSON.parse(JSON.stringify(sk.raw));
+    if (n > per) { toast(`All ${per} ${letter}'s are on the field.`); return; }
+    snapshot();
     sk.raw.players.push({ id: letter + n, side, at: { x: +pt[0].toFixed(1), y: +pt[1].toFixed(1) } });
     if (!sk.raw.ball && side === 'O') sk.raw.ball = letter + n;
-    sk.strokes.push({ before }); loadSketch();
+    loadSketch();
+  }
+  function giveBall(p) {
+    const sk = state.sketch;
+    if (p.side !== 'O') { toast('Only an O can have the ball.'); return; }
+    if (sk.raw.beats.length) { toast('Give the ball before drawing, or draw a pass to them.'); return; }
+    snapshot(); sk.raw.ball = p.id; loadSketch(); toast(`${nameOf(p.id)} has the ball.`);
+  }
+  // move a player: their starting spot, or where their last move ends
+  function movePlayer(id, end) {
+    const sk = state.sketch; snapshot();
+    const to = { x: +end[0].toFixed(1), y: +end[1].toFixed(1) };
+    for (let k = sk.raw.beats.length - 1; k >= 0; k--) {
+      const a = sk.raw.beats[k].actions.find(x => x.who === id && state.sport.kinds[x.kind].type === 'move');
+      if (a) { a.to = to; a.path = []; a.via = null; loadSketch(); return; }
+    }
+    const p = sk.raw.players.find(q => String(q.id).toUpperCase() === id); if (p) p.at = to;
+    loadSketch();
+  }
+  // erase: a player (and everything they do), or the line under the finger
+  function erase(pt, pi) {
+    const sk = state.sketch, sim = state.sim, U = state.sport.mark;
+    if (pi >= 0) {
+      const id = state.play.players[pi].id;
+      if (id === sk.raw.ball && sk.raw.beats.length) { toast('That player has the ball. Erase their lines instead, or Clear.'); return; }
+      snapshot();
+      sk.raw.players = sk.raw.players.filter(q => String(q.id).toUpperCase() !== id);
+      sk.raw.beats = sk.raw.beats.map(b => Object.assign(b, { actions: b.actions.filter(a => a.who !== id && a.target !== id) })).filter(b => b.actions.length);
+      if (sk.raw.ball === id) sk.raw.ball = (sk.raw.players.find(q => q.side === 'O') || {}).id;
+      loadSketch(); return;
+    }
+    let best = -1, bd = 1.3 * U;
+    sim.routes.forEach((r, i) => { if (r.auto) return; sim.routeSlice(i, 1).forEach(q => { const d = Math.hypot(q[0] - pt[0], q[1] - pt[1]); if (d < bd) { bd = d; best = i; } }); });
+    if (best < 0) return;
+    const r = sim.routes[best], who = sim.players[r.p].id, beat = sk.raw.beats[r.beat];
+    if (!beat) return;
+    snapshot();
+    beat.actions = beat.actions.filter(a => !(a.who === who && a.kind === r.kind));
+    if (!beat.actions.length) sk.raw.beats.splice(r.beat, 1);
+    loadSketch();
   }
 
-  // a rough stroke → one action, by what it starts on and where it ends
-  function strokeToAction(d) {
-    const sk = state.sketch, sport = state.sport, sim = state.sim, U = sport.mark;
-    const P = sim.posAt(sim.time()), who = state.play.players[d.i], holderI = sim.holderAt(sim.time());
-    const hasBall = d.i === holderI, end = d.pts[d.pts.length - 1];
-    let mate = -1, md = 2.2 * U;
-    P.forEach((p, i) => { if (i !== d.i && state.play.players[i].side === who.side) { const dd = Math.hypot(p[0] - end[0], p[1] - end[1]); if (dd < md) { md = dd; mate = i; } } });
-    const pick = (...names) => names.find(n => sport.kinds[n]);
-    const passKind = pick('throw', 'pass'), carryKind = pick('dribble', 'run'), cutKind = pick('route', 'cut'), defKind = pick('cover', 'slide'), screenKind = pick('screen');
-    const corners = simplify(d.pts, 0.7 * U).slice(1, -1).slice(0, 4).map(p => ({ x: +p[0].toFixed(1), y: +p[1].toFixed(1) }));
-    const to = { x: +end[0].toFixed(1), y: +end[1].toFixed(1) };
-    const before = JSON.parse(JSON.stringify(sk.raw));
-    const actions = [];
+  // a rough stroke → an action, read the way a coach means it (engine/sketch.js)
+  function commitStroke(d) {
+    const sk = state.sketch, sport = state.sport, r = interpret(d), a = r.action, who = state.play.players[d.i];
+    snapshot();
     // football: the center has it before the snap; the first stroke snaps it to the QB
     if (sport.kinds.snap && sk.raw.beats.length === 0 && byId('O1') && byId('O2') && sk.raw.ball === 'O2') {
       sk.raw.beats.push({ say: 'O2 snaps the ball to O1.', actions: [{ kind: 'snap', who: 'O2', target: 'O1' }] });
     }
-    const target = mate >= 0 ? state.play.players[mate].id : null;
-    if (who.side === 'D') actions.push({ kind: defKind, who: who.id, to, path: corners });
-    else if (hasBall && target) actions.push({ kind: passKind, who: who.id, target });
-    else if (hasBall) actions.push({ kind: carryKind, who: who.id, to, path: corners });
-    else if (target && screenKind) actions.push({ kind: screenKind, who: who.id, to, target });
-    else actions.push({ kind: cutKind, who: who.id, to, path: sport.kinds.route ? corners : [], via: !sport.kinds.route && corners.length === 1 ? corners[0] : null });
-    const a = actions[0], label = nameOf(who.id);
-    const words = { pass: `${who.id} passes to ${target}`, throw: `${who.id} throws to ${target}`, dribble: `${who.id} dribbles`, run: `${who.id} runs with it`, screen: `${who.id} screens for ${target}`, cut: `${who.id} cuts`, route: `${who.id} runs a route`, slide: `${who.id} slides`, cover: `${who.id} covers` };
-    // two quick strokes by different players happen together
-    const lastBeat = sk.raw.beats[sk.raw.beats.length - 1], quick = performance.now() - sk.lastAt < 1400;
-    if (lastBeat && quick && !lastBeat.actions.some(x => x.who === who.id) && !(sport.kinds[a.kind].type !== 'move' && lastBeat.actions.some(x => sport.kinds[x.kind].type !== 'move'))) {
-      lastBeat.actions.push(a); lastBeat.say += '. ' + words[a.kind] + '.';
-    } else sk.raw.beats.push({ say: words[a.kind] + '.', actions: [a] });
+    const say = `${who.id} ${r.label}`;
+    // together: the "Same time" switch, or two quick strokes by different players
+    const lastBeat = sk.raw.beats[sk.raw.beats.length - 1], quick = performance.now() - sk.lastAt < 1200;
+    const ballish = x => sport.kinds[x.kind].type !== 'move';
+    const fits = lastBeat && !lastBeat.actions.some(x => x.who === who.id) && !(ballish(a) && lastBeat.actions.some(ballish)) && !(lastBeat.actions.some(x => x.kind === 'snap'));
+    if (fits && (R.together.checked || quick)) { lastBeat.actions.push(a); lastBeat.say = lastBeat.say.replace(/\.$/, '') + ', ' + say + '.'; }
+    else sk.raw.beats.push({ say: say + '.', actions: [a] });
     sk.lastAt = performance.now();
-    sk.strokes.push({ before }); loadSketch();
-    R.caption.innerHTML = mark(sk.raw.beats[sk.raw.beats.length - 1].say) + ` <span class="ct-hint">(${label})</span>`;
-  }
-  // Ramer–Douglas–Peucker: the corners of a hand-drawn route
-  function simplify(pts, eps) {
-    if (pts.length < 3) return pts.slice();
-    const a = pts[0], b = pts[pts.length - 1]; let idx = -1, dmax = 0;
-    for (let i = 1; i < pts.length - 1; i++) {
-      const p = pts[i], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-      const dd = Math.abs((b[1] - a[1]) * p[0] - (b[0] - a[0]) * p[1] + b[0] * a[1] - b[1] * a[0]) / l;
-      if (dd > dmax) { dmax = dd; idx = i; }
-    }
-    if (dmax <= eps) return [a, b];
-    return simplify(pts.slice(0, idx + 1), eps).slice(0, -1).concat(simplify(pts.slice(idx), eps));
+    loadSketch();
+    R.caption.innerHTML = `<span class="ct-n">${sk.raw.beats.length}</span>${mark(say)}${r.snapped ? ` <span class="ct-hint">(snapped to the ${esc(r.snapped)})</span>` : ''}`;
   }
   // no key needed: the library play whose actions look most like the sketch
   function recognize(raw) {
@@ -786,18 +853,30 @@ export function mount(root, options) {
     const v = state.view;
     field.setPose(v.pose ? { yaw: v.pose.yaw, pitch: v.pose.pitch, roll: 0 } : null);
     field.set({ interactive: !v.locked, radius: (w, h) => (w < 700 ? Math.min(w * 0.6, h * 0.42) : Math.min(w * 0.4, h * 0.5)) * v.zoom });
-    R.lockBtn.textContent = v.locked ? '🔒 Locked · tap to unlock' : 'Lock this view';
-    R.lockBtn.classList.toggle('on', v.locked); R.viewBtn.classList.toggle('on', v.locked);
-    R.viewBtn.textContent = v.locked ? '🔒 View' : 'View';
+    R.viewBtn.classList.toggle('on', v.locked);
+    R.viewBtn.innerHTML = icon(v.locked ? 'lock' : 'view') + '<span>View</span>';
   }
-  R.viewBtn.onclick = () => { R.viewPop.hidden = !R.viewPop.hidden; };
-  R.viewPop.addEventListener('click', e => {
-    const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.p) state.view.pose = Object.assign({}, PRESETS[b.dataset.p]);
-    if (b.dataset.z) state.view.zoom = b.dataset.z === '0' ? 1 : Math.max(0.6, Math.min(2.4, state.view.zoom * (b.dataset.z === '1' ? 1.15 : 1 / 1.15)));
-    if (b === R.lockBtn) { state.view.locked = !state.view.locked; if (state.view.locked && !state.view.pose) capturePose(); toast(state.view.locked ? 'View locked. It stays exactly here.' : 'View unlocked: drag to orbit.'); }
-    saveView(); applyView();
-  });
+  R.viewBtn.onclick = () => {
+    if (root.querySelector('.ct-panel.ct-viewp')) { closePanel(); return; }
+    const v = state.view;
+    const body = `<div class="ct-seg"><span>Angle</span><button data-p="coach">Coach</button><button data-p="top">Top-down</button><button data-p="side">Sideline</button></div>
+      <div class="ct-seg"><span>Zoom</span><button data-z="-1" aria-label="Zoom out">−</button><button data-z="0">Fit</button><button data-z="1" aria-label="Zoom in">+</button></div>
+      <button class="ct-lock${v.locked ? ' on' : ''}" data-lock>${icon(v.locked ? 'lock' : 'unlock')}<span>${v.locked ? 'Locked. Tap to unlock' : 'Lock this view'}</span></button>
+      <p class="ct-fine">Drag the field to orbit, scroll or pinch to zoom, then lock it. Saved for each sport on this device.</p>`;
+    openPanel(R.viewBtn, 'View', body, pb => {
+      pb.onclick = e => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.p) state.view.pose = Object.assign({}, PRESETS[b.dataset.p]);
+        if (b.dataset.z) state.view.zoom = b.dataset.z === '0' ? 1 : Math.max(0.6, Math.min(2.4, state.view.zoom * (b.dataset.z === '1' ? 1.15 : 1 / 1.15)));
+        if (b.hasAttribute('data-lock')) { toggleLock(); closePanel(); R.viewBtn.click(); return; }
+        saveView(); applyView();
+      };
+    }, 'ct-viewp');
+  };
+  function toggleLock() {
+    state.view.locked = !state.view.locked; if (state.view.locked && !state.view.pose) capturePose();
+    saveView(); applyView(); toast(state.view.locked ? 'View locked.' : 'View unlocked. Drag to orbit.');
+  }
   // after a drag, hold the field where it was left (no drifting back)
   function capturePose() {
     const v = field.view(), TAU = Math.PI * 2;
@@ -850,7 +929,7 @@ export function mount(root, options) {
     if (st === 'hearing') R.heard.textContent = text;
     if (st === 'listening') { hush(); R.heard.textContent = 'Listening…'; }
     if (st === 'error' && text) toast(text);
-  });
+  }, transcribe);
   if (!ear) { R.mic.disabled = true; R.mic.title = 'This browser cannot hear you. Type instead.'; }
   R.mic.onclick = () => { if (!ear) return; ear.on ? ear.stop() : ear.start(); };
   let spaceDown = false;
@@ -861,13 +940,18 @@ export function mount(root, options) {
     if (e.code === 'Space' && !e.repeat && ear) { e.preventDefault(); spaceDown = true; ear.start(); }
     if (e.key === 'ArrowRight') act('next');
     if (e.key === 'ArrowLeft') act('back');
-    if (e.key === 'Escape') { closeEditor(); R.viewPop.hidden = true; if (state.sketch) finishSketch(); }
+    if (e.key === 'Escape') { if (root.querySelector('.ct-panel')) { closePanel(); return; } if (state.sketch) finishSketch(); }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && state.sketch) { e.preventDefault(); R.undo.click(); return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k2 = e.key.toLowerCase();
+    if (state.sketch) {
+      const tools = { d: 'draw', m: 'move', e: 'erase', b: 'ball', o: 'O', x: 'X' };
+      if (tools[k2]) { setTool(tools[k2]); return; }
+      if (k2 === 't') { R.together.checked = !R.together.checked; return; }
+    }
     if (k2 === 's') act('sketch');
     if (k2 === 'd') act('defense');
-    if (k2 === 'l') { state.view.locked = !state.view.locked; if (state.view.locked && !state.view.pose) capturePose(); saveView(); applyView(); toast(state.view.locked ? 'View locked.' : 'View unlocked.'); }
+    if (k2 === 'l') toggleLock();
     if (k2 === 'n' && names.any()) R.namesBtn.click();
     if (k2 === '=' || k2 === '+') { state.view.zoom = Math.min(2.4, state.view.zoom * 1.15); saveView(); applyView(); }
     if (k2 === '-') { state.view.zoom = Math.max(0.6, state.view.zoom / 1.15); saveView(); applyView(); }
@@ -895,6 +979,8 @@ export function mount(root, options) {
   };
   R.keyBtn.onclick = () => openKey();
   R.keyCancel.onclick = () => R.keyDlg.close();
+  R.keyX.onclick = () => R.keyDlg.close();
+  R.keyDlg.addEventListener('click', e => { if (e.target === R.keyDlg) R.keyDlg.close(); });   // a tap on the backdrop closes it
   R.keyForm.onsubmit = e => {
     e.preventDefault();
     key.set(R.keyInput.value); voiceKey.set(R.voiceInput.value); R.keyDlg.close(); refreshKey();
@@ -902,7 +988,7 @@ export function mount(root, options) {
     if (state.play && state.narrate) prefetch(state.play.beats.map(b => spoken(b.say)), key.get());
   };
   R.keyClear.onclick = () => { key.set(''); voiceKey.set(''); R.keyInput.value = ''; R.voiceInput.value = ''; R.keyInput.oninput(); refreshKey(); };
-  function refreshKey() { const k = keyKind(key.get()); R.keyBtn.classList.toggle('set', !!k); R.keyBtn.textContent = k ? NAMES[k] : 'AI'; }
+  function refreshKey() { const k = keyKind(key.get()); R.keyBtn.classList.toggle('set', !!k); R.keyBtn.innerHTML = icon('sparkle') + '<span>' + (k ? NAMES[k] : 'AI') + '</span>'; }
   refreshKey();
 
   let toastT = 0;

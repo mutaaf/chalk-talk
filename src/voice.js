@@ -4,9 +4,37 @@
 // the common commands work with no AI at all.
 
 
-export function listener(onText, onState) {
+// Where the browser can't recognise speech itself (Firefox, installed iPhone/iPad apps), the mic
+// records and the free API transcribes it (Whisper, an open model). Audio is not stored.
+export function recorder(onText, onState, transcribe) {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') return null;
+  let rec = null, chunks = [], stream = null, want = false;
+  async function start() {
+    if (rec) return; want = true;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+    catch (e) { onState('error', 'Microphone is blocked for this page.'); want = false; return; }
+    if (!want) { stream.getTracks().forEach(t => t.stop()); return; }
+    chunks = []; rec = new MediaRecorder(stream);
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop()); rec = null;
+      const blob = new Blob(chunks, { type: chunks[0] ? chunks[0].type : 'audio/webm' });
+      if (blob.size < 2000) { onState('idle', ''); return; }
+      onState('hearing', 'Writing down what you said…');
+      try { const t = (await transcribe(blob)).trim(); onState('idle', t); if (t) onText(t); }
+      catch (e) { onState('error', e.message || 'Couldn’t hear that. Try again, or type it.'); }
+    };
+    rec.start(); onState('listening', '');
+    setTimeout(() => { if (rec && rec.state === 'recording') rec.stop(); }, 45000);   // a long play, at most
+  }
+  function stop() { want = false; if (rec && rec.state === 'recording') rec.stop(); }
+  return { start, stop, get on() { return want; } };
+}
+const standaloneIOS = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent || '') && (navigator.standalone || (typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches));
+
+export function listener(onText, onState, transcribe) {
   const R = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
-  if (!R) return null;
+  if (!R || standaloneIOS()) return transcribe ? recorder(onText, onState, transcribe) : null;
   let rec = null, finalText = '', want = false;
   function start() {
     if (rec) return;
@@ -34,9 +62,9 @@ export const voiceKey = {
   get() { try { return localStorage.getItem(VKEY) || ''; } catch (e) { return ''; } },
   set(v) { try { v ? localStorage.setItem(VKEY, v.trim()) : localStorage.removeItem(VKEY); } catch (e) {} }
 };
-const CALLER = 'Voice: an energetic, warm play-by-play sports broadcaster calling a youth basketball game on TV. ' +
-  'Punchy, confident and upbeat, with a little crowd-pleasing flair on the big moments (layups, open shots), ' +
-  'clear enough for kids to follow. Natural pacing, never robotic. Say "O1" as "O one" and "X2" as "X two".';
+const CALLER = 'Voice: a professional play-by-play sports broadcaster. Clear, confident and warm, with measured energy: ' +
+  'crisp delivery, natural pauses between actions, a slight lift on the key moment of the play. Never shouting, never ' +
+  'cartoonish, never robotic. Easy for young players to follow.';
 
 const spoken = t => t.replace(/\bO(\d)\b/g, 'O $1').replace(/\bX(\d)\b/g, 'X $1').replace(/\bDHO\b/g, 'D H O');
 const cache = new Map();   // text → Promise<blob url>
@@ -58,7 +86,7 @@ async function synth(text, p) {
     // ElevenLabs "Adam": a deep, broadcast-ready stock voice
     r = await fetch('https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB?output_format=mp3_44100_128', { method: 'POST',
       headers: { 'content-type': 'application/json', 'xi-api-key': p.key },
-      body: JSON.stringify({ text: spoken(text), model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.35, similarity_boost: 0.8, style: 0.55, use_speaker_boost: true } }) });
+      body: JSON.stringify({ text: spoken(text), model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true } }) });
   }
   if (!r.ok) throw Object.assign(new Error(r.status === 401 ? 'The voice key didn’t work.' : 'The broadcaster voice is unavailable (' + r.status + ').'), { status: r.status });
   return URL.createObjectURL(await r.blob());
@@ -78,18 +106,18 @@ export function prefetch(lines, playKey) {
 let onError = null;
 export function voiceErrors(fn) { onError = fn; }
 
-export function say(text, playKey) {
+export function say(text, playKey, opts) {
   if (!text) return;
   hush(); const my = ++seq;
-  const p = provider(playKey);
+  const p = provider(playKey), localText = (opts && opts.local) || text;
   if (p) {
     fetchLine(text, p).then(url => {
       if (my !== seq) return;
       audio = new Audio(url); audio.play().catch(() => {});
-    }).catch(e => { if (my === seq) { onError && onError(e.message); local(text); } });
+    }).catch(e => { if (my === seq) { onError && onError(e.message); local(localText); } });
     return;
   }
-  local(text);
+  local(localText);
 }
 export function hush() {
   seq++;
@@ -117,10 +145,10 @@ function local(text) {
   best = best || pick();
   // a caller's read: a beat faster, a touch brighter, with a lift on the punchline
   const parts = spoken(text).split(/(?<=[.!?])\s+/);
-  parts.forEach((part, i) => {
+  parts.forEach(part => {
     const u = new SpeechSynthesisUtterance(part);
     if (best) u.voice = best;
-    u.rate = 1.1; u.pitch = i === parts.length - 1 ? 1.08 : 1; u.volume = 1;
+    u.rate = 1.02; u.pitch = 1; u.volume = 1;   // measured and natural
     speechSynthesis.speak(u);
   });
 }

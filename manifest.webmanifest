@@ -1,0 +1,23 @@
+{
+  "name": "Chalk Talk",
+  "short_name": "Chalk Talk",
+  "description": "Say or sketch a play and watch it draw itself in light. X's and O's for youth basketball and flag football.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04070c",
+  "theme_color": "#04070c",
+  "categories": ["sports", "education"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Basketball", "url": "./?sport=basketball" },
+    { "name": "Flag 5v5", "url": "./?sport=flag5" },
+    { "name": "Flag 7v7", "url": "./?sport=flag7" }
+  ]
+}
