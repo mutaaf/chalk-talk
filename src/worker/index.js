@@ -20,6 +20,12 @@
 import { requestFor, TASKS, LITE, solve } from '../server.js';
 import { getSport } from '../sports/index.js';
 
+// Free users get Claude Haiku 5.5 (far more accurate than the open models: 96% vs ~83% on npm run eval) when the
+// Worker has an ANTHROPIC_API_KEY secret, inside a daily dollar cap; past it, or if Anthropic errors, the open
+// models below take over, so the free board never stops.
+export const HAIKU = 'claude-haiku-5-5';
+const HAIKU_PRICE = [0.1, 0.5, 0.01, 0.125];   // USD per million tokens: in, out, cache read, cache write
+export const haikuMicros = u => Math.ceil(u.in * HAIKU_PRICE[0] + u.out * HAIKU_PRICE[1] + (u.cr || 0) * HAIKU_PRICE[2] + (u.cw || 0) * HAIKU_PRICE[3]);
 export const MODELS = {
   play: '@cf/google/gemma-4-26b-a4b-it',
   fallback: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
@@ -33,7 +39,8 @@ export const LIMITS = {
   perIp: { event: 400, learn: 300, play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
   neuronsPerDay: 3500,
   // charged up front, then corrected to what the call really cost (tokens × price, below)
-  lexiconMin: 3,   // distinct coaches before a phrase or a fix is shared with everyone
+  lexiconMin: 3,
+  claudeMicrosPerDay: 5_000_000,   // $5 a day of Haiku for everyone together (≈ 3,000 free plays); then the open models   // distinct coaches before a phrase or a fix is shared with everyone
   estNeurons: { event: 0, learn: 0, play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
   maxJson: 64 * 1024, maxAudio: 2 * 1024 * 1024, maxSay: 300
 };
@@ -95,7 +102,7 @@ async function rollup(d, days) {
     all("SELECT json_extract(props, '$.path') k, COUNT(*) events, ROUND(AVG(json_extract(props, '$.ms'))) ms, SUM(json_extract(props, '$.ok') = 1) ok FROM events WHERE day >= ? AND name = 'voice' GROUP BY k ORDER BY events DESC"),
     all("SELECT json_extract(props, '$.band') k, COUNT(*) sessions, ROUND(AVG(json_extract(props, '$.right') * 100.0 / json_extract(props, '$.of'))) pct FROM events WHERE day >= ? AND name = 'iq_done' GROUP BY k"),
     all("SELECT ts, name, country, city, device, browser, os, host, sport, props FROM events WHERE day >= ? ORDER BY ts DESC LIMIT 60"),
-    (async () => { const r = await d.prepare("SELECT bucket, n FROM ai_usage WHERE bucket LIKE 'neurons:%' OR bucket LIKE 'calls:%'").all(); return (r.results || []).filter(x => x.bucket.split(':')[1] >= since); })()
+    (async () => { const r = await d.prepare("SELECT bucket, n FROM ai_usage WHERE bucket LIKE 'neurons:%' OR bucket LIKE 'calls:%' OR bucket LIKE 'usd:%'").all(); return (r.results || []).filter(x => x.bucket.split(':')[1] >= since); })()
   ]);
   const tot = daily.reduce((a, r) => ({ visitors: a.visitors + r.visitors, views: a.views + r.views, events: a.events + r.events }), { visitors: 0, views: 0, events: 0 });
   const learn = await d.prepare("SELECT COUNT(*) n, COUNT(DISTINCT who) coaches FROM voice_learn WHERE day >= ?").bind(since).first().catch(() => null);
@@ -134,6 +141,21 @@ async function allow(req, env, task) {
 
 // the open model, held to the schema: JSON-schema mode where the model supports it, else JSON mode
 // with the schema in the prompt
+// one Haiku call (the browser's BYOK path does the same with the coach's key)
+export function claudeAsker(env, usage) {
+  return async (sys, messages, schema) => {
+    const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: HAIKU, max_tokens: 6000, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }],
+        output_config: { effort: 'low', format: { type: 'json_schema', schema } }, messages }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw Object.assign(new Error((j.error && j.error.message) || 'Claude answered ' + r.status), { status: r.status });
+    const u = j.usage || {};
+    usage.in += u.input_tokens || 0; usage.out += u.output_tokens || 0; usage.cr = (usage.cr || 0) + (u.cache_read_input_tokens || 0); usage.cw = (usage.cw || 0) + (u.cache_creation_input_tokens || 0);
+    if (j.stop_reason === 'refusal') throw new Error('It wouldn’t draw that one. Try describing it another way.');
+    return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  };
+}
 export function asker(env, model, usage) {
   return async (sys, messages, schema) => {
     const msgs = [{ role: 'system', content: sys }].concat(messages.map(m => ({ role: m.role, content: String(m.content) })));
@@ -169,7 +191,7 @@ export default {
     try {
       if (path === '/health' && req.method === 'GET') {
         const d = await db(env);
-        return json({ ok: true, models: Object.assign({}, MODELS, { play: env.PLAY_MODEL || MODELS.play }), today: { calls: await peek(d, `calls:${day()}`), neurons_est: await peek(d, `neurons:${day()}`), cap: LIMITS.neuronsPerDay } }, 200, h);
+        return json({ ok: true, models: Object.assign({}, MODELS, { play: env.PLAY_MODEL || MODELS.play }), today: { calls: await peek(d, `calls:${day()}`), neurons_est: await peek(d, `neurons:${day()}`), cap: LIMITS.neuronsPerDay, haiku_usd: (await peek(d, `usd:${day()}`)) / 1e6, haiku_cap_usd: LIMITS.claudeMicrosPerDay / 1e6, haiku: !!env.ANTHROPIC_API_KEY } }, 200, h);
       }
       if (path === '/stats' && req.method === 'GET') {
         if (!env.STATS_TOKEN || req.headers.get('authorization') !== 'Bearer ' + env.STATS_TOKEN) return json({ error: 'Not authorized.' }, 401, h);
@@ -211,18 +233,22 @@ export default {
         // plays: Gemma first (fast, cheap), then Llama 3.3 70B gets one go. Brains: GLM 4.7 Flash,
         // then Gemma. Every call is charged what it really cost.
         const t0 = Date.now(), forced = env.BENCH && req.headers.get('x-ct-model');
-        const chain = forced ? [forced] : LITE[task] ? [env.BRAIN_MODEL || MODELS.brain, MODELS.play] : [modelFor(env, req), MODELS.fallback];
-        let raw = null, model = null, err = null, spent = 0;
+        let chain = forced ? [forced] : LITE[task] ? [env.BRAIN_MODEL || MODELS.brain, MODELS.play] : [modelFor(env, req), MODELS.fallback];
+        const d0 = await db(env), budget = d0 ? await peek(d0, `usd:${day()}`) : 0;
+        if (!forced && env.ANTHROPIC_API_KEY && budget < LIMITS.claudeMicrosPerDay) chain = [HAIKU].concat(chain);
+        let raw = null, model = null, err = null, spent = 0, micros = 0;
         const used = { in: 0, out: 0 };
         for (const m of chain) {
           const usage = { in: 0, out: 0 };
-          try { raw = await solve(req2, asker(env, m, usage)); model = m; } catch (e) { err = e; }
-          spent += neuronsFor(m, usage.in, usage.out); used.in += usage.in; used.out += usage.out;
+          try { raw = await solve(req2, m === HAIKU ? claudeAsker(env, usage) : asker(env, m, usage)); model = m; } catch (e) { err = e; }
+          if (m === HAIKU) micros += haikuMicros(usage); else spent += neuronsFor(m, usage.in, usage.out);
+          used.in += usage.in; used.out += usage.out;
           if (raw) break;
         }
         ctx && ctx.waitUntil ? ctx.waitUntil(settle(env, task, spent)) : await settle(env, task, spent);
+        if (micros && d0) { const b = bump(d0, `usd:${day()}`, micros); ctx && ctx.waitUntil ? ctx.waitUntil(b) : await b; }
         if (!raw) throw err;
-        return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'x-ct-in': String(used.in), 'x-ct-out': String(used.out), 'access-control-expose-headers': 'x-ct-model, x-ct-ms, x-ct-neurons, x-ct-in, x-ct-out' }, h));
+        return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'x-ct-usd': (micros / 1e6).toFixed(5), 'x-ct-in': String(used.in), 'x-ct-out': String(used.out), 'access-control-expose-headers': 'x-ct-model, x-ct-ms, x-ct-neurons, x-ct-in, x-ct-out' }, h));
       }
 
       if (path === '/learn') {

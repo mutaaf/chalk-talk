@@ -21,6 +21,8 @@ football 5v5 and 7v7, and any sport you add as a data file.
 
 ## The free AI (no key needed)
 
+Free plays are drawn by Claude Haiku 5.5 on the owner's key (set it once: `npx wrangler secret put ANTHROPIC_API_KEY`), within a daily dollar cap for everyone together (`LIMITS.claudeMicrosPerDay`, $5) and the per-person daily caps. Past the cap, or if Claude is unavailable, the open models below take over.
+
 Coaches without a key get open models on Cloudflare Workers AI, served by `src/worker` at
 `mutaafaziz.com/chalktalk/api/*` and proxied at `digitalcraftai.com/api/chalktalk/*`:
 

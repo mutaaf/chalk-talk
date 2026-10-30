@@ -147,3 +147,36 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
   assert.equal(st.iq[0].pct, 67);
   console.log('ok: anonymous analytics ingest and the owner-only rollup');
 }
+// free users on Claude Haiku: used when the Worker has a key and the day's dollar cap has room; the open models
+// take over past the cap or when Anthropic errors; every call's cost is tracked in micro-dollars
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  const mk = (sql, a = []) => ({ first: async () => sq.prepare(sql).get(...a) ?? null, run: async () => { sq.prepare(sql).run(...a); return {}; }, all: async () => ({ results: sq.prepare(sql).all(...a) }) });
+  const D = { prepare: sql => Object.assign(mk(sql), { bind: (...a) => mk(sql, a) }) };
+  const realFetch = globalThis.fetch; let claudeCalls = 0, claudeFails = false;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith('https://api.anthropic.com/')) {
+      claudeCalls++;
+      if (claudeFails) return new Response(JSON.stringify({ error: { message: 'overloaded' } }), { status: 529 });
+      const body = JSON.parse(init.body); assert.equal(body.model, 'claude-haiku-5-5'); assert.equal(body.output_config.format.type, 'json_schema');
+      return new Response(JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(canned) }], stop_reason: 'end_turn', usage: { input_tokens: 5000, output_tokens: 1100 } }), { status: 200 });
+    }
+    return realFetch(url, init);
+  };
+  const e = env(JSON.stringify(canned), { DB: D, ANTHROPIC_API_KEY: 'sk-ant-test' });
+  const draw = () => worker.fetch(new Request('https://x/chalktalk/api/play', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '9.9.9.' + Math.floor(Math.random() * 200) }, body: JSON.stringify({ sport: 'basketball', text: 'pick and roll' }) }), e);
+  let r = await draw();
+  assert.equal(r.status, 200); assert.equal(r.headers.get('x-ct-model'), 'claude-haiku-5-5'); assert.equal(r.headers.get('x-ct-usd'), '0.00105');
+  assert.equal(sq.prepare("SELECT n FROM ai_usage WHERE bucket LIKE 'usd:%'").get().n, 1050);
+  claudeFails = true; r = await draw();
+  assert.equal(r.status, 200); assert.notEqual(r.headers.get('x-ct-model'), 'claude-haiku-5-5');   // Anthropic down: the open models answer
+  claudeFails = false; sq.prepare("UPDATE ai_usage SET n = ? WHERE bucket LIKE 'usd:%'").run(LIMITS.claudeMicrosPerDay);
+  const before = claudeCalls; r = await draw();
+  assert.equal(r.status, 200); assert.equal(claudeCalls, before); assert.notEqual(r.headers.get('x-ct-model'), 'claude-haiku-5-5');   // over the cap
+  const e2 = env(JSON.stringify(canned), { DB: D }); const n0 = claudeCalls;
+  await worker.fetch(new Request('https://x/chalktalk/api/play', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sport: 'basketball', text: 'pick and roll' }) }), e2);
+  assert.equal(claudeCalls, n0);   // no key: open models, as before
+  globalThis.fetch = realFetch;
+  console.log('ok: free plays on Haiku within a daily dollar cap, open models past it or on error');
+}

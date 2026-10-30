@@ -25,6 +25,7 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 - Coach lenses (`src/sports/basketball-coaches.js`) shape names, beats, reads and cues ("inspired by" a coach's public system; never quotes or claims to be them).
 
 ## The free AI (src/worker)
+- **Claude Haiku 5.5 first** (since 0.15.0) when the Worker has an `ANTHROPIC_API_KEY` secret: `claudeAsker`, structured outputs, cached system prompt, exact cost in micro-dollars tracked in D1 bucket `usd:<day>` against `LIMITS.claudeMicrosPerDay` ($5/day, ≈ 3,000 plays at ~$0.001 each). Past the cap, on any Anthropic error, or with no key: the open-model chain below, unchanged. Per-IP daily caps apply either way. `/health` reports `haiku_usd`, the admin dashboard shows it.
 - `/chalktalk/api/*` runs the Worker (`assets.run_worker_first`); everything else is static assets. digitalcraftai.com proxies `/api/chalktalk/*` here (a Vercel rewrite in digital-craft-architect `vercel.json`). The client picks the base in `src/ai.js` (`setApi`).
 - Prompts, schemas, validation and the repair round come from `src/ai.js` (`playRequest`, `smartRequest`, `brainRequest`, `solve`), so the free path and BYOK draw the same plays.
 - **Models (benchmarked 2026-10-30 on real calls: the DHO description, a flag5 trips call, a sketch takeover, smart players; brains: 12 parallel smart/film calls on pick-and-roll and smash):**
