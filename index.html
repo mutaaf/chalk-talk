@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chalk Talk</title>
+<meta name="description" content="Say a play out loud, or sketch it, and watch it draw itself in light. X's and O's for youth basketball and flag football coaches.">
+<meta name="theme-color" content="#04070c">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>html, body { margin: 0; height: 100%; background: #04070c; overflow: hidden; }</style>
+<script type="importmap">{ "imports": { "aurora-field": "./vendor/aurora-field.mjs" } }</script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module">
+  import { mount } from './src/index.js';
+  const q = new URLSearchParams(location.search);
+  window.chalk = mount(document.getElementById('app'), { fullscreen: true, sport: q.get('sport') || 'basketball', play: q.get('play') });
+</script>
+</body>
+</html>

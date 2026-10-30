@@ -1,0 +1,12 @@
+{
+  // chalk-talk: static assets at mutaafaziz.com/chalktalk/. No server: AI and voice are
+  // bring-your-own-key, called from the browser straight to the provider.
+  // The route takes precedence over the mutaafaziz.com Custom Domain (the personal site).
+  "name": "chalk-talk",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": true,
+  "previews": {},
+  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
+  "routes": [{ "pattern": "mutaafaziz.com/chalktalk*", "zone_name": "mutaafaziz.com" }]
+}
