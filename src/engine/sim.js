@@ -9,6 +9,14 @@ import { clamp, ease, route, measured, walk, slice, toward } from './geom.js';
 const HOLD = 1.6;   // beats of stillness at the end before it plays again
 const SPANS = { move: [0, 0.82], pass: [0.52, 0.94], handoff: [0.55, 0.8], shot: [0.35, 0.95] };
 
+// players are never statues: offense sways in a ready stance, defense has active feet
+export function life(sport, side, i, seconds, out) {
+  const A = sport.mark * 0.16, ph = i * 1.7;
+  if (side === 'D') { out[0] = Math.sin(seconds * 4.6 + ph) * A * 0.9; out[1] = Math.sin(seconds * 2.3 + ph) * A * 0.3; }
+  else { out[0] = Math.sin(seconds * 1.9 + ph) * A * 0.6; out[1] = Math.cos(seconds * 1.4 + ph) * A * 0.45; }
+  return out;
+}
+
 export const kindsOf = (sport, type) => Object.keys(sport.kinds).filter(k => !type || sport.kinds[k].type === type);
 export const rosterIds = sport => {
   const n = sport.roster.perSide, ids = [];
@@ -38,6 +46,7 @@ export function normalize(raw, sport) {
     if (!valid(id) || ids[id] || !at) { errors.push('skipped player ' + (id || '?')); return; }
     const side = id[0] === 'X' ? 'D' : 'O';
     const pl = { id, side, role: String(p.role || '').trim().slice(0, 18), x: at.x, y: at.y };
+    if (p.smart) pl.smart = true;   // an AI plays this position
     const c = p.cover;   // a defender's job: man on a receiver, a zone, or rush
     if (side === 'D' && c && typeof c === 'object') {
       if (c.type === 'rush') pl.cover = { type: 'rush' };
@@ -64,9 +73,12 @@ export function normalize(raw, sport) {
       const path = (Array.isArray(a.path) ? a.path : []).slice(0, 6).map(xy).filter(Boolean);
       const act = { kind, who, to: xy(a.to), via: xy(a.via), path, target };
       if (a.tree) act.tree = String(a.tree).slice(0, 16);
+      if (a.thought) act.thought = String(a.thought).slice(0, 120);   // why a smart (AI) player did it
       actions.push(act);
     });
-    beats.push({ say: String(b.say || '').slice(0, 220), actions });
+    const nb = { say: String(b.say || '').slice(0, 220), actions };
+    if (b.thoughts && typeof b.thoughts === 'object') { nb.thoughts = {}; Object.keys(b.thoughts).forEach(id => { if (ids[id]) nb.thoughts[id] = String(b.thoughts[id]).slice(0, 120); }); }
+    beats.push(nb);
   });
   if (!beats.length) beats.push({ say: 'Everyone in their spots.', actions: [] });
   const los = num(raw.los) ? clamp(raw.los, F.y[0], F.y[1]) : sport.los;
@@ -100,7 +112,7 @@ export function compile(play, sport, options) {
   const np = play.players.length, beats = play.beats;
   const starts = [play.players.map(p => [p.x, p.y])], paths = [], routes = [];
   const holders = [idx[play.ball]];   // who has the ball at the start of each beat (−1: loose / scored)
-  const ballEv = [];
+  const ballEv = [], notes = [];   // notes: what autonomous players decided, and why
   // defenders guard on their own: an X with no job this beat shadows its O (X3 ↔ O3)
   // …or plays the job a coverage gave it: man on a receiver, a zone, or the rush
   const job = play.players.map(p => p.cover || null);
@@ -169,6 +181,7 @@ export function compile(play, sport, options) {
         ev = { kind: a.kind, type: 'shot', from: pi }; holder = -1;
       }
     });
+    if (options.smart !== false) offBall(k, b, S, E, mv, holder);
     play.players.forEach((_, d) => { if (guards(d) && auto[k][d]) E[d] = guard(E, d, holder, k + 1); });
     paths.push(mv); starts.push(E); holders.push(holder); ballEv.push(ev);
   });
@@ -182,6 +195,48 @@ export function compile(play, sport, options) {
     ev.p0 = p0; ev.p1 = p1;
   });
 
+  // Off-ball offense with nothing to do still plays: crowded by a teammate's cut or screen, or in
+  // the way of a drive, they relocate to the best open spot (fill, drift, lift, find space).
+  function offBall(k, b, S, E, mv, holder) {
+    const A = sport.autonomy; if (!A) return;
+    if (A.afterSnap && !beats.slice(0, k).some(bb => bb.actions.some(a => a.kind === A.afterSnap))) return;   // nobody moves before the snap
+    const acting = new Set(b.actions.map(a => idx[a.who]).concat(b.actions.filter(a => a.target).map(a => idx[a.target])));
+    const O = play.players.map((p, i) => i).filter(i => play.players[i].side === 'O');
+    const D = play.players.map((p, i) => i).filter(i => play.players[i].side === 'D');
+    const driver = holder >= 0 && mv[holder] ? holder : -1;
+    O.forEach(i => {
+      if (acting.has(i) || i === holder || A.skip && A.skip(play.players[i])) return;
+      const id = play.players[i].id, next = beats[k + 1], prev = beats[k - 1];
+      if (next && next.actions.some(a => a.who === id)) return;   // their next job is planned: hold for it
+      if (prev && prev.actions.some(a => a.who === id && K[a.kind].style === 'screen')) return;   // a screener about to roll or pop
+      const me = E[i];
+      // crowded only by a teammate who CUT into my space this beat (not a screen for me, not a set)
+      const crowd = O.some(j => {
+        if (j === i || !mv[j]) return false;
+        const a = b.actions.find(x => idx[x.who] === j);
+        if (a && (a.target === play.players[i].id || K[a.kind].style === 'screen')) return false;
+        return Math.hypot(E[j][0] - me[0], E[j][1] - me[1]) < A.crowd && Math.hypot(S[j][0] - me[0], S[j][1] - me[1]) >= A.crowd;
+      });
+      const drive = driver >= 0 && Math.hypot(E[driver][0] - me[0], E[driver][1] - me[1]) < A.drive;
+      const pressed = D.some(j => Math.hypot(E[j][0] - me[0], E[j][1] - me[1]) < A.pressed) && A.findSpace;
+      if (!crowd && !drive && !pressed) return;
+      const cand = A.spots(play, me, sport);
+      const score = c => {
+        let near = 99; O.forEach(j => { if (j !== i) near = Math.min(near, Math.hypot(E[j][0] - c[0], E[j][1] - c[1])); });
+        let dnear = 99; D.forEach(j => { dnear = Math.min(dnear, Math.hypot(E[j][0] - c[0], E[j][1] - c[1])); });
+        return Math.min(near, A.crowd * 1.6) + (A.findSpace ? Math.min(dnear, 6) * 0.6 : 0) - 0.12 * Math.hypot(c[0] - me[0], c[1] - me[1]);
+      };
+      let best = null, bs = score(me) + 0.8;
+      cand.forEach(c => { const v = score(c); if (v > bs) { bs = v; best = c; } });
+      if (!best) return;
+      const why = drive ? A.why.drive : pressed ? A.why.space : A.why.fill;
+      const line = route(S[i], [], best, false, 16);
+      mv[i] = { m: measured(line.map(p => [p[0], p[1], 0])), kind: A.kind };
+      E[i] = best.slice();
+      const r = makeRoute(i, k, A.kind, line); r.auto = true; routes.push(r);
+      notes.push({ beat: k, who: play.players[i].id, why });
+    });
+  }
   function bend(a, b) {   // a curl bends toward the goal
     const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     return toward(m, goal, Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.25);
@@ -221,7 +276,7 @@ export function compile(play, sport, options) {
   const span = beats.length + HOLD, B = sport.ball;
   const memo = { pt: NaN, P: null, bt: NaN, Bp: null, rt: NaN, R: null };
   const sim = {
-    sport, play, players: play.players, routes, beats: beats.length, idx, match, job,
+    sport, play, players: play.players, routes, beats: beats.length, idx, match, job, notes,
     time: () => t,
     tick(now) {
       const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
@@ -264,9 +319,13 @@ export function compile(play, sport, options) {
       memo.rt = time;
       memo.R = routes.map(r => {
         if (k < r.beat) return { drawn: 0, home: [P[r.p][0], P[r.p][1], 0.2 * sport.mark] };
-        if (k > r.beat) return { drawn: 1 };
+        if (k > r.beat) {
+          const age = k - r.beat;
+          if (k < beats.length && age >= 3) return { drawn: 0, age, home: [P[r.p][0], P[r.p][1], 0.2 * sport.mark] };   // long gone: back into the player
+          return { drawn: 1, age: k >= beats.length ? 9 : age };
+        }
         const sp = SPANS[r.type] || SPANS.move, d = clamp((f - sp[0]) / (sp[1] - sp[0]), 0, 1), ball = r.type !== 'move';
-        return { drawn: ball ? d : ease(d), home: ball ? Bp : [P[r.p][0], P[r.p][1], 0.2 * sport.mark] };
+        return { drawn: ball ? d : ease(d), age: 0, home: ball ? Bp : [P[r.p][0], P[r.p][1], 0.2 * sport.mark] };
       });
       return memo.R;
     },

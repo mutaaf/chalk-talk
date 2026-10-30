@@ -80,6 +80,19 @@ function fail(status, msg) {
   e.status = status; return e;
 }
 
+// Where keyless coaches get AI: open models on Workers AI behind our API (src/worker). Hosts can point
+// it elsewhere with mount({ api }). Requests carry X's and O's only, never names.
+let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0\.0\.1$/.test(location.hostname) ? '/chalktalk/api' : 'https://digitalcraftai.com/api/chalktalk';
+export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
+export const apiBase = () => API;
+async function free(task, body, signal) {
+  const r = await fetch(API + '/' + task, { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
+  return j;
+}
+
+// one call to the provider the key belongs to; resolves with the reply's text
 // one call to the provider the key belongs to; resolves with the reply's text
 async function ask(k, sys, messages, signal, schema) {
   const kind = keyKind(k);
@@ -112,25 +125,84 @@ async function ask(k, sys, messages, signal, schema) {
   throw Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
 }
 
-// text the coach said (+ the play on the board, for edits) → a play the board can draw
-export async function drawPlay(text, current, opts) {
-  opts = opts || {};
-  const k = opts.key || key.get();
-  if (!keyKind(k)) throw Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
-  const sport = opts.sport, lib = opts.library || sport.plays;
-  const sys = system(sport, opts.glossary || sport.glossary, lib), schema = schemaFor(sport, lib.map(p => p.key));
-  const content = opts.sketch
+// ---- requests, built the same way in the browser and in the worker ----
+export function playRequest({ sport, text, current, sketch, glossary, library }) {
+  const lib = library || sport.plays;
+  const sys = system(sport, glossary || sport.glossary, lib), schema = schemaFor(sport, lib.map(p => p.key));
+  const content = sketch
     ? `The coach sketched this play by hand on the board (rough lines turned into actions; each stroke became its own beat, in the order drawn):\n${JSON.stringify(current)}\n\n` +
       'Take over from the sketch: keep the coach\'s idea and the players where they put them, but make it a clean, correct play. Merge strokes that should happen at the same time into one beat, fix the ball (only the holder dribbles, passes or shoots), set screens where a defender would be, tidy routes into real cuts, and add the timing a coach would teach. Name the concept it matches. ' + (text ? 'The coach also said: "' + text + '"' : '')
     : current ? `Current play on the board:\n${JSON.stringify(current)}\n\nThe coach said: "${text}"` : `The coach said: "${text}"`;
-  const messages = [{ role: 'user', content }];
+  return { sys, schema, messages: [{ role: 'user', content }], check: raw => normalize(raw, sport) };
+}
+
+// smart players: the AI plays chosen positions through the whole play, a real read each beat
+export function smartSchemaFor(sport, ids) {
+  const XYs = { type: 'object', additionalProperties: false, required: ['x', 'y'], properties: { x: { type: 'number' }, y: { type: 'number' } } };
+  const N = { anyOf: [XYs, { type: 'null' }] }, ID = { type: 'string', enum: rosterIds(sport) };
+  return { type: 'object', additionalProperties: false, required: ['reply', 'players'], properties: {
+    reply: { type: 'string', description: 'One short broadcaster-style line about what the smart players will do.' },
+    players: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'beats'], properties: {
+      id: { type: 'string', enum: ids },
+      beats: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['beat', 'kind', 'to', 'via', 'path', 'target', 'thought'], properties: {
+        beat: { type: 'integer', description: 'Beat index, 0-based.' }, kind: { type: 'string', enum: Object.keys(sport.kinds) },
+        to: N, via: N, path: { type: 'array', items: XYs }, target: { anyOf: [ID, { type: 'null' }] },
+        thought: { type: 'string', description: 'What this player sees and why they do it, in under 12 words, like a smart player thinking.' } } } } } } } } };
+}
+export function smartRequest({ sport, play, ids, glossary }) {
+  const sys = system(sport, glossary || sport.glossary, sport.plays) + `
+
+You are now playing as a smart, alive ${sport.name} player in one or more positions. For each of your positions, decide what that player does in EVERY beat, reading what everyone else does in that beat: space the floor, cut when a defender turns their head, fill the spot a teammate left, drift or lift for the driver, find the window against zone, help and recover on defense. Use "ready" when the smartest move is to stay put. Keep the coach's play intact: don't take actions that belong to other players, and only act with the ball if you have it. Give each beat a short thought.`;
+  const content = `The play on the board:\n${JSON.stringify(play)}\n\nPlay these positions smartly: ${ids.join(', ')}.`;
+  return { sys, schema: smartSchemaFor(sport, ids), messages: [{ role: 'user', content }], check: raw => checkSmart(raw, play, sport, ids) };
+}
+export function mergeSmart(play, smart, sport) {
+  const out = JSON.parse(JSON.stringify(play)), ids = (smart.players || []).map(p => p.id);
+  out.beats = (out.beats || []).map(b => Object.assign({}, b, { actions: (b.actions || []).filter(a => ids.indexOf(String(a.who)) < 0 || sport.kinds[a.kind] && sport.kinds[a.kind].type !== 'move') }));
+  (smart.players || []).forEach(sp => (sp.beats || []).forEach(b => {
+    const k = Math.max(0, Math.min(out.beats.length - 1, b.beat | 0)), beat = out.beats[k];
+    if (!beat || !sport.kinds[b.kind] || sport.kinds[b.kind].type !== 'move') {
+      if (beat && b.thought) (beat.thoughts = beat.thoughts || {})[sp.id] = b.thought;
+      return;
+    }
+    if (beat.actions.some(a => a.who === sp.id && sport.kinds[a.kind].type === 'move')) return;
+    beat.actions.push({ kind: b.kind, who: sp.id, to: b.to, via: b.via, path: b.path || [], target: b.target, thought: b.thought });
+  }));
+  out.players = (out.players || []).map(p => ids.indexOf(String(p.id)) >= 0 ? Object.assign({}, p, { smart: true }) : p);
+  return out;
+}
+function checkSmart(raw, play, sport, ids) {
+  if (!raw || !Array.isArray(raw.players)) return { ok: false, errors: ['no players'] };
+  return normalize(mergeSmart(play, raw, sport), sport);
+}
+
+// ask, check, and send the problems back once
+async function solve(req, askFn) {
+  const messages = req.messages.slice();
   for (let round = 0; round < 2; round++) {
-    const t = await ask(k, sys, messages, opts.signal, schema);
+    const t = await askFn(req.sys, messages, req.schema);
     let raw = null;
-    try { raw = JSON.parse(t.replace(/^```(json)?|```$/g, '').trim()); } catch (e) {}
-    const n = raw ? normalize(raw, sport) : { ok: false, errors: ['that was not JSON'] };
+    try { raw = JSON.parse(String(t).replace(/^```(json)?|```$/g, '').trim()); } catch (e) {}
+    const n = raw ? req.check(raw) : { ok: false, errors: ['that was not JSON'] };
     if (n.ok && !n.errors.length) return raw;
     if (round === 1) { if (n.ok) return raw; throw new Error('The AI drew something that doesn’t hold together. Try saying it another way.'); }
-    messages.push({ role: 'assistant', content: t }, { role: 'user', content: 'That play has problems: ' + n.errors.join('; ') + '. Fix them and send the whole play again.' });
+    messages.push({ role: 'assistant', content: String(t) }, { role: 'user', content: 'That has problems: ' + n.errors.join('; ') + '. Fix them and send the whole answer again.' });
   }
+}
+export { solve };
+
+// text the coach said (+ the play on the board, for edits) → a play the board can draw.
+// With a key: straight to Claude or OpenAI. Without: the free open-model API.
+export async function drawPlay(text, current, opts) {
+  opts = opts || {};
+  const k = opts.key || key.get(), sport = opts.sport;
+  if (!keyKind(k)) return free('play', { sport: sport.id, text, current, sketch: !!opts.sketch }, opts.signal);
+  return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema));
+}
+export async function smartPlayers(play, ids, opts) {
+  opts = opts || {};
+  const k = opts.key || key.get(), sport = opts.sport;
+  const raw = keyKind(k) ? await solve(smartRequest({ sport, play, ids }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema))
+    : await free('smart', { sport: sport.id, play, ids }, opts.signal);
+  return { play: mergeSmart(play, raw, sport), reply: raw.reply };
 }

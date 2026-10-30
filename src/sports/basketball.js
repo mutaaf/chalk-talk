@@ -53,6 +53,9 @@ function guard({ o, ball, onBall }) {
   return [g[0] + (ball[0] - g[0]) * shade, g[1] + (ball[1] - g[1]) * shade * 0.4];
 }
 
+// the perimeter and inside spots an off-ball player relocates to
+const AUTO_SPOTS = ['top', 'right slot', 'left slot', 'right wing', 'left wing', 'right corner', 'left corner', 'right dunker', 'left dunker', 'right 45', 'left 45'].map(k => SPOTS[k]);
+
 const move = (desc, extra) => Object.assign({ type: 'move', desc }, extra);
 const KINDS = {
   move: move('runs to "to"'), cut: move('cuts hard to "to" (give "via" for a V-cut or a curved cut)'),
@@ -74,6 +77,8 @@ export default {
   mark: 1.7, screenGap: 3,
   ball: { r: 0.75, held: 3.6, bounce: true, offset: [1, -0.6], maxArc: 4, stretch: 1 },
   spots: SPOTS, kinds: KINDS, guard, los: null,
+  autonomy: { crowd: 9, drive: 11, pressed: 0, findSpace: false, kind: 'move', spots: () => AUTO_SPOTS,
+    why: { fill: 'fills the open spot', drive: 'drifts away from the drive', space: 'finds space' } },
   // playbook convention: offense is the positional number (1 point guard … 5 center) in a circle,
   // defense is an X with the number of the player it guards
   notation: {

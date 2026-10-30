@@ -92,8 +92,21 @@ function autoRoles(players, los) {
   });
 }
 
+// receivers with nothing to run get open: settle in the nearest window away from defenders
+function openSpots(play, me, sport) {
+  const out = [], h = sport.field.x[1], los = play.los != null ? play.los : sport.los;
+  for (let a = 0; a < 12; a++) for (const r of [3, 5]) {
+    const x = me[0] + Math.cos(a / 12 * Math.PI * 2) * r, y = me[1] + Math.sin(a / 12 * Math.PI * 2) * r;
+    if (Math.abs(x) < h - 1 && y > 1 && y < los + 0.5) out.push([x, y]);
+  }
+  return out;
+}
+
 const base = (o) => ({
   notation, autoRoles,
+  autonomy: { afterSnap: 'snap', crowd: 3.5, drive: 0, pressed: 1.6, findSpace: true, kind: 'move', spots: openSpots,
+    skip: p => p.role === 'QB' || p.role === 'C' || p.role === 'RB',
+    why: { fill: 'spreads out from a teammate', drive: 'clears out', space: 'works open, away from the defender' } },
   unit: 'yd', field: { x: [-o.W / 2, o.W / 2], y: [0, o.depth], goal: [0, 4, 0], lines: fieldLines(o.W, o.depth, o) },
   view: { scale: 1 / (o.W / 2 + 2.5), center: o.depth / 2 + 1, tilt: 0.92, lift: -0.1 },
   mark: o.W / 30, screenGap: 1.5,
