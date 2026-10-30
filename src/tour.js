@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.15.0';
+export const VERSION = '0.16.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.16.0', date: '2026-10-30', title: 'Instant answers', items: [
+    { title: 'Asked before? Instant.', call: 'When any coach has asked for the same play, or the film room has broken down the same play before, the answer comes back instantly and doesn’t count against your daily free AI.', show: null }
+  ] },
   { version: '0.15.0', date: '2026-10-30', title: 'A sharper free AI', items: [
     { title: 'Free plays on Claude', call: 'With no key at all, plays are now drawn by Claude: far more accurate than before, still free, within a daily limit.', show: 'mic' }
   ] },

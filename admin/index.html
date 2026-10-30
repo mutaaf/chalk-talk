@@ -98,6 +98,7 @@ const ago = ts => { const s = Math.round((Date.now() - ts) / 1000); return s < 6
 const brief = p => { try { const o = JSON.parse(p || '{}'); return Object.entries(o).map(([k, v]) => k + ': ' + v).join(' · '); } catch (e) { return ''; } };
 function render(s) {
   const T = s.totals, calls = (s.ai || []).filter(r => r.bucket.startsWith('calls:')).reduce((a, r) => a + r.n, 0), neurons = (s.ai || []).filter(r => r.bucket.startsWith('neurons:')).reduce((a, r) => a + r.n, 0);
+  const cached = (s.ai || []).filter(r => r.bucket.startsWith('cache:')).reduce((a, r) => a + r.n, 0);
   const haiku = (s.ai || []).filter(r => r.bucket.startsWith('usd:')).reduce((a, r) => a + r.n, 0) / 1e6;
   const iqN = (s.iq || []).reduce((a, r) => a + r.sessions, 0), fv = Object.fromEntries((s.features || []).map(f => [f.k, f]));
   const pct = k => T.visitors ? Math.round(((fv[k] && fv[k].visitors) || 0) / T.visitors * 100) + '%' : '–';
@@ -111,6 +112,7 @@ function render(s) {
     <div class="tile"><small>Film room</small><b>${pct('film_open')}</b><span>of visitors opened it</span></div>
     <div class="tile"><small>IQ games</small><b>${num(iqN)}</b><span>sessions finished</span></div>
     <div class="tile"><small>Free AI</small><b>${num(calls)}</b><span>calls · $${haiku.toFixed(2)} on Haiku · ${num(neurons)} neurons</span></div>
+    <div class="tile"><small>From cache</small><b>${num(cached)}</b><span>answers served instantly, free${calls + cached ? ' · ' + Math.round(cached / (calls + cached) * 100) + '% of all' : ''}</span></div>
     <div class="tile"><small>Voice sharing</small><b>${num(s.learn ? s.learn.coaches : 0)}</b><span>coaches opted in · ${num(s.learn ? s.learn.n : 0)} lessons</span></div>
   </div>
   <div class="grid">

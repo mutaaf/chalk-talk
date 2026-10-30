@@ -11,10 +11,15 @@ function fakeDB() {
   const stmt = sql => ({
     bind: (...a) => ({
       first: async () => {
-        if (/^INSERT/.test(sql)) { const n = (rows.get(a[0]) || 0) + a[1]; rows.set(a[0], n); return { n }; }
-        return rows.has(a[0]) ? { n: rows.get(a[0]) } : null;
-      }
+        if (/^INSERT INTO ai_usage/.test(sql)) { const n = (rows.get(a[0]) || 0) + a[1]; rows.set(a[0], n); return { n }; }
+        if (/FROM ai_usage/.test(sql)) return rows.has(a[0]) ? { n: rows.get(a[0]) } : null;
+        return null;   // the answer cache and the rest: empty
+      },
+      run: async () => ({}),
+      all: async () => ({ results: [] })
     }),
+    first: async () => null,
+    all: async () => ({ results: [] }),
     run: async () => ({})
   });
   return { prepare: stmt, rows };
@@ -179,4 +184,32 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
   assert.equal(claudeCalls, n0);   // no key: open models, as before
   globalThis.fetch = realFetch;
   console.log('ok: free plays on Haiku within a daily dollar cap, open models past it or on error');
+}
+// the shared answer cache: the same question is answered from cache (no AI, no cap); edits only match the same
+// board; "another" always asks the AI; only a hash of the question is stored
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  const mk = (sql, a = []) => ({ first: async () => sq.prepare(sql).get(...a) ?? null, run: async () => { sq.prepare(sql).run(...a); return {}; }, all: async () => ({ results: sq.prepare(sql).all(...a) }) });
+  const D = { prepare: sql => Object.assign(mk(sql), { bind: (...a) => mk(sql, a) }) };
+  let aiCalls = 0;
+  const e = env(() => { aiCalls++; return JSON.stringify(canned); }, { DB: D });
+  const ask = (body, ip) => worker.fetch(new Request('https://x/chalktalk/api/play', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip || '7.7.7.7' }, body: JSON.stringify(Object.assign({ sport: 'basketball' }, body)) }), e);
+  const boardA = { title: 'A', players: [], beats: [] }, boardB = { title: 'B', players: [], beats: [] };
+  let r = await ask({ text: 'Run Spain pick and roll!', current: boardA });
+  assert.equal(r.headers.get('x-ct-cache'), null); const n1 = aiCalls;
+  r = await ask({ text: 'run spain pick and roll', current: boardB }, '8.8.8.8');   // another coach, another board: same fresh question
+  assert.equal(r.status, 200); assert.equal(r.headers.get('x-ct-cache'), 'hit'); assert.equal(aiCalls, n1);
+  assert.equal((await r.json()).recognized, 'pick-and-roll');
+  await ask({ text: 'now have 5 pop instead', current: boardA }); const n2 = aiCalls;
+  r = await ask({ text: 'now have 5 pop instead', current: boardB });   // an edit of a different board: asks the AI
+  assert.equal(r.headers.get('x-ct-cache'), null); assert.ok(aiCalls > n2);
+  const n3 = aiCalls; r = await ask({ text: 'give me another spain pick and roll', current: boardA }); await ask({ text: 'give me another spain pick and roll', current: boardA });
+  assert.ok(aiCalls >= n3 + 2, '"another" is never cached');
+  assert.equal(sq.prepare("SELECT COUNT(*) n FROM ai_cache WHERE k LIKE '%spain%' OR v LIKE '%Run Spain%'").get().n, 0);   // keys are hashes, words aren't stored
+  const brainBody = { sport: 'basketball', play: canned, id: 'O5', mode: 'film' };
+  const brain = () => worker.fetch(new Request('https://x/chalktalk/api/brain', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(brainBody) }), env(() => { aiCalls++; return '{"read":"I see X5 drop.","risk":"r","tip":"t"}'; }, { DB: D }));
+  await brain(); const n4 = aiCalls; r = await brain();
+  assert.equal(r.headers.get('x-ct-cache'), 'hit'); assert.equal(aiCalls, n4);
+  console.log('ok: shared answer cache (fresh plays by words, edits by board, never "another", hashes only)');
 }

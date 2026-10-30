@@ -102,7 +102,7 @@ async function rollup(d, days) {
     all("SELECT json_extract(props, '$.path') k, COUNT(*) events, ROUND(AVG(json_extract(props, '$.ms'))) ms, SUM(json_extract(props, '$.ok') = 1) ok FROM events WHERE day >= ? AND name = 'voice' GROUP BY k ORDER BY events DESC"),
     all("SELECT json_extract(props, '$.band') k, COUNT(*) sessions, ROUND(AVG(json_extract(props, '$.right') * 100.0 / json_extract(props, '$.of'))) pct FROM events WHERE day >= ? AND name = 'iq_done' GROUP BY k"),
     all("SELECT ts, name, country, city, device, browser, os, host, sport, props FROM events WHERE day >= ? ORDER BY ts DESC LIMIT 60"),
-    (async () => { const r = await d.prepare("SELECT bucket, n FROM ai_usage WHERE bucket LIKE 'neurons:%' OR bucket LIKE 'calls:%' OR bucket LIKE 'usd:%'").all(); return (r.results || []).filter(x => x.bucket.split(':')[1] >= since); })()
+    (async () => { const r = await d.prepare("SELECT bucket, n FROM ai_usage WHERE bucket LIKE 'neurons:%' OR bucket LIKE 'calls:%' OR bucket LIKE 'usd:%' OR bucket LIKE 'cache:%'").all(); return (r.results || []).filter(x => x.bucket.split(':')[1] >= since); })()
   ]);
   const tot = daily.reduce((a, r) => ({ visitors: a.visitors + r.visitors, views: a.views + r.views, events: a.events + r.events }), { visitors: 0, views: 0, events: 0 });
   const learn = await d.prepare("SELECT COUNT(*) n, COUNT(DISTINCT who) coaches FROM voice_learn WHERE day >= ?").bind(since).first().catch(() => null);
@@ -115,6 +115,7 @@ async function db(env) {
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_usage (bucket TEXT PRIMARY KEY, n INTEGER NOT NULL)').run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS events (day TEXT NOT NULL, ts INTEGER NOT NULL, visitor TEXT NOT NULL, name TEXT NOT NULL, country TEXT, region TEXT, city TEXT, device TEXT, browser TEXT, os TEXT, host TEXT, ref TEXT, sport TEXT, ai TEXT, props TEXT)').run();
     await env.DB.prepare('CREATE INDEX IF NOT EXISTS events_day ON events (day)').run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_cache (k TEXT PRIMARY KEY, task TEXT NOT NULL, v TEXT NOT NULL, hits INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL, last TEXT)').run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS voice_learn (day TEXT NOT NULL, sport TEXT NOT NULL, kind TEXT NOT NULL, a TEXT NOT NULL, b TEXT NOT NULL, kept INTEGER NOT NULL, who TEXT NOT NULL)').run();
     ready.add(env.DB);
   }
@@ -141,6 +142,26 @@ async function allow(req, env, task) {
 
 // the open model, held to the schema: JSON-schema mode where the model supports it, else JSON mode
 // with the schema in the prompt
+// ---- the shared answer cache: the same question gets the same (checked) answer, instantly and free ----
+// The key is a SHA-256 of the task, the full system prompt (so a prompt change starts a fresh cache) and what was
+// asked. A fresh play ("run Spain pick and roll") matches on the words alone, whatever was on the board; an edit
+// ("now have 5 pop") matches only the very same board; "another / different / new" is never served from cache.
+// Only the hash is stored, never the words; the value is the play (X's and O's). Entries live 30 days.
+const EDITY = /\b(change|instead|now|also|then|make|move|add|remove|swap|switch|flip|mirror|again|same|but|more|less|faster|slower|wider|deeper)\b/;
+const FRESHY = /\b(another|different|new|random|surprise|else|variation|other)\b/;
+const normText = t => String(t || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+async function sha(s) { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+export async function cacheKeyFor(task, body, req2) {
+  let ask = body;
+  if (task === 'play') {
+    const n = normText(body.text);
+    if (FRESHY.test(n)) return null;
+    ask = { sport: body.sport, text: n, sketch: !!body.sketch, coach: body.coach || null, board: body.sketch || EDITY.test(n) ? body.current || null : null };
+  }
+  return sha(task + '|' + req2.sys + '|' + JSON.stringify(req2.schema) + '|' + JSON.stringify(ask));
+}
+const CACHE_DAYS = 30;
+
 // one Haiku call (the browser's BYOK path does the same with the coach's key)
 export function claudeAsker(env, usage) {
   return async (sys, messages, schema) => {
@@ -191,7 +212,7 @@ export default {
     try {
       if (path === '/health' && req.method === 'GET') {
         const d = await db(env);
-        return json({ ok: true, models: Object.assign({}, MODELS, { play: env.PLAY_MODEL || MODELS.play }), today: { calls: await peek(d, `calls:${day()}`), neurons_est: await peek(d, `neurons:${day()}`), cap: LIMITS.neuronsPerDay, haiku_usd: (await peek(d, `usd:${day()}`)) / 1e6, haiku_cap_usd: LIMITS.claudeMicrosPerDay / 1e6, haiku: !!env.ANTHROPIC_API_KEY } }, 200, h);
+        return json({ ok: true, models: Object.assign({}, MODELS, { play: env.PLAY_MODEL || MODELS.play }), today: { calls: await peek(d, `calls:${day()}`), neurons_est: await peek(d, `neurons:${day()}`), cap: LIMITS.neuronsPerDay, haiku_usd: (await peek(d, `usd:${day()}`)) / 1e6, haiku_cap_usd: LIMITS.claudeMicrosPerDay / 1e6, haiku: !!env.ANTHROPIC_API_KEY, cache: d ? await d.prepare('SELECT COUNT(*) entries, COALESCE(SUM(hits), 0) hits FROM ai_cache').first().catch(() => null) : null } }, 200, h);
       }
       if (path === '/stats' && req.method === 'GET') {
         if (!env.STATS_TOKEN || req.headers.get('authorization') !== 'Bearer ' + env.STATS_TOKEN) return json({ error: 'Not authorized.' }, 401, h);
@@ -229,6 +250,16 @@ export default {
         const body = await readJson(req);
         let req2;
         try { req2 = requestFor(task, body); } catch (e) { return json({ error: e.message }, e.status || 400, h); }
+        // a question asked before: the same checked answer, instantly, free, and not counted against anyone's caps
+        const dc = await db(env), ck = dc ? await cacheKeyFor(task, body, req2) : null;
+        if (ck) {
+          const hit = await dc.prepare(`SELECT v FROM ai_cache WHERE k = ? AND at >= date('now', '-${CACHE_DAYS} days')`).bind(ck).first();
+          if (hit) {
+            const touch = Promise.all([dc.prepare('UPDATE ai_cache SET hits = hits + 1, last = ? WHERE k = ?').bind(day(), ck).run(), bump(dc, `cache:${day()}`, 1)]);
+            ctx && ctx.waitUntil ? ctx.waitUntil(touch) : await touch;
+            return json(JSON.parse(hit.v), 200, Object.assign({ 'x-ct-model': 'cache', 'x-ct-cache': 'hit', 'x-ct-ms': '0', 'access-control-expose-headers': 'x-ct-model, x-ct-cache, x-ct-ms' }, h));
+          }
+        }
         if (!(await allow(req, env, task))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
         // plays: Gemma first (fast, cheap), then Llama 3.3 70B gets one go. Brains: GLM 4.7 Flash,
         // then Gemma. Every call is charged what it really cost.
@@ -247,6 +278,11 @@ export default {
         }
         ctx && ctx.waitUntil ? ctx.waitUntil(settle(env, task, spent)) : await settle(env, task, spent);
         if (micros && d0) { const b = bump(d0, `usd:${day()}`, micros); ctx && ctx.waitUntil ? ctx.waitUntil(b) : await b; }
+        if (raw && ck) {   // remember the checked answer for the next coach who asks the same thing
+          const put = dc.prepare('INSERT INTO ai_cache (k, task, v, hits, at) VALUES (?, ?, ?, 0, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v, at = excluded.at').bind(ck, task, JSON.stringify(raw), day()).run();
+          ctx && ctx.waitUntil ? ctx.waitUntil(put) : await put;
+          if (Math.random() < 0.01) { const old = dc.prepare(`DELETE FROM ai_cache WHERE at < date('now', '-${CACHE_DAYS} days')`).run(); ctx && ctx.waitUntil ? ctx.waitUntil(old) : await old; }
+        }
         if (!raw) throw err;
         return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'x-ct-usd': (micros / 1e6).toFixed(5), 'x-ct-in': String(used.in), 'x-ct-out': String(used.out), 'access-control-expose-headers': 'x-ct-model, x-ct-ms, x-ct-neurons, x-ct-in, x-ct-out' }, h));
       }
