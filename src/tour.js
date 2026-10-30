@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.23.1';
+export const VERSION = '0.24.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.24.0', date: '2026-10-30', title: 'Plays that keep flowing', items: [
+    { title: 'Continuity, all the way around', call: 'Five Out Spacing, Help Defense, Flex Cut and 5-Out Pass, Cut, Fill now run full rotations: the ball goes around (drive, help, kick, recover; screen the screener on both sides; three cutters) and comes back to where it started, so the loop never stops after a pass or two.', show: 'lib' },
+    { title: 'The best read, flashing', call: 'A green marker flashes on the open option as the play runs: the teammate to pass to, the lane to drive or the shot. Switch it off in More.', show: 'moreBtn' },
+    { title: 'Made for phones, folds and glass', call: 'iPhone portrait and landscape layouts, flip-phone cover screens, Surface Duo and foldables (the board on one screen, the controls on the other, nothing on the hinge), and a Liquid Glass finish on everything that floats.', show: 'mic' }
+  ] },
   { version: '0.23.1', date: '2026-10-30', title: 'Every word, at a teaching pace', items: [
     { title: 'The analyst at half speed', call: 'With the analyst on, plays run at 0.5× so there’s time to follow the read (pick any speed and it sticks). The play now waits at the end of each step for the line to finish, so nothing is cut off or skipped, and the play’s name leads into step one instead of being talked over.', show: 'narrate' }
   ] },

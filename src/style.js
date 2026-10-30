@@ -1031,6 +1031,12 @@ export const CSS = `
 .ct-best b { font-size: 14px; } .ct-best small { color: var(--mute); font-size: 12px; }
 .ct-ink .readline { fill: none; stroke: #4ade80; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 6; filter: drop-shadow(0 0 6px rgba(74, 222, 128, .8)); animation: ct-march 0.8s linear infinite; }
 .ct-ink .readring { fill: rgba(74, 222, 128, .12); stroke: #4ade80; stroke-width: 2; }
+.ct-ink .beacon { pointer-events: none; }
+.ct-ink .beacon .bhalo { fill: none; stroke: #4ade80; stroke-width: 2.5; }
+.ct-ink .beacon .bdot { fill: rgba(74, 222, 128, .28); stroke: #4ade80; stroke-width: 1.5; }
+.ct-ink .beacon .btag { fill: #4ade80; stroke: #052e16; stroke-width: 1.2; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgba(74, 222, 128, .9)); }
+.ct.ct-light .ct-ink .beacon .bhalo, .ct.ct-light .ct-ink .beacon .bdot { stroke: #15803d; } .ct.ct-light .ct-ink .beacon .btag { fill: #16a34a; }
+@media (prefers-reduced-motion: reduce) { .ct-ink .beacon .bhalo { display: none; } }
 .ct.ct-light .ct-best h6 { color: #15803d; } .ct.ct-light .ct-ink .readline, .ct.ct-light .ct-ink .readring { stroke: #15803d; }
 /* sport families with a format toggle */
 .ct-formats { display: inline-flex; gap: 2px; margin-left: 4px; padding: 2px; border-radius: 12px; background: rgba(140, 188, 255, .08); align-self: center; }

@@ -411,6 +411,7 @@ export function mount(root, options) {
     });
     const stroke = el('path', 'stroke', svg);
     const target = el('circle', 'iqtarget', svg), tapX = el('path', 'iqtap', svg), ghost = el('path', 'ghost', svg), finger = el('circle', 'finger', svg), laser = el('path', 'laser', svg), laserDot = el('circle', 'laserdot', svg), readLine = el('path', 'readline', svg), readRing = el('circle', 'readring', svg);
+    const beacon = el('g', 'beacon', svg), bHalo = el('circle', 'bhalo', beacon), bDot = el('circle', 'bdot', beacon), bTag = el('path', 'btag', beacon);
     const nm = names.all();
     R.labels.innerHTML = sim.players.map(p => {
       const name = state.showNames && nm[p.id], txt = name || (state.sport.id === 'basketball' ? p.role : '') || '';
@@ -419,7 +420,7 @@ export function mount(root, options) {
     const kids = Array.from(R.labels.children);
     // guarded: who has a defender to beat (in football, every receiver reads the coverage)
     ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),
-      routes, marks, ball, pig, pigAng: -0.45, pigAt: null, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, readLine, readRing, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+      routes, marks, ball, pig, pigAng: -0.45, pigAt: null, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, readLine, readRing, beacon: { g: beacon, halo: bHalo, dot: bDot, tag: bTag }, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
     R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
@@ -554,12 +555,40 @@ export function mount(root, options) {
   // the best read, drawn: a green arrow from the player to who or where, and a ring on the target
   function drawRead(P) {
     const h = state.readHint;
+    drawBeacon(P, !h);
     if (!h) { ink.readLine.setAttribute('d', ''); ink.readRing.setAttribute('r', 0); return; }
     const a = P[h.from], b = Array.isArray(h.to) ? h.to : P[h.to], pa = proj(a[0], a[1], 0.1), pb2 = proj(b[0], b[1], 0.1);
     const dx = pb2.x - pa.x, dy = pb2.y - pa.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, e = [pb2.x - ux * 14, pb2.y - uy * 14], s0 = [pa.x + ux * 14, pa.y + uy * 14];
     const head = `M${e[0] - ux * 9 - uy * 6} ${e[1] - uy * 9 + ux * 6}L${e[0]} ${e[1]}L${e[0] - ux * 9 + uy * 6} ${e[1] - uy * 9 - ux * 6}`;
     ink.readLine.setAttribute('d', L > 30 ? `M${s0[0]} ${s0[1]}L${e[0]} ${e[1]}${head}` : '');
     ink.readRing.setAttribute('cx', pb2.x); ink.readRing.setAttribute('cy', pb2.y); ink.readRing.setAttribute('r', 16 + 3 * Math.sin(performance.now() / 180));
+  }
+
+  // the live best read: a flashing green marker on whoever (or wherever) the ball should go right now, from the
+  // engine's reads for the ball handler. Worked out ~3 times a second, never in the IQ game (it'd give the answer away)
+  try { state.beacon = localStorage.getItem('chalktalk.beacon') !== '0'; } catch (e) { state.beacon = true; }
+  let liveRead = null, liveAt = 0;
+  function drawBeacon(P, show) {
+    const B = ink.beacon, sim = state.sim, now = performance.now();
+    const off = () => { B.g.setAttribute('visibility', 'hidden'); };
+    if (!show || !state.beacon || state.quiz || state.sketch) return off();
+    if (now - liveAt > 330) {
+      liveAt = now; liveRead = null;
+      const t = sim.time(), hd = sim.holderAt(t);
+      if (hd >= 0 && sim.players[hd].side === 'O' && t < sim.beats) {
+        const r = bestReads(sim, state.sport, t, hd)[0];
+        if (r && (r.kind === 'pass' || r.kind === 'drive' || r.kind === 'shot')) liveRead = { from: hd, to: r.to, kind: r.kind };
+      }
+    }
+    if (!liveRead) return off();
+    const at = Array.isArray(liveRead.to) ? liveRead.to : P[liveRead.to], c = proj(at[0], at[1], 0.1);
+    const ph = (now / 900) % 1, bob = Math.sin(now / 160) * 2.5, x = c.x.toFixed(1), y = c.y;
+    B.g.setAttribute('visibility', 'visible'); B.g.setAttribute('class', 'beacon ' + liveRead.kind);
+    B.halo.setAttribute('cx', x); B.halo.setAttribute('cy', y.toFixed(1)); B.halo.setAttribute('r', (14 + ph * 14).toFixed(1)); B.halo.setAttribute('opacity', (0.9 * (1 - ph)).toFixed(2));
+    B.dot.setAttribute('cx', x); B.dot.setAttribute('cy', y.toFixed(1)); B.dot.setAttribute('r', 15); B.dot.setAttribute('opacity', (0.35 + 0.35 * Math.abs(Math.sin(now / 260))).toFixed(2));
+    // a little green pointer floating over the target
+    const ty = y - 26 + bob;
+    B.tag.setAttribute('d', `M${c.x - 10} ${ty - 13}L${c.x + 10} ${ty - 13}L${c.x} ${ty}Z`);
   }
 
   // ---- the aurora shows what's happening: ripples from the mic with the coach's voice while listening, sparks
@@ -1652,6 +1681,7 @@ export function mount(root, options) {
       ['voice', 'speaker', 'Analyst voice', 'Explains the read as the play runs', state.narrate],
       fb ? ['fb', 'draw', 'Routes & coverage', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')] : null,
       names.any() ? ['names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      ['beacon', 'sparkle', 'Best read', 'A flashing green marker on the open option, live', !!state.beacon],
       ['mind', 'brain', 'Mind view', 'Every player’s live read, for the nerds (V)', mind.on],
       ['board', 'expand', 'Whiteboard only', 'Full screen, panels away, icons only', root.classList.contains('ct-board')],
       ['lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked],
@@ -1672,6 +1702,7 @@ export function mount(root, options) {
           if (k === 'names') R.namesBtn.click();
           if (k === 'lock') toggleLock();
           if (k === 'mind') mind.toggle();
+          if (k === 'beacon') { state.beacon = !state.beacon; try { localStorage.setItem('chalktalk.beacon', state.beacon ? '1' : '0'); } catch (e) {} }
           if (k === 'board') { closePanel(); boardOnly(); return; }
           if (k === 'light') setTheme(root.classList.contains('ct-light') ? 'dark' : 'light');
           if (k === 'sound') { setSound(!soundOn()); if (soundOn()) chime('yes'); }
