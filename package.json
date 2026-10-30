@@ -12,7 +12,7 @@
   "sideEffects": false,
   "scripts": {
     "up": "npm install --no-audit --no-fund --silent && node scripts/serve.mjs",
-    "test": "node test/modules.test.mjs && node test/sim.test.mjs && node test/football.test.mjs && node test/reads.test.mjs && node test/sketch.test.mjs",
+    "test": "node test/modules.test.mjs && node test/sim.test.mjs && node test/football.test.mjs && node test/reads.test.mjs && node test/sketch.test.mjs && node test/worker.test.mjs",
     "build": "node scripts/build.mjs",
     "deploy": "npm test && npm run build && npx wrangler@4 deploy",
     "glossary": "node scripts/glossary.mjs research/CONCEPTS.md src/sports/basketball-glossary.js && node scripts/glossary.mjs research/FLAG.md src/sports/flag-glossary.js"
