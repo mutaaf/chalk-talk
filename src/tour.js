@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.16.0';
+export const VERSION = '0.17.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.17.0', date: '2026-10-30', title: 'The court listens', items: [
+    { title: 'The mic, fixed', call: 'Talking works again in every browser. If the browser’s own listener can’t run, the board records you and writes it down instead, without you doing anything.', show: 'mic' },
+    { title: 'Light that listens', call: 'While you talk, the court ripples out from the mic with your voice. While a play is drawn, light races along the lines. Nothing covers the board.', show: 'mic' },
+    { title: 'It only says listening when it is', call: 'The mic shows “starting” until your voice is really coming through, and tells you if the browser is waiting for permission.', show: 'mic' }
+  ] },
   { version: '0.16.0', date: '2026-10-30', title: 'Instant answers', items: [
     { title: 'Asked before? Instant.', call: 'When any coach has asked for the same play, or the film room has broken down the same play before, the answer comes back instantly and doesn’t count against your daily free AI.', show: null }
   ] },

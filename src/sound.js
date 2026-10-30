@@ -14,9 +14,16 @@ function silence() {   // a 50 ms silent WAV
   v.setUint32(24, 22050, true); v.setUint32(28, 44100, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
   return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
 }
+// iOS: 'playback' plays through the silent switch but forbids the microphone, so the mic asks for
+// 'play-and-record' while it listens and hands back to 'playback' after
+let recording = false;
+export function audioSession(mode) {
+  recording = mode === 'record';
+  try { if (typeof navigator !== 'undefined' && navigator.audioSession) navigator.audioSession.type = recording ? 'play-and-record' : 'playback'; } catch (e) {}
+}
 export function unlockAudio() {
   if (unlocked) return; unlocked = true;
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  audioSession('play');
   try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); const src = ac.createBufferSource(); src.buffer = ac.createBuffer(1, 1, 22050); src.connect(ac.destination); src.start(0); } catch (e) {}
   try { if (player) { player.src = silence(); player.play().catch(() => {}); } } catch (e) {}
   try { if (typeof speechSynthesis !== 'undefined') { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } } catch (e) {}

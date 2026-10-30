@@ -1,4 +1,4 @@
-import { player } from './sound.js';
+import { player, audioSession } from './sound.js';
 import { hash } from './history.js';
 
 // Ears and a voice. Speech in through the browser's recogniser; speech out as a play-by-play
@@ -7,20 +7,30 @@ import { hash } from './history.js';
 // the common commands work with no AI at all.
 
 
+// how loud the coach is right now (0..1), from a mic stream: drives the field's ripples while listening
+function meterFor(stream) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext, ac = new AC(), an = ac.createAnalyser(); an.fftSize = 512;
+    ac.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    return { level() { an.getByteTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; s += v * v; } return Math.min(1, Math.sqrt(s / buf.length) * 4); }, close() { try { ac.close(); } catch (e) {} } };
+  } catch (e) { return null; }
+}
+
 // Where the browser can't recognise speech itself (Firefox, installed iPhone/iPad apps), the mic
 // records and the free API transcribes it (Whisper, an open model). Audio is not stored.
 export function recorder(onText, onState, transcribe) {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices || typeof MediaRecorder === 'undefined') return null;
-  let rec = null, chunks = [], stream = null, want = false;
+  let rec = null, chunks = [], stream = null, want = false, meter = null;
   async function start() {
-    if (rec) return; want = true;
+    if (rec) return; want = true; onState('starting', '');
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
     catch (e) { onState('error', 'Microphone is blocked for this page.'); want = false; return; }
     if (!want) { stream.getTracks().forEach(t => t.stop()); return; }
-    chunks = []; rec = new MediaRecorder(stream);
+    chunks = []; rec = new MediaRecorder(stream); meter = meterFor(stream);
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     rec.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop()); rec = null;
+      stream.getTracks().forEach(t => t.stop()); rec = null; if (meter) { meter.close(); meter = null; }
       const blob = new Blob(chunks, { type: chunks[0] ? chunks[0].type : 'audio/webm' });
       if (blob.size < 2000) { onState('idle', ''); return; }
       onState('hearing', 'Writing down what you said…');
@@ -31,33 +41,52 @@ export function recorder(onText, onState, transcribe) {
     setTimeout(() => { if (rec && rec.state === 'recording') rec.stop(); }, 45000);   // a long play, at most
   }
   function stop() { want = false; if (rec && rec.state === 'recording') rec.stop(); }
-  return { start, stop, get on() { return want; } };
+  return { start, stop, level: () => (meter ? meter.level() : 0), get on() { return want; } };
 }
 const standaloneIOS = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent || '') && (navigator.standalone || (typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches));
 
 export function listener(onText, onState, transcribe, vocab) {
   const R = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
-  if (!R || standaloneIOS()) return transcribe ? recorder(onText, onState, transcribe) : null;   // transcribe is bound to the sport by the caller
-  let rec = null, finalText = '', want = false;
+  const rec2 = transcribe ? recorder(t => { audioSession('play'); onText(t); }, (st, t) => { if (st !== 'listening' && st !== 'hearing') audioSession('play'); onState(st, t); }, transcribe) : null;
+  if (!R || standaloneIOS()) return rec2 && { start() { audioSession('record'); rec2.start(); }, stop: () => rec2.stop(), level: () => rec2.level(), get on() { return rec2.on; } };
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let meter = null, mstream = null;
+  const openMeter = () => { if (ios || !navigator.mediaDevices) return; navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } }).then(st => { if (!want) { st.getTracks().forEach(t => t.stop()); return; } mstream = st; meter = meterFor(st); }).catch(() => {}); };
+  const closeMeter = () => { if (meter) meter.close(); meter = null; if (mstream) mstream.getTracks().forEach(t => t.stop()); mstream = null; };
+  // the browser's recogniser first; if it can't run here (unsupported, blocked by the service, offline), the
+  // mic quietly switches to recording + Whisper for good, and this very tap carries on with it
+  let rec = null, finalText = '', want = false, useRecorder = false, heardAny = false;
+  const FALLBACK = ['service-not-allowed', 'network', 'language-not-supported', 'phrases-not-supported', 'audio-capture'];
+  const MSG = { 'not-allowed': 'The microphone is blocked for this page. Allow it in the address bar, then tap the mic again.', 'no-speech': 'I didn’t hear anything. Tap the mic and say the play.', 'audio-capture': 'No microphone found.' };
   function start() {
+    if (useRecorder && rec2) { audioSession('record'); want = true; rec2.start(); return; }
     if (rec) return;
-    want = true; finalText = '';
-    rec = new R(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 3;
-    // contextual biasing where the browser has it (Chrome): the sport's words, boosted
-    try { const PH = window.SpeechRecognitionPhrase; const v = vocab && vocab(); if (PH && v && 'phrases' in rec) rec.phrases = v.slice(0, 80).map(w => new PH(w, 4)); } catch (e) {}
+    want = true; finalText = ''; heardAny = false;
+    audioSession('record');
+    rec = new R(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+    rec.onaudiostart = () => { onState('listening', ''); openMeter(); };   // only now is it really listening
     rec.onresult = e => {
+      heardAny = true;
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i]; if (r.isFinal) finalText += r[0].transcript + ' '; else interim += r[0].transcript;
       }
       onState('hearing', (finalText + interim).trim());
     };
-    rec.onerror = e => { onState('error', e.error === 'not-allowed' ? 'Microphone is blocked for this page.' : ''); };
-    rec.onend = () => { rec = null; const t = finalText.trim(); onState('idle', t); if (t) onText(t); want = false; };
-    try { rec.start(); onState('listening', ''); } catch (e) { rec = null; }
+    rec.onerror = e => {
+      if (FALLBACK.indexOf(e.error) >= 0 && rec2 && !heardAny) {
+        useRecorder = true; rec.onend = null; try { rec.abort(); } catch (x) {} rec = null; closeMeter();
+        if (want) rec2.start();   // carry on with this tap, recording instead
+        return;
+      }
+      onState('error', MSG[e.error] || (e.error === 'aborted' ? '' : 'The microphone stopped (' + e.error + '). Tap it to try again.'));
+    };
+    rec.onend = () => { rec = null; closeMeter(); audioSession('play'); const t = finalText.trim(); onState('idle', t); if (t) onText(t); want = false; };
+    try { rec.start(); onState('starting', ''); }
+    catch (e) { rec = null; if (rec2) { useRecorder = true; rec2.start(); } else onState('error', 'The microphone couldn’t start. Type the play instead.'); }
   }
-  function stop() { want = false; if (rec) try { rec.stop(); } catch (e) {} }
-  return { start, stop, get on() { return want; } };
+  function stop() { want = false; if (useRecorder && rec2) { rec2.stop(); return; } if (rec) try { rec.stop(); } catch (e) {} }
+  return { start, stop, level: () => (useRecorder && rec2 ? rec2.level() : meter ? meter.level() : 0), get on() { return useRecorder && rec2 ? rec2.on : want; } };
 }
 
 // ---- the broadcaster ----

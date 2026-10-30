@@ -491,10 +491,32 @@ export function mount(root, options) {
   }
   const laserPts = [];
 
+  // ---- the aurora shows what's happening: ripples from the mic with the coach's voice while listening, sparks
+  // racing along the court lines and a slow center ripple while a play is drawn ----
+  const aura = (() => {
+    let mode = null, last = 0, beat = 0;
+    const micPoint = () => {
+      const el = isTouchLayout() ? R.tbMic : R.mic, r = el.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+      return [Math.max(0, Math.min(c.width, r.left + r.width / 2 - c.left)), Math.max(0, Math.min(c.height - 2, r.top + r.height / 2 - c.top))];
+    };
+    return {
+      set(m) { mode = m; last = 0; },
+      tick(now) {
+        if (!mode || !field) return;
+        if (mode === 'listen') {
+          const lv = ear && ear.level ? ear.level() : 0;
+          if (now - last > (lv > 0.1 ? 150 : 1100)) { last = now; const [x, y] = micPoint(); field.pointer('pulse', x, y); if (lv > 0.1) field.signal(null, 8, 1 + Math.round(lv * 5)); }
+        } else if (mode === 'draw') {
+          if (now - last > 360) { last = now; field.signal(null, 12, 3); if (++beat % 4 === 0) field.pointer('pulse', canvas.clientWidth / 2, canvas.clientHeight * 0.45); }
+        }
+      }
+    };
+  })();
   let loopErr = false;
   (function loop(now) {
     if (dead) return;
     if (state.sim && field && ink) try {
+      aura.tick(now);
       const t = state.sim.tick(now);
       if (state.quiz) {
         const q = state.quizStop;
@@ -588,7 +610,7 @@ export function mount(root, options) {
     if (state.busy) state.busy.abort();
     const ctl = state.busy = new AbortController(), sport = state.sport, board = boardKey();
     root.classList.add('ct-drawing'); R.status.textContent = `The AI is taking over ${ids.map(posName).join(', ')}…`;
-    const pulse = setInterval(() => field && field.signal(), 500);
+    const pulse = 0;
     try {
       const res = await smartPlayers(strip(state.play), ids, { sport, signal: ctl.signal });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
@@ -1258,8 +1280,10 @@ export function mount(root, options) {
   const ear = listener(t => heard(t, { source: 'voice' }), (st, text) => {
     R.mic.dataset.state = st; R.tbMic.dataset.state = st; R.rlMic.dataset.state = st;
     if (st === 'hearing') { R.heard.textContent = text; live.hear(text); }
-    if (st === 'idle' && !text && live.mode === 'listen') live.hide();
+    if (st === 'idle' && !text && (live.mode === 'listen' || live.mode === 'starting')) live.hide();
+    if (st === 'idle' && !text) R.heard.textContent = '';
     if (st === 'error') live.hide();
+    if (st === 'starting') { hush(); live.starting(); R.heard.textContent = 'Starting the mic…'; return; }
     if (st === 'listening') { hush(); live.listen(); R.heard.textContent = 'Listening…'; R.heard.classList.remove('fix'); chime('ask'); }
     if (st === 'error' && text) toast(text);
   }, blob => transcribe(blob, state.sport.id), () => vocabulary(state.sport));
@@ -1689,15 +1713,17 @@ export function mount(root, options) {
     const clock = () => { R.liveTime.textContent = mode === 'draw' || mode === 'listen' ? ((performance.now() - t0) / 1000).toFixed(1) + ' s' : ''; if (mode === 'draw') { const k = Math.min(steps.length - 1, Math.floor((performance.now() - t0) / 2600)); R.liveSteps.querySelectorAll('li').forEach((li, i) => { li.className = i < k ? 'done' : i === k ? 'now' : ''; }); } };
     const open = m => { clearTimeout(hideT); mode = m; R.live.hidden = false; R.live.dataset.mode = m; root.classList.add('ct-liveon'); clearInterval(tick); t0 = performance.now(); tick = setInterval(clock, 100); clock(); };
     return {
-      listen() { open('listen'); R.liveK.textContent = 'Listening'; R.liveSaid.textContent = 'Say the play: who has the ball, who moves, where it goes.'; R.liveSaid.classList.add('hint'); R.liveSteps.innerHTML = ''; R.liveStop.hidden = false; },
+      starting() { clearTimeout(hideT); mode = 'starting'; R.live.hidden = false; R.live.dataset.mode = 'starting'; root.classList.add('ct-liveon'); R.liveK.textContent = 'Starting the mic…'; R.liveSaid.textContent = ''; R.liveSteps.innerHTML = ''; R.liveStop.hidden = true; R.liveTime.textContent = ''; aura.set(null);
+        hideT = setTimeout(() => { if (mode === 'starting') { R.liveK.textContent = 'Allow the microphone to talk'; R.liveSaid.textContent = 'Your browser is asking: look for the microphone prompt by the address bar, choose Allow, then tap the mic again.'; R.liveSaid.classList.add('hint'); } }, 4000); },
+      listen() { open('listen'); aura.set('listen'); R.liveK.textContent = 'Listening'; R.liveSaid.textContent = 'Say the play: who has the ball, who moves, where it goes.'; R.liveSaid.classList.add('hint'); R.liveSteps.innerHTML = ''; R.liveStop.hidden = false; },
       hear(text) { if (mode !== 'listen') return; R.liveSaid.textContent = '“' + text + '”'; R.liveSaid.classList.remove('hint'); R.liveOrb.classList.remove('beat'); void R.liveOrb.offsetWidth; R.liveOrb.classList.add('beat'); },
       draw(text, sketch) {
-        open('draw'); R.liveK.textContent = sketch ? 'The AI is taking over your sketch' : 'Drawing your play'; R.liveStop.hidden = true;
+        open('draw'); aura.set('draw'); R.liveK.textContent = sketch ? 'The AI is taking over your sketch' : 'Drawing your play'; R.liveStop.hidden = true;
         if (text) { R.liveSaid.textContent = '“' + text + '”'; R.liveSaid.classList.remove('hint'); } else R.liveSaid.textContent = '';
         R.liveSteps.innerHTML = steps.map(x => `<li>${x}</li>`).join('');
       },
-      done(msg) { if (!mode) return; mode = 'done'; R.live.dataset.mode = 'done'; clearInterval(tick); R.liveK.textContent = msg; R.liveSteps.querySelectorAll('li').forEach(li => { li.className = 'done'; }); R.liveTime.textContent = ''; R.liveStop.hidden = true; hideT = setTimeout(() => this.hide(), 1100); },
-      hide() { mode = null; clearInterval(tick); clearTimeout(hideT); R.live.hidden = true; root.classList.remove('ct-liveon'); },
+      done(msg) { if (!mode) return; aura.set(null); if (field) field.pointer('pulse', canvas.clientWidth / 2, canvas.clientHeight * 0.45); mode = 'done'; R.live.dataset.mode = 'done'; clearInterval(tick); R.liveK.textContent = msg; R.liveSteps.querySelectorAll('li').forEach(li => { li.className = 'done'; }); R.liveTime.textContent = ''; R.liveStop.hidden = true; hideT = setTimeout(() => this.hide(), 1100); },
+      hide() { mode = null; aura.set(null); clearInterval(tick); clearTimeout(hideT); R.live.hidden = true; root.classList.remove('ct-liveon'); },
       get mode() { return mode; }
     };
   })();

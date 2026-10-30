@@ -967,5 +967,24 @@ export const CSS = `
 .ct.ct-light nav.ct-tabbar { background: rgba(255, 253, 248, .82); border-color: rgba(16, 26, 43, .1); box-shadow: 0 16px 40px rgba(16, 26, 43, .16); }
 .ct.ct-light nav.ct-tabbar button { color: rgba(16, 26, 43, .6); }
 .ct.ct-light nav.ct-tabbar button.on { color: var(--o); background: rgba(194, 65, 12, .1); }
+/* the live moment, lighter: the court itself shows it (aurora ripples and sparks); the words sit low and big,
+   the status is a pill at the top, nothing covers the board */
+.ct .ct-live { inset: 0; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; display: block; padding: 0; }
+.ct .ct-livecard { position: absolute; left: 50%; translate: -50% 0; bottom: calc(150px + env(safe-area-inset-bottom)); width: min(760px, calc(100% - 24px)); gap: 10px; pointer-events: auto; }
+.ct .ct-liveorb { display: none; }
+.ct .ct-livek { position: static; translate: none; font-family: var(--body); font-weight: 700; font-size: 14px; letter-spacing: .04em; text-transform: none; display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 18px; background: rgba(10, 16, 28, .72); border: 1px solid rgba(255, 255, 255, .1); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.ct .ct-livek::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: #ff4d4d; box-shadow: 0 0 0 0 rgba(255, 77, 77, .6); animation: ct-rec 1.2s ease-out infinite; }
+.ct-live[data-mode=starting] .ct-livek::before { background: var(--mute); animation: none; }
+.ct-live[data-mode=draw] .ct-livek::before { background: #b89cff; animation: ct-rec 1s ease-out infinite; }
+.ct-live[data-mode=done] .ct-livek::before { background: #22c55e; animation: none; }
+@keyframes ct-rec { 70% { box-shadow: 0 0 0 9px rgba(255, 77, 77, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); } }
+.ct .ct-livesaid { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 3.4cqw, 38px); letter-spacing: .01em; text-shadow: 0 2px 18px rgba(0, 0, 0, .8), 0 0 2px rgba(0, 0, 0, .9); max-height: 34cqh; }
+.ct .ct-livesaid.hint { font-family: var(--body); font-weight: 400; font-size: clamp(14px, 1.8cqw, 17px); }
+.ct .ct-livesteps li { background: rgba(10, 16, 28, .66); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.ct .ct-livefoot span { text-shadow: 0 1px 8px rgba(0, 0, 0, .8); }
+.ct .ct-livefoot button { box-shadow: 0 8px 24px rgba(0, 0, 0, .4); }
+.ct.ct-liveon .ct-dock .ct-said, .ct.ct-liveon .ct-dock .ct-caption { visibility: hidden; }
+.ct.ct-liveon .ct-dock .ct-transport { visibility: visible; }
+.ct-mic[data-state=starting], .ct-tbmic[data-state=starting] i { opacity: .7; }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;
