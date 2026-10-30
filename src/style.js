@@ -850,10 +850,12 @@ export const CSS = `
 .ct .ct-edge:hover { color: var(--paper); border-color: var(--o) !important; }
 .ct-edgel { left: 228px; } .ct-edger { right: 328px; }
 .ct-lib, .ct-card, .ct-legend { transition: transform .32s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
-.ct.ct-libx .ct-lib, .ct.ct-libx .ct-legend { transform: translateX(calc(-100% - 40px)); opacity: 0; pointer-events: none; }
-.ct.ct-libx .ct-edgel { left: 8px; }
-.ct.ct-cardx .ct-card { transform: translateX(calc(100% + 40px)); opacity: 0; pointer-events: none; }
-.ct.ct-cardx .ct-edger { right: 8px; }
+@container (min-width: 1101px) {
+  .ct:not(.ct-touch).ct-sidelib .ct-lib, .ct:not(.ct-touch).ct-sidelib .ct-legend { transform: translateX(calc(-100% - 40px)); opacity: 0; pointer-events: none; }
+  .ct:not(.ct-touch).ct-sidelib .ct-edgel { left: 8px; }
+  .ct:not(.ct-touch).ct-sidecard .ct-card { transform: translateX(calc(100% + 40px)); opacity: 0; pointer-events: none; }
+  .ct:not(.ct-touch).ct-sidecard .ct-edger { right: 8px; }
+}
 @container (max-width: 1100px) { .ct .ct-edge { display: none; } }
 .ct.ct-touch .ct-edge, .ct.ct-board .ct-edge, .ct.ct-present-on .ct-edge, .ct.ct-quiz .ct-edge { display: none; }
 /* light mode: everything that sat on a dark glass reads on paper too */
@@ -913,5 +915,11 @@ export const CSS = `
 .ct-recent small { color: var(--mute); font-size: 11.5px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-libhead { font-family: var(--display); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--mute); margin: 6px 0 2px 10px; }
 .ct-histp .ct-recent, .ct-panel .ct-recent { margin: 10px 14px 0; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+/* touch devices at any width (an iPad in landscape): the play card is the bottom sheet, like on a phone */
+.ct.ct-touch .ct-card { top: auto; bottom: 0; right: 0; left: 0; width: auto; max-width: 720px; margin: 0 auto; max-height: 72cqh; border-radius: 20px 20px 0 0; translate: 0 105%; transition: translate .35s cubic-bezier(.2, .8, .2, 1); z-index: 9; padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+.ct.ct-touch.ct-info .ct-card { translate: 0 0; }
+.ct.ct-touch .ct-cardx { display: grid; }
+.ct.ct-touch .ct-legend, .ct.ct-touch .ct-lib { display: none !important; }
+.ct.ct-touch .ct-mic { width: 58px; height: 58px; }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;

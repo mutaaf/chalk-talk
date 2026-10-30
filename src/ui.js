@@ -177,7 +177,7 @@ const HINTS = {
 };
 
 // how big the field is drawn: the whole field fits with every player on screen, leaving room for the header and dock
-const fitR = (w, h) => (w < 700 ? Math.min(w * 0.5, h * 0.36) : w < 1100 ? Math.min(w * 0.44, h * 0.42) : Math.min(w * 0.4, h * 0.5));
+const fitR = (w, h, touch) => (w < 700 ? Math.min(w * 0.5, h * 0.36) : w < 1100 || touch ? Math.min(w * 0.44, h * 0.4) : Math.min(w * 0.4, h * 0.5));
 
 let styled = false;
 export function mount(root, options) {
@@ -232,7 +232,7 @@ export function mount(root, options) {
       container: root.querySelector('.ct-stage'), shapes: [name], initial: name,
       count: particleBudget, cycle: 0, intro: 900, stars: 60, autonomy: 0.12, depth: 3.4, interactive: true, blank: true, seed: 7,
       palette: { preset: 'ice', accent: [255, 142, 58], signal: [255, 190, 120] }, maxDpr: 2, quality: 'auto',
-      radius: fitR
+      radius: (w, h) => fitR(w, h, root.classList.contains('ct-touch'))
     });
     state.loads = 0;
     applyView();
@@ -1150,7 +1150,7 @@ export function mount(root, options) {
     if (!field) return;
     const v = state.view;
     field.setPose(v.pose ? { yaw: v.pose.yaw, pitch: v.pose.pitch, roll: 0 } : null);
-    field.set({ interactive: !v.locked, radius: (w, h) => fitR(w, h) * v.zoom });
+    field.set({ interactive: !v.locked, radius: (w, h) => fitR(w, h, root.classList.contains('ct-touch')) * v.zoom });
     R.viewBtn.classList.toggle('on', v.locked);
     R.viewBtn.innerHTML = icon(v.locked ? 'lock' : 'view') + '<span>View</span>';
   }
@@ -1561,7 +1561,7 @@ export function mount(root, options) {
   let side = { lib: false, card: false };
   try { side = Object.assign(side, JSON.parse(localStorage.getItem('chalktalk.panels') || '{}')); } catch (e) {}
   function renderSides() {
-    root.classList.toggle('ct-libx', !!side.lib); root.classList.toggle('ct-cardx', !!side.card);
+    root.classList.toggle('ct-sidelib', !!side.lib); root.classList.toggle('ct-sidecard', !!side.card);
     R.libToggle.textContent = side.lib ? '›' : '‹'; R.libToggle.setAttribute('aria-label', (side.lib ? 'Show' : 'Collapse') + ' the plays list ([)');
     R.cardToggle.textContent = side.card ? '‹' : '›'; R.cardToggle.setAttribute('aria-label', (side.card ? 'Show' : 'Collapse') + ' the play card (])');
     R.libToggle.dataset.tip = side.lib ? 'Plays' : 'Collapse'; R.cardToggle.dataset.tip = side.card ? 'Play card' : 'Collapse';
