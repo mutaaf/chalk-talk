@@ -114,7 +114,7 @@ export function mount(root, options) {
       container: root.querySelector('.ct-stage'), shapes: [name], initial: name,
       count: particleBudget, cycle: 0, intro: 900, stars: 60, autonomy: 0.35, depth: 3.4, interactive: true, blank: true, seed: 7,
       palette: { preset: 'ice', accent: [255, 142, 58], signal: [255, 190, 120] }, maxDpr: 2, quality: 'auto',
-      radius: (w, h) => Math.min(w * 0.4, h * 0.5)
+      radius: (w, h) => (w < 700 ? Math.min(w * 0.6, h * 0.42) : Math.min(w * 0.4, h * 0.5))
     });
     state.loads = 0;
   }

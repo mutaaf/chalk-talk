@@ -192,7 +192,7 @@ export const CSS = `
   [data-r=defBtn], [data-r=narrate] { display: none; }
   .ct-word small { display: none; }
   .ct-top { padding: 12px 12px 0; flex-wrap: wrap; }
-  .ct-lib { top: 56px; bottom: auto; left: 0; right: 0; width: auto; flex-direction: row; overflow-x: auto; padding: 0 12px; }
+  .ct-lib { top: 104px; bottom: auto; left: 0; right: 0; width: auto; flex-direction: row; overflow-x: auto; padding: 0 12px; }
   .ct-lib::before { display: none; }
   .ct-lib button { font-size: 15px; padding: 7px 11px; background: var(--glass); border-color: var(--line); white-space: nowrap; }
   .ct-lib button span { display: none; }
@@ -201,8 +201,13 @@ export const CSS = `
   [data-r=infoBtn] { display: inline-flex !important; }
   .ct-mic { width: 58px; height: 58px; }
   .ct-legend { display: none; }
-  .ct-fb { left: 8px; right: 8px; bottom: auto; top: 100px; width: auto; padding: 8px; gap: 5px; }
-  .ct-fbrow { grid-template-columns: 74px 1fr; align-items: center; }
+  .ct.ct-football .ct-lib { bottom: auto; }
+  .ct-fb { left: 8px; right: 8px; bottom: 240px; top: auto; width: auto; padding: 6px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .ct-fbrow { display: flex; flex: none; gap: 4px; }
+  .ct-fbrow > span { display: none; }
+  .ct-fbrow > div { flex-wrap: nowrap; }
+  .ct-fb .ct-open { flex: none; height: 28px; font-size: 12.5px; }
+  .ct-fb button { white-space: nowrap; }
   .ct-sketchbar { top: 104px; }
 }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }

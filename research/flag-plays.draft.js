@@ -9,9 +9,10 @@
 // Plays that move the line of scrimmage (los ≠ default) use { x, y } spots, because the named
 // spots in flag.js are measured from the default line.
 //
-// A defender with no move in a beat guards the O with his number (X3 ↔ O3). So in the coverage
-// plays (1-3-1, Cover 2, Cover 3) the zone players act in every beat until the ball is thrown,
-// which takes 6–10 actions in those beats; offensive plays keep to ≤5 actions per beat.
+// A defender with no move in a beat guards the O with his number (X3 ↔ O3), unless the player
+// carries a `cover` job (sim.js): { type: 'rush' }, { type: 'man', on: 'O7' } or { type: 'zone',
+// zone: { x0, x1, d0, d1, label } } (x as a fraction of the half-width, d in yards past the line).
+// The coverage plays (1-3-1, Cover 2, Cover 3) use those jobs, so every beat stays at ≤5 actions.
 // Validate: see the command in research/FLAG.md (section "Validating the draft").
 
 const xy = (x, y) => ({ x, y });
@@ -238,17 +239,17 @@ export const FLAG5_DRAFT = [
     summary: 'Defense. One rusher, three underneath defenders who each guard a third of the field low, and one safety deep. Guard grass, not a guy: cover whoever comes into your area. Two in your area? Stand between them. Ball thrown? Everyone runs to it.',
     cues: ['Guard your grass', 'Two in your zone: split them', 'Ball in the air: everybody go'],
     players: [QB5, C5, X5, Z5, P('O5', 'right slot', 'H'),
-      P('X1', 'rusher', 'R'), P('X2', xy(3, 26), 'LB'), P('X3', xy(-9, 25), 'LB'), P('X4', xy(9, 25), 'LB'), P('X5', xy(0, 17), 'S')],
+      Object.assign(P('X1', 'rusher', 'R'), { cover: { type: 'rush' } }),
+      Object.assign(P('X3', xy(-10, 25), 'LB'), { cover: { type: 'zone', zone: { x0: -1, x1: -0.33, d0: 0, d1: 8, label: 'Left under' } } }),
+      Object.assign(P('X2', xy(0, 25), 'LB'), { cover: { type: 'zone', zone: { x0: -0.33, x1: 0.33, d0: 0, d1: 8, label: 'Middle' } } }),
+      Object.assign(P('X4', xy(10, 25), 'LB'), { cover: { type: 'zone', zone: { x0: 0.33, x1: 1, d0: 0, d1: 8, label: 'Right under' } } }),
+      Object.assign(P('X5', xy(0, 17), 'S'), { cover: { type: 'zone', zone: { x0: -1, x1: 1, d0: 8, d1: 30, label: 'Deep' } } })],
     ball: 'O2', los: 30,
     beats: [
-      { say: '1-3-1: X1 rushes, X3, X2 and X4 drop to their zones underneath, X5 stays deep. O2 snaps.', actions: [
-        { kind: 'snap', who: 'O2', target: 'O1' }, { kind: 'rush', who: 'X1' }, { kind: 'zone', who: 'X3', to: xy(-10, 23) },
-        { kind: 'zone', who: 'X2', to: xy(1, 22) }, { kind: 'zone', who: 'X4', to: xy(10, 23) }, { kind: 'zone', who: 'X5', to: xy(0, 15) }] },
-      { say: 'Receivers run into the zones. Each defender takes whoever comes into his area.', actions: [
+      { say: '1-3-1: X1 is the rusher, X3, X2 and X4 split the short field in thirds, X5 is deep. O2 snaps.', actions: [{ kind: 'snap', who: 'O2', target: 'O1' }] },
+      { say: 'X1 rushes. The receivers run into the zones and each defender takes whoever comes into his area.', actions: [
         { kind: 'route', who: 'O3', to: xy(-12, 14) }, { kind: 'route', who: 'O4', path: [xy(12, 22)], to: xy(11, 23.5) },
-        { kind: 'route', who: 'O5', path: [xy(6, 28)], to: xy(1, 24) }, { kind: 'route', who: 'O2', to: xy(-4, 25) }, { kind: 'rush', who: 'X1' },
-        { kind: 'zone', who: 'X3', to: xy(-9, 22) }, { kind: 'zone', who: 'X2', to: xy(1, 23) }, { kind: 'zone', who: 'X4', to: xy(11, 22) },
-        { kind: 'zone', who: 'X5', to: xy(-5, 15) }] },
+        { kind: 'route', who: 'O5', path: [xy(6, 28)], to: xy(1, 24) }, { kind: 'route', who: 'O2', to: xy(-4, 25) }] },
       { say: 'O1 throws the curl to O4. X4 is already there and breaks on it. Everyone else runs to the ball.', actions: [
         { kind: 'throw', who: 'O1', target: 'O4' }, { kind: 'cover', who: 'X4', to: xy(11.5, 24.5) }] },
       { say: 'X4 pulls the flag.', actions: [{ kind: 'pull', who: 'X4' }] }
@@ -477,51 +478,53 @@ export const FLAG7_DRAFT = [
       { who: 'O5', text: 'Inside open: slant' }]
   },
   {
-    key: 'cover-2', title: 'Cover 2', concept: 'Defense: two-deep zone',
-    summary: 'Defense. Two safeties split the deep field in halves. The two corners jam and sit in the flats (short and wide). Three linebackers drop to the short middle. Nobody gets behind the safeties, and quick throws to the outside get caught by the corners.',
+    key: 'cover-2', title: 'Cover 2', concept: 'Defense: two-deep zone', coverage: 'cover2',
+    summary: 'Defense. Two safeties split the deep field in halves. The two corners sit in the flats (short and wide), two linebackers take the short middle, and one sits in the middle as a robber. Nobody gets behind the safeties, and quick throws to the outside run into the corners.',
     cues: ['Safeties: deep halves', 'Corners: squat the flat', 'Ball thrown: everybody go'],
-    players: [...BASE7, P('X1', xy(-9, 22), 'S'), P('X2', xy(9, 22), 'S'), P('X3', xy(-16, 32), 'CB'), P('X4', xy(16, 32), 'CB'),
-      P('X5', xy(7, 30), 'LB'), P('X6', xy(-7, 30), 'LB'), P('X7', xy(0, 29), 'LB')],
+    players: [...BASE7,
+      Object.assign(P('X1', xy(-9, 22), 'S'), { cover: { type: 'zone', zone: { x0: -1, x1: 0, d0: 10, d1: 35, label: 'Deep half' } } }),
+      Object.assign(P('X2', xy(9, 22), 'S'), { cover: { type: 'zone', zone: { x0: 0, x1: 1, d0: 10, d1: 35, label: 'Deep half' } } }),
+      Object.assign(P('X3', xy(-16, 31), 'CB'), { cover: { type: 'zone', zone: { x0: -1, x1: -0.55, d0: 0, d1: 10, label: 'Flat' } } }),
+      Object.assign(P('X6', xy(-6, 30), 'LB'), { cover: { type: 'zone', zone: { x0: -0.55, x1: 0, d0: 0, d1: 10, label: 'Hook' } } }),
+      Object.assign(P('X5', xy(6, 30), 'LB'), { cover: { type: 'zone', zone: { x0: 0, x1: 0.55, d0: 0, d1: 10, label: 'Hook' } } }),
+      Object.assign(P('X4', xy(16, 31), 'CB'), { cover: { type: 'zone', zone: { x0: 0.55, x1: 1, d0: 0, d1: 10, label: 'Flat' } } }),
+      Object.assign(P('X7', xy(0, 29), 'LB'), { cover: { type: 'zone', zone: { x0: -0.25, x1: 0.25, d0: 3, d1: 12, label: 'Robber' } } })],
     ball: 'O2', los: 35,
     beats: [
-      { say: 'Cover 2: X1 and X2 back deep, X3 and X4 up on the outside receivers. O2 snaps.', actions: [
-        { kind: 'snap', who: 'O2', target: 'O1' }, { kind: 'zone', who: 'X1', to: xy(-10, 20) }, { kind: 'zone', who: 'X2', to: xy(10, 20) },
-        { kind: 'zone', who: 'X7', to: xy(0, 28) }] },
-      { say: 'Safeties take the deep halves, X4 sinks to the flat, the linebackers drop. O3 hitches, O4 goes, O5 seams, O6 runs an out.', actions: [
+      { say: 'Cover 2: X1 and X2 deep, X3 and X4 up on the outside receivers, X5 and X6 in the hooks, X7 in the middle. O2 snaps.', actions: [{ kind: 'snap', who: 'O2', target: 'O1' }] },
+      { say: 'Safeties take the deep halves, corners sink to the flats, linebackers drop. O3 hitches, O4 goes, O5 seams, O6 runs an out, O7 checks down.', actions: [
         { kind: 'route', who: 'O3', path: [xy(-16, 29)], to: xy(-15.5, 30) }, { kind: 'route', who: 'O4', to: xy(17, 15) },
         { kind: 'route', who: 'O5', path: [xy(8, 28)], to: xy(8, 16) }, { kind: 'route', who: 'O6', path: [xy(-8, 30)], to: xy(-14, 30) },
-        { kind: 'zone', who: 'X1', to: xy(-10, 17) }, { kind: 'zone', who: 'X2', to: xy(13, 17) }, { kind: 'zone', who: 'X4', to: xy(15, 31) },
-        { kind: 'zone', who: 'X5', to: xy(6, 27) }, { kind: 'zone', who: 'X6', to: xy(-7, 28) }, { kind: 'zone', who: 'X7', to: xy(0, 26) }] },
-      { say: 'O1 throws the out to O6. X6 is right there and breaks on it.', actions: [
-        { kind: 'throw', who: 'O1', target: 'O6' }, { kind: 'cover', who: 'X6', to: xy(-12.5, 30) },
-        { kind: 'zone', who: 'X1', to: xy(-11, 22) }, { kind: 'zone', who: 'X2', to: xy(10, 18) }, { kind: 'zone', who: 'X7', to: xy(-4, 28) }] },
-      { say: 'X6 pulls the flag. Everyone rallies to the ball.', actions: [
-        { kind: 'pull', who: 'X6' }, { kind: 'pull', who: 'X1' }, { kind: 'zone', who: 'X2', to: xy(4, 22) }, { kind: 'pull', who: 'X7' }] }
+        { kind: 'route', who: 'O7', to: xy(-3, 32) }] },
+      { say: 'O1 throws the out to O6. X3 is sitting in the flat and breaks on it.', actions: [
+        { kind: 'throw', who: 'O1', target: 'O6' }, { kind: 'cover', who: 'X3', to: xy(-13, 30) }] },
+      { say: 'X3 pulls the flag. Everyone rallies to the ball.', actions: [{ kind: 'pull', who: 'X3' }, { kind: 'pull', who: 'X6' }] }
     ],
-    reads: [{ who: 'X1', text: 'Deep half: nobody behind you' }, { who: 'X4', text: 'Squat the flat, carry a go until the safety takes it' },
-      { who: 'X6', text: 'Hook to curl: break on anything short' }]
+    reads: [{ who: 'X1', text: 'Deep half: nobody behind you' }, { who: 'X3', text: 'Squat the flat, carry a go until the safety takes it' },
+      { who: 'X6', text: 'Hook: break on anything short over the middle' }]
   },
   {
-    key: 'cover-3', title: 'Cover 3', concept: 'Defense: three-deep zone',
+    key: 'cover-3', title: 'Cover 3', concept: 'Defense: three-deep zone', coverage: 'cover3',
     summary: 'Defense. Three players split the deep field in thirds: two corners on the outside, one safety in the middle. Four underneath defenders cover the short areas. Great against deep throws; the short curls and flats are the soft spots, so the underneath players sink and break fast.',
     cues: ['Three deep, four under', 'Deep thirds: nobody behind you', 'Under: sink under the curl'],
-    players: [...BASE7, P('X1', xy(0, 22), 'S'), P('X2', xy(-3, 30), 'LB'), P('X3', xy(-16, 30), 'CB'), P('X4', xy(16, 30), 'CB'),
-      P('X5', xy(9, 30), 'LB'), P('X6', xy(-9, 30), 'LB'), P('X7', xy(3, 30), 'LB')],
+    players: [...BASE7,
+      Object.assign(P('X3', xy(-16, 28), 'CB'), { cover: { type: 'zone', zone: { x0: -1, x1: -0.33, d0: 9, d1: 35, label: 'Deep third' } } }),
+      Object.assign(P('X1', xy(0, 22), 'S'), { cover: { type: 'zone', zone: { x0: -0.33, x1: 0.33, d0: 9, d1: 35, label: 'Deep third' } } }),
+      Object.assign(P('X4', xy(16, 28), 'CB'), { cover: { type: 'zone', zone: { x0: 0.33, x1: 1, d0: 9, d1: 35, label: 'Deep third' } } }),
+      Object.assign(P('X6', xy(-12, 30), 'N'), { cover: { type: 'zone', zone: { x0: -1, x1: -0.5, d0: 0, d1: 9, label: 'Flat' } } }),
+      Object.assign(P('X2', xy(-4, 30), 'LB'), { cover: { type: 'zone', zone: { x0: -0.5, x1: 0, d0: 0, d1: 9, label: 'Hook' } } }),
+      Object.assign(P('X7', xy(4, 30), 'LB'), { cover: { type: 'zone', zone: { x0: 0, x1: 0.5, d0: 0, d1: 9, label: 'Hook' } } }),
+      Object.assign(P('X5', xy(12, 30), 'N'), { cover: { type: 'zone', zone: { x0: 0.5, x1: 1, d0: 0, d1: 9, label: 'Flat' } } })],
     ball: 'O2', los: 35,
     beats: [
-      { say: 'Cover 3: X3 and X4 bail to the deep thirds, X1 takes the deep middle. O2 snaps.', actions: [
-        { kind: 'snap', who: 'O2', target: 'O1' }, { kind: 'zone', who: 'X1', to: xy(0, 20) }, { kind: 'zone', who: 'X2', to: xy(-3, 28) },
-        { kind: 'zone', who: 'X3', to: xy(-16, 22) }, { kind: 'zone', who: 'X4', to: xy(16, 22) }, { kind: 'zone', who: 'X7', to: xy(3, 28) }] },
-      { say: 'O3 runs a go, O4 curls, O5 runs a seam, O6 runs to the flat. The four underneath players drop to their spots.', actions: [
+      { say: 'Cover 3: X3 and X4 bail to the deep thirds, X1 takes the deep middle, four players stay underneath. O2 snaps.', actions: [{ kind: 'snap', who: 'O2', target: 'O1' }] },
+      { say: 'O3 runs a go, O4 curls, O5 runs a seam, O6 runs to the flat, O7 sits in the middle. The defenders drop to their spots.', actions: [
         { kind: 'route', who: 'O3', to: xy(-17, 14) }, { kind: 'route', who: 'O4', path: [xy(16, 25)], to: xy(15, 26.5) },
         { kind: 'route', who: 'O5', path: [xy(8, 28)], to: xy(8, 15) }, { kind: 'route', who: 'O6', path: [xy(-8, 35)], to: xy(-17, 33) },
-        { kind: 'zone', who: 'X1', to: xy(3, 16) }, { kind: 'zone', who: 'X4', to: xy(16, 17) }, { kind: 'zone', who: 'X5', to: xy(12, 27) },
-        { kind: 'zone', who: 'X6', to: xy(-14, 31) }, { kind: 'zone', who: 'X2', to: xy(-3, 27) }, { kind: 'zone', who: 'X7', to: xy(4, 27) }] },
+        { kind: 'route', who: 'O7', to: xy(1, 31) }] },
       { say: 'O1 throws the curl to O4. X5 sank under it and breaks on the ball.', actions: [
-        { kind: 'throw', who: 'O1', target: 'O4' }, { kind: 'cover', who: 'X5', to: xy(14, 27) },
-        { kind: 'zone', who: 'X1', to: xy(6, 18) }, { kind: 'zone', who: 'X2', to: xy(0, 28) }, { kind: 'zone', who: 'X7', to: xy(7, 27) }] },
-      { say: 'X5 pulls the flag. Everyone rallies.', actions: [
-        { kind: 'pull', who: 'X5' }, { kind: 'pull', who: 'X1' }, { kind: 'pull', who: 'X7' }, { kind: 'zone', who: 'X2', to: xy(4, 27) }] }
+        { kind: 'throw', who: 'O1', target: 'O4' }, { kind: 'cover', who: 'X5', to: xy(14, 27) }] },
+      { say: 'X5 pulls the flag. Everyone rallies.', actions: [{ kind: 'pull', who: 'X5' }, { kind: 'pull', who: 'X4' }] }
     ],
     reads: [{ who: 'X1', text: 'Deep middle: stay deeper than the deepest receiver' }, { who: 'X5', text: 'Curl to flat: sink under the curl, break on the throw' },
       { who: 'X4', text: 'Deep third: nobody behind you' }]
