@@ -1,9 +1,11 @@
 // Flag football concept libraries, drawn as X's and O's. O1 is the quarterback, O2 the center.
 // Spots can be names (see spots() in flag.js) or { x, y } in yards (y 10 is the goal line).
 
+import { FLAG5_DRAFT, FLAG5_DRAFT_ALIASES, FLAG7_DRAFT, FLAG7_DRAFT_ALIASES } from './flag-modern.js';
+
 const xy = (x, y) => ({ x, y });
 
-export const FLAG5_PLAYS = [
+const FLAG5_SEED = [
   {
     key: 'slant-flat', title: 'Slant–Flat', concept: 'High–low read',
     summary: 'One receiver cuts across the middle (the slant), one runs to the sideline low (the flat). The QB watches the defender in between and throws to whoever he leaves open.',
@@ -23,9 +25,9 @@ export const FLAG5_PLAYS = [
     reads: [{ who: 'O4', text: 'Flat defender jumps low: slant' }, { who: 'O5', text: 'Defender sits inside: flat' }]
   }
 ];
-export const FLAG5_ALIASES = { 'slant-flat': ['slant flat', 'slant and flat', 'high low', 'hi lo'] };
+const FLAG5_SEED_ALIASES = { 'slant-flat': ['slant flat', 'slant and flat', 'high low', 'hi lo'] };
 
-export const FLAG7_PLAYS = [
+const FLAG7_SEED = [
   {
     key: 'smash', title: 'Smash', concept: 'Corner–hitch read',
     summary: 'Outside receiver stops short (the hitch), inside receiver runs to the back corner. The QB reads the corner defender: if he sits on the hitch, throw the corner.',
@@ -45,4 +47,7 @@ export const FLAG7_PLAYS = [
     reads: [{ who: 'O5', text: 'Corner sits low: throw the corner' }, { who: 'O4', text: 'Corner bails deep: throw the hitch' }]
   }
 ];
-export const FLAG7_ALIASES = { smash: ['smash', 'smash concept', 'corner hitch', 'hitch corner'] };
+const FLAG7_SEED_ALIASES = { smash: ['smash', 'smash concept', 'corner hitch', 'hitch corner'] };
+
+export const FLAG5_PLAYS = FLAG5_SEED.concat(FLAG5_DRAFT), FLAG7_PLAYS = FLAG7_SEED.concat(FLAG7_DRAFT);
+export const FLAG5_ALIASES = Object.assign({}, FLAG5_SEED_ALIASES, FLAG5_DRAFT_ALIASES), FLAG7_ALIASES = Object.assign({}, FLAG7_SEED_ALIASES, FLAG7_DRAFT_ALIASES);

@@ -7,6 +7,7 @@
 
 import { toward, clamp } from '../engine/geom.js';
 import { FLAG5_PLAYS, FLAG5_ALIASES, FLAG7_PLAYS, FLAG7_ALIASES } from './flag-plays.js';
+import glossary from './flag-glossary.js';
 
 const move = (desc, extra) => Object.assign({ type: 'move', desc }, extra);
 const KINDS = {
@@ -102,11 +103,11 @@ const base = (o) => ({
 
 export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, noRun: [15, 30] }), {
   id: 'flag5', name: 'Flag Football 5v5', short: 'Flag 5v5', roster: { perSide: 5, label: '5 on 5' },
-  plays: FLAG5_PLAYS, aliases: FLAG5_ALIASES,
+  plays: FLAG5_PLAYS, aliases: FLAG5_ALIASES, glossary,
   starter: ['qb', 'center', 'left wide', 'right wide', 'right slot'],
   ai: {
     field: `A 5-on-5 flag football field (NFL FLAG youth style), in yards: x runs sideline to sideline, −15 (left) to +15 (right), as the offense faces the end zone. y runs from the back of the end zone (0); the goal line is y 10, midfield is y 35. The offense attacks toward y 0. The line of scrimmage is at y = los (default 30); the offense lines up at y > los, the defense at y < los. No-run zones are the 5 yards before the goal line and before midfield (y 10–15 and 30–35): only passes there.`,
-    rules: `NFL FLAG rules: the center snaps to the quarterback (O1 is the QB, O2 the center unless the coach says otherwise). Everyone is eligible, the center too. No blocking, screening or picks. The quarterback can't run with the ball unless it was handed off or pitched first; a handoff or pitch must be behind the line. One rusher, who starts 7 yards back from the line. The QB has about 7 seconds to throw. Defenders pull flags instead of tackling. Only the ball holder can hand off, pitch or throw. Keep receivers 4+ yards apart.`,
+    rules: `NFL FLAG rules: the center snaps to the quarterback (O1 is the QB, O2 the center unless the coach says otherwise). Everyone is eligible, the center too. No blocking, screening or picks. The quarterback can't run with the ball unless it was handed off or pitched first; a handoff or pitch must be behind the line. Usually one rusher (the official rules allow up to two), who starts 7 yards back from the line. The QB has about 7 seconds to throw. Defenders pull flags instead of tackling. Only the ball holder can hand off, pitch or throw. Keep receivers 4+ yards apart.`,
     roles: 'QB, C, X, Z, Y, H, RB, R, CB, S, LB',
     notation: 'Football lettering: O1 is the QB (role "QB"), O2 the center ("C"). Give every receiver its letter: X is the split end (usually wide left), Z the flanker (usually wide right), Y and H the inside/slot receivers, RB a back. Defenders get their job: R (the rusher), CB, S, LB. Call routes by their route-tree names (hitch, slant, out, in, curl, corner, post, go, flat, wheel, drag).'
   }
@@ -114,11 +115,11 @@ export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, no
 
 export const flag7 = Object.assign(base({ W: 40, depth: 50, los: 35, hashes: [-6, 6] }), {
   id: 'flag7', name: 'Flag Football 7v7', short: 'Flag 7v7', roster: { perSide: 7, label: '7 on 7' },
-  plays: FLAG7_PLAYS, aliases: FLAG7_ALIASES,
+  plays: FLAG7_PLAYS, aliases: FLAG7_ALIASES, glossary,
   starter: ['qb', 'center', 'left wide', 'right wide', 'left slot', 'right slot', 'running back'],
   ai: {
     field: `A 7-on-7 flag/passing football field, in yards: x runs sideline to sideline, −20 (left) to +20 (right), as the offense faces the end zone. y runs from the back of the end zone (0); the goal line is y 10. The offense attacks toward y 0. The line of scrimmage is at y = los (default 35); the offense lines up at y > los, the defense at y < los. Hash marks at x ±6.`,
-    rules: `7v7 rules (most leagues): the center snaps to the quarterback (O1 is the QB, O2 the center unless the coach says otherwise). No rush and no blocking: the QB has about 4 seconds to throw. Usually no running plays (handoffs only where the coach says the league allows them). Defenders cover man or zone and pull flags (or touch) the catcher. Only the ball holder can hand off, pitch or throw. Keep receivers 4+ yards apart.`,
+    rules: `7v7 rules (most leagues): the center snaps to the quarterback (O1 is the QB, O2 the center unless the coach says otherwise); in many 7v7 rulebooks the center is not eligible, so keep the center home unless the coach sends them out. No rush and no blocking: the QB has about 4 seconds to throw. Usually no running plays (handoffs only where the coach says the league allows them). Defenders cover man or zone and pull flags (or touch) the catcher. Only the ball holder can hand off, pitch or throw. Keep receivers 4+ yards apart.`,
     roles: 'QB, C, X, Z, Y, H, RB, CB, S, LB, N',
     notation: 'Football lettering: O1 is the QB (role "QB"), O2 the center ("C"). Give every receiver its letter: X is the split end (usually wide left), Z the flanker (usually wide right), Y and H the inside/slot receivers, RB a back. Defenders get their job: CB, S, LB, N (nickel). Call routes by their route-tree names (hitch, slant, out, in, curl, corner, post, go, flat, wheel, drag, seam).'
   }

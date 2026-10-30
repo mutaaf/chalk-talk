@@ -172,7 +172,8 @@ Route numbers are **not standardized**: 9 = go and (usually) 8 = post are the st
 
 Notes for promotion into `src/sports/flag-plays.js`:
 - Every player has a `role` letter (QB, C, X, Z, Y, H, RB / R, CB, S, LB, N).
-- The sim auto-guards any defender with no move in a beat against the O with the same number. So the three **coverage plays** keep their zone players busy in every beat until the throw, which takes 6–10 actions in one or two beats (over the ≤5 target used everywhere else; still within `normalize`'s 10 cap).
+- The coverage plays (`zone-1-3-1`, `cover-2`, `cover-3`) give each defender a `cover` job (`{type:'rush'}`, `{type:'man', on}`, `{type:'zone', zone:{x0,x1,d0,d1,label}}`), which `normalize`/`compile` in `sim.js` support. The zone players then play on their own, so every beat stays at ≤5 actions. `cover-2` and `cover-3` also set `coverage: 'cover2'|'cover3'` so the UI's coverage buttons light up. In Cover 2, X7 is a middle "robber" zone, not man on the back: man on a back who stays in the backfield drags the defender across the line.
+- Any other defender with no move in a beat auto-guards the O with the same number (X3 ↔ O3).
 - In 7v7, the QB (O1) and center (O2) never get a placed X1/X2 in offensive plays: an idle X1 or X2 would "guard" the QB/center and walk across the line.
 - Run plays (jet-sweep, reverse) use los 28, so they sit clearly outside the 30–35 no-run zone, and spell out every spot as `{x, y}`, because named spots are measured from the default los.
 
@@ -182,7 +183,7 @@ Notes for promotion into `src/sports/flag-plays.js`:
 cd /Users/mutaafaziz/Desktop/projects/chalk-talk && node -e "import('./research/flag-plays.draft.js').then(async m=>{const {normalize,compile}=await import('./src/engine/sim.js');const {flag5,flag7}=await import('./src/sports/flag.js');for(const [sp,list] of [[flag5,m.FLAG5_DRAFT],[flag7,m.FLAG7_DRAFT]]){for(const p of list){const r=normalize(p,sp);if(!r.ok||r.errors.length){console.log(sp.id,p.key,r.errors);process.exitCode=1;continue}const s=compile(r.play,sp,{defense:true});for(let t=0;t<s.beats+1;t+=.1){for(const q of s.posAt(t)){if(!isFinite(q[0])||q[0]<sp.field.x[0]||q[0]>sp.field.x[1]||q[1]<0||q[1]>sp.field.y[1])throw sp.id+' '+p.key+' off field '+q}}}console.log('ok',sp.id,list.length)}})"
 ```
 
-Last run: `ok flag5 12` / `ok flag7 12`. Extra checks also passed: only the ball holder snaps, hands off or throws; handoff partners end ≤1.5 yd apart; every offensive player starts behind the line and every defender in front of it; beats 3–6.
+Last run: `ok flag5 12` / `ok flag7 12`. Extra checks also passed: ≤5 actions in every beat; only the ball holder snaps, hands off or throws; handoff partners end ≤1.5 yd apart; every offensive player starts behind the line and every defender in front of it; beats 3–6.
 
 ---
 
