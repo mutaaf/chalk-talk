@@ -107,7 +107,7 @@ const CALLER = 'Voice: a former player turned color analyst in the broadcast boo
 
 const spoken = t => t.replace(/\bO(\d)\b/g, 'O $1').replace(/\bX(\d)\b/g, 'X $1').replace(/\bDHO\b/g, 'D H O');
 const cache = new Map();   // text → Promise<blob url>
-let audio = null, seq = 0;
+let audio = null, seq = 0, waiting = false;
 
 function provider(playKey) {
   const v = voiceKey.get(), vk = voiceKind(v);
@@ -159,19 +159,28 @@ export function say(text, playKey, opts) {
   hush(); const my = ++seq;
   const p = provider(playKey), localText = (opts && opts.local) || text;
   if (p) {
+    waiting = true;
     fetchLine(text, p).then(url => {
       if (my !== seq) return;
+      waiting = false;
       audio = player || new Audio();   // the shared element a tap unlocked (iOS blocks a fresh one here)
       audio.src = url; audio.play().catch(() => { onError && onError('Tap the board once to turn on sound.'); local(localText); });
-    }).catch(e => { if (my === seq) { onError && onError(e.message); local(localText); } });
+    }).catch(e => { if (my === seq) { waiting = false; onError && onError(e.message); local(localText); } });
     return;
   }
   local(localText);
 }
 export function hush() {
-  seq++;
+  seq++; waiting = false;
   if (audio) { audio.pause(); audio = null; }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+}
+
+// is a line still playing (or about to)? the board waits for it instead of talking over it
+export function speaking() {
+  if (waiting) return true;
+  if (audio && !audio.paused && !audio.ended) return true;
+  return typeof speechSynthesis !== 'undefined' && (speechSynthesis.speaking || speechSynthesis.pending);
 }
 
 // no voice key: the most natural voice on this device, read with a caller's energy

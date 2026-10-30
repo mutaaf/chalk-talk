@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.23.0';
+export const VERSION = '0.23.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.23.1', date: '2026-10-30', title: 'Every word, at a teaching pace', items: [
+    { title: 'The analyst at half speed', call: 'With the analyst on, plays run at 0.5× so there’s time to follow the read (pick any speed and it sticks). The play now waits at the end of each step for the line to finish, so nothing is cut off or skipped, and the play’s name leads into step one instead of being talked over.', show: 'narrate' }
+  ] },
   { version: '0.23.0', date: '2026-10-30', title: 'Inside their heads', items: [
     { title: 'Mind view', call: 'Press V (or More → Mind view) and every player gets a see-through chip: what they’re doing, how fast, how much space. Tap one to open their mind, live: their job, their man, their read, the QB’s progression, the ball on its way, the AI’s thought and their best reads, scored. Open up to three, or the table of everyone. Light enough to leave on.', show: 'moreBtn' }
   ] },

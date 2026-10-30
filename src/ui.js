@@ -9,7 +9,7 @@ import AuroraField from 'aurora-field';
 import { playShape, view, particleBudget } from './engine/field.js';
 import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
-import { listener, say, hush, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
+import { listener, say, hush, speaking, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
 import { drawPlay, smartPlayers, filmRoom, setApi, setAuth, ownApi, plan as aiPlan, transcribe, key, keyKind, NAMES } from './ai.js';
 import { CSS } from './style.js';
 import { readStroke } from './engine/sketch.js';
@@ -220,7 +220,18 @@ export function mount(root, options) {
   // the booth: the analyst explains the read (default), or straight play-by-play
   try { state.style = localStorage.getItem('chalktalk.voiceStyle') || 'analyst'; } catch (e) { state.style = 'analyst'; }
   const lineFor = (k, text) => state.style === 'analyst' && state.booth ? ((state.booth.ai && state.booth.ai[k]) || state.booth.lines[k] || text) : text;
-  const speakBeat = (text, k) => { const t = k == null ? text : lineFor(k, text); speak(spoken(t, false), state.showNames ? spoken(t, true) : null); };
+  // the play's opening words lead into step 1 rather than being cut off by it
+  const speakBeat = (text, k) => { let t = k == null ? text : lineFor(k, text); if (k === 0 && state.intro) t = state.intro + ' ' + t; state.intro = null; speak(spoken(t, false), state.showNames ? spoken(t, true) : null); };
+  // the analyst explains at half speed (unless the coach picked a speed), and the play waits at the end of a
+  // step for the line to finish (at most 15 s, in case a device never reports the end)
+  const baseSpeed = () => (state.narrate && state.style === 'analyst' ? 0.5 : 1);
+  const applySpeed = () => { if (state.sim && !state.quiz) { state.sim.speed(state.userSpeed || baseSpeed()); renderDots(); } };
+  let holdAt = 0;
+  const waitForVoice = () => {
+    if (!state.narrate || state.quiz || !speaking()) { holdAt = 0; return false; }
+    holdAt = holdAt || performance.now();
+    return performance.now() - holdAt < 15000;
+  };
   voiceErrors(m => toast(m));
 
   // ---- your players' names: on this device only, never sent anywhere ----
@@ -252,7 +263,7 @@ export function mount(root, options) {
     if (!n.ok) { toast(n.errors[0] || 'That play did not make sense.'); return false; }
     const play = n.play, sim = compile(play, sport, { defense: state.defense });
     const name = 'chalk:' + sport.id + ':' + Math.random().toString(36).slice(2);
-    sim.onBeat(onBeat);
+    sim.onBeat(onBeat); sim.hold(waitForVoice); sim.speed(state.userSpeed || baseSpeed());
     AuroraField.register(name, playShape(sim, { trace: !field }));
     // a field keeps every shape it has shown; start a fresh one now and then so long sessions stay light
     if (!field || state.loads > 24) makeField(name);
@@ -264,8 +275,9 @@ export function mount(root, options) {
     if (!o.quiet && state.narrate && state.style === 'analyst' && !state.quiz) boothAI();
     R.lib.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === o.key));
     if (o.at != null) { sim.seek(o.at); sim.playing(false); renderDots(); }
-    if (!o.quiet && state.narrate) prefetch([o.say].concat(play.beats.map((b, k) => lineFor(k, b.say))).map(t => spoken(t)), key.get());
-    if (o.say && !o.quiet) speak(spoken(o.say));
+    if (!o.quiet && state.narrate) prefetch([o.say, o.say && play.beats[0] && o.say + ' ' + lineFor(0, play.beats[0].say)].concat(play.beats.map((b, k) => lineFor(k, b.say))).map(t => spoken(t)), key.get());
+    state.intro = null;
+    if (o.say && !o.quiet) { if (state.narrate && o.at == null) state.intro = o.say; else speak(spoken(o.say)); }
     if (!o.keepAI) R.aiCard.hidden = true;
     if (!o.keepFilm) R.film.innerHTML = '';
     opts.onLoad && opts.onLoad(sim.play, sport);
@@ -689,8 +701,8 @@ export function mount(root, options) {
     if (c === 'pause') sim.playing(false);
     if (c === 'play') sim.playing(true);
     if (c === 'toggle') sim.playing(!sim.playing());
-    if (c === 'slower') sim.speed(sim.speed() / 1.5 < 0.3 ? 0.25 : +(sim.speed() / 1.5).toFixed(2));
-    if (c === 'faster') sim.speed(+(sim.speed() * 1.5).toFixed(2));
+    if (c === 'slower') state.userSpeed = sim.speed(sim.speed() / 1.5 < 0.3 ? 0.25 : +(sim.speed() / 1.5).toFixed(2));
+    if (c === 'faster') state.userSpeed = sim.speed(+(sim.speed() * 1.5).toFixed(2));
     if (c === 'defense-on' || c === 'defense-off' || c === 'defense') {
       state.defense = c === 'defense' ? !state.defense : c === 'defense-on'; track('defense', { on: state.defense ? 1 : 0 });
       renderDefense(); if (R.rlDef) R.rlDef.classList.toggle('on', state.defense);
@@ -711,8 +723,8 @@ export function mount(root, options) {
   R.playBtn.onclick = () => act('toggle');
   R.prev.onclick = () => act('back');
   R.next.onclick = () => act('next');
-  R.speed.onclick = () => { const s = state.sim.speed(); state.sim.speed(s >= 2 ? 0.5 : s >= 1 ? 2 : 1); renderDots(); };
-  function renderNarrate() { R.narrate.classList.toggle('off', !state.narrate); R.narrate.classList.toggle('on', state.narrate); R.narrate.setAttribute('aria-pressed', state.narrate); R.narrate.innerHTML = icon(state.narrate ? 'speaker' : 'mute') + '<span>' + (state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Voice') + '</span>'; }
+  R.speed.onclick = () => { const s = state.sim.speed(); state.userSpeed = state.sim.speed(s >= 2 ? 0.5 : s >= 1 ? 2 : 1); renderDots(); };
+  function renderNarrate() { applySpeed(); R.narrate.classList.toggle('off', !state.narrate); R.narrate.classList.toggle('on', state.narrate); R.narrate.setAttribute('aria-pressed', state.narrate); R.narrate.innerHTML = icon(state.narrate ? 'speaker' : 'mute') + '<span>' + (state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Voice') + '</span>'; }
   R.narrate.onclick = () => voiceMenu();
   renderNarrate();
   R.infoBtn.onclick = () => root.classList.toggle('ct-info');

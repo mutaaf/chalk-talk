@@ -54,3 +54,16 @@ for (const sport of sports()) {
   console.log(`frame cost ${ms.toFixed(3)} ms`);
 }
 console.log(`ok: ${total} plays across ${sports().length} sports compile, stay on the field and keep the ball honest`);
+
+// the voice still talking holds the play at the end of the step, never past it; released, it carries on
+{
+  const sport = sports()[0], sim = compile(normalize(sport.plays[0], sport).play, sport);
+  let talking = true, now = 1000;
+  sim.hold(() => talking); sim.tick(now);
+  for (let i = 0; i < 400; i++) sim.tick(now += 16);
+  assert.equal(sim.beatAt(), 0, 'held at the end of step 1');
+  assert.ok(sim.time() > 0.99, 'waits at the very end of the step');
+  talking = false; for (let i = 0; i < 10; i++) sim.tick(now += 16);
+  assert.equal(sim.beatAt(), 1, 'moves on once the line is done');
+  console.log('ok: the play waits for the voice');
+}

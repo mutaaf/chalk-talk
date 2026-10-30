@@ -376,7 +376,7 @@ export function compile(play, sport, options) {
   }
 
   // ---- the clock, and a per-frame memo so every consumer of a frame shares one computation ----
-  let t = 0, playing = true, speed = 1, last = 0, onBeat = null, beatNow = -1;
+  let t = 0, playing = true, speed = 1, last = 0, onBeat = null, beatNow = -1, gate = null;
   const span = beats.length + HOLD, B = sport.ball;
   const memo = { pt: NaN, P: null, bt: NaN, Bp: null, rt: NaN, R: null };
   const sim = {
@@ -386,13 +386,18 @@ export function compile(play, sport, options) {
     time: () => t,
     tick(now) {
       const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
-      if (playing) t += dt * speed / 2.4;   // a beat is ~2.4 s at 1×
+      if (playing) {
+        const nt = t + dt * speed / 2.4;   // a beat is ~2.4 s at 1×
+        // a host can hold the play at the end of a beat (the voice still talking): it waits there, never cut off
+        t = Math.floor(nt) > Math.floor(t) && gate && gate() ? Math.max(t, Math.floor(nt) - 1e-4) : nt;
+      }
       if (t >= span) t = 0;
       const b = Math.min(beats.length, Math.floor(t));
       if (b !== beatNow) { beatNow = b; onBeat && onBeat(b); }
       return t;
     },
     onBeat(fn) { onBeat = fn; },
+    hold(fn) { gate = fn; },
     seek(v) { t = clamp(v, 0, span - 0.001); },
     playing: v => (v == null ? playing : (playing = v)),
     speed: v => (v == null ? speed : (speed = clamp(v, 0.25, 3))),
