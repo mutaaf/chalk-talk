@@ -1,12 +1,18 @@
 {
-  // chalk-talk: static assets at mutaafaziz.com/chalktalk/. No server: AI and voice are
-  // bring-your-own-key, called from the browser straight to the provider.
+  // chalk-talk: static assets at mutaafaziz.com/chalktalk/, plus the free AI at /chalktalk/api/*
+  // (src/worker: open models on Workers AI for coaches without their own key; digitalcraftai.com
+  // proxies /api/chalktalk/* here). With a key, the browser calls Claude/OpenAI directly.
   // The route takes precedence over the mutaafaziz.com Custom Domain (the personal site).
   "name": "chalk-talk",
+  "main": "src/worker/index.js",
   "compatibility_date": "2026-10-01",
   "workers_dev": true,
   "preview_urls": true,
   "previews": {},
-  "assets": { "directory": "./dist", "not_found_handling": "404-page" },
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "404-page", "run_worker_first": ["/chalktalk/api/*"] },
+  // The free model: Workers AI's daily allowance, capped in code (src/worker LIMITS).
+  "ai": { "binding": "AI" },
+  // Hashed-IP daily counters. No database_id on purpose: provisioned by name on first deploy (as COLD GAS).
+  "d1_databases": [{ "binding": "DB", "database_name": "chalk-talk" }],
   "routes": [{ "pattern": "mutaafaziz.com/chalktalk*", "zone_name": "mutaafaziz.com" }]
 }

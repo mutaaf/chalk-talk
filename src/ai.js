@@ -86,22 +86,10 @@ let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0
 export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
 export const apiBase = () => API;
 async function free(task, body, signal) {
-  const nokey = () => Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
-  let r;
-  try { r = await fetch(API + '/' + task, { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
-  catch (e) { if (e.name === 'AbortError') throw e; throw nokey(); }   // offline, or no free AI here: ask for a key instead
-  if (r.status === 404 || r.status === 405) throw nokey();
+  const r = await fetch(API + '/' + task, { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(r.status === 429 ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
   return j;
-}
-
-// speech → text on the free API (an open Whisper model); used where the browser can't do it
-export async function transcribe(blob) {
-  const r = await fetch(API + '/hear', { method: 'POST', headers: { 'content-type': blob.type || 'audio/webm' }, body: blob });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(r.status === 429 ? 'Voice is resting for today. Type it instead.' : j.error || 'Couldn’t hear that. Try again, or type it.');
-  return j.text || '';
 }
 
 // one call to the provider the key belongs to; resolves with the reply's text

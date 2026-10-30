@@ -13,6 +13,23 @@ football 5v5 and 7v7, and any sport you add as a data file.
 - **Conventions:** basketball offense is the positional number (1 point guard … 5 center) in a circle, defense an X with its man's number. Football offense is lettered by position (Q, C in a square, X/Z outside, Y/H inside, RB), defense by job (R, CB, S, LB, N). Solid arrow = cut or route, zigzag = dribble, dashed = pass, T-bar = screen.
 - **Bring your own key:** Claude or OpenAI for plays (the key is recognised, kept in this browser and sent only to that provider), and OpenAI or ElevenLabs for the play-by-play broadcaster voice. Without keys you get the library, sketching, commands and the device's most natural voice.
 
+## The free AI (no key needed)
+
+Coaches without a key get open models on Cloudflare Workers AI, served by `src/worker` at
+`mutaafaziz.com/chalktalk/api/*` and proxied at `digitalcraftai.com/api/chalktalk/*`:
+
+| | |
+|---|---|
+| `POST play` `{sport, text, current, sketch}` | a play, built with the same prompt, schema, validation and repair round as the BYOK path |
+| `POST smart` `{sport, play, ids}` | smart players: each chosen position's move and thought per beat |
+| `POST hear` audio ≤ 2 MB | `{text}` via Whisper, for browsers and installed apps without Web Speech |
+| `POST say` `{text ≤ 300}` | audio via MeloTTS (cached) |
+| `GET health` | models and today's usage |
+
+Requests carry X's and O's only (player names stay on the coach's device). Nothing is stored except
+hashed-IP daily counters. Daily caps keep it inside the free Workers AI allowance; a 429 says to
+add a key.
+
 ## Use it in an app
 
 ```js
