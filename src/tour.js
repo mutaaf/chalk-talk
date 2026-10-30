@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.11.1';
+export const VERSION = '0.12.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.12.0', date: '2026-10-30', title: 'Front and center', items: [
+    { title: 'Your words, big', call: 'When you talk, your words fill the screen as you say them. Then you watch it work: placing the players, drawing every move, checking the read, with a clock and a Cancel.', show: 'mic' },
+    { title: 'Your last plays, one tap', call: 'The three plays you made last sit right under My plays, in the list and in the Plays sheet.', show: 'lib' }
+  ] },
   { version: '0.11.1', date: '2026-10-30', title: 'Edit on the whiteboard', items: [
     { title: 'Whiteboard only stays put', call: 'Pause, tap a player, label or sketch: the board stays in whiteboard-only mode until you leave it.', show: null }
   ] },

@@ -124,6 +124,15 @@ const TEMPLATE = `
   <button type="button" data-tb="film">${icon('film')}<span>Film room</span></button>
   <button type="button" data-tb="more">${icon('grid')}<span>More</span><i class="ct-dot" data-r="tbDot" hidden></i></button>
 </nav>
+<div class="ct-live" data-r="live" hidden role="dialog" aria-live="polite" aria-label="Your play">
+  <div class="ct-livecard">
+    <div class="ct-liveorb" data-r="liveOrb">${MIC}<i></i><i></i><i></i></div>
+    <div class="ct-livek" data-r="liveK">Listening</div>
+    <p class="ct-livesaid" data-r="liveSaid"></p>
+    <ol class="ct-livesteps" data-r="liveSteps"></ol>
+    <div class="ct-livefoot"><span data-r="liveTime"></span><button type="button" data-r="liveStop">Done</button><button type="button" class="ghost" data-r="liveCancel">Cancel</button></div>
+  </div>
+</div>
 <div class="ct-toast" data-r="toast" role="status"></div>
 <button type="button" class="ct-focus" data-r="focusChip" hidden></button>
 <div class="ct-coach" data-r="coach" hidden role="dialog" aria-label="Your first sketch"></div>
@@ -636,9 +645,19 @@ export function mount(root, options) {
   }
   R.sports.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSport(getSport(b.dataset.id)); });
   function renderLibrary() {
-    R.lib.innerHTML = `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
+    R.lib.innerHTML = `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
-  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.mine) myPlays(); else teach(b.dataset.key); });
+  // your last three plays, one tap away
+  function recentHTML() {
+    const r = history.all().filter(e => e.sport === state.sport.id).slice(0, 3);
+    return r.length ? `<div class="ct-recent">${r.map(e => `<button type="button" data-hist="${esc(e.id)}" title="${esc(e.said || '')}"><b>${esc(e.name || e.title || 'Your play')}</b><small>${esc(e.said && e.source !== 'sketch' ? '“' + e.said + '”' : e.concept || 'Sketched')}</small></button>`).join('')}</div>` : '';
+  }
+  function runHistory(id) {
+    const entry = history.all().find(x => x.id === id); if (!entry) return;
+    closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null);
+    R.status.textContent = 'From My plays · instant, no AI used';
+  }
+  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = state.sport.id !== 'basketball';
@@ -843,7 +862,7 @@ export function mount(root, options) {
     if (state.quiz) return;
     if (!o.sketch) {
       const u = understand(text, state.sport.aliases);
-      const done = (path, extra) => { const ms = performance.now() - t0; track('voice', { path, ms: Math.round(ms), ok: 1 }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.textContent = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms`; };
+      const done = (path, extra) => { const ms = performance.now() - t0; if (live.mode) live.done(path === 'command' ? 'Done ✓' : `Instant ✓ ${Math.max(1, Math.round(ms))} ms`); track('voice', { path, ms: Math.round(ms), ok: 1 }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.textContent = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms`; };
       if (u.cmd) { act(u.cmd); done('command'); return; }
       if (u.concept) { teach(u.concept); done('library'); return; }
       const learned = recall(state.sport.id, text);   // a phrase this coach taught it before
@@ -857,19 +876,20 @@ export function mount(root, options) {
 
     if (state.busy) state.busy.abort();
     const ctl = state.busy = new AbortController(), sport = state.sport;
-    root.classList.add('ct-drawing'); R.status.textContent = o.sketch ? 'The AI is taking over your sketch…' : 'Drawing your play…';
+    root.classList.add('ct-drawing'); live.draw(o.sketch ? '' : text, !!o.sketch); R.status.textContent = o.sketch ? 'The AI is taking over your sketch…' : 'Drawing your play…';
     const pulse = setInterval(() => field && field.signal(), 500);
     try {
       const raw = await drawPlay(text, state.play ? strip(state.play) : null, { signal: ctl.signal, glossary: opts.glossary || sport.glossary, sport, library: sport.plays, sketch: !!o.sketch });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
       const ms = performance.now() - t0, secs = (ms / 1000).toFixed(1) + ' s';
+      live.done(`${o.sketch ? 'Taken over' : 'Drawn'} in ${secs} ✓`);
       if (o.sketch) { history.add({ sport: sport.id, said: 'Sketch: ' + (raw.title || 'my play'), board: hashOf(JSON.stringify(o.mine && o.mine.beats)), source: 'sketch', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); film(); return; }
       load(raw, { say: raw.reply, keepAI: true });
       showAI(raw, null);
       R.status.textContent = (raw.reply || '') + ` · drawn in ${secs}`;
       // learn: if the coach keeps what was drawn for this phrase, it becomes instant next time
       track('voice', { path: 'ai', ms: Math.round(ms), ok: 1 });
-      history.add({ sport: sport.id, said: text, board, source: o.source || 'text', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) });
+      history.add({ sport: sport.id, said: text, board, source: o.source || 'text', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); renderLibrary();
       const li = logVoice({ sport: sport.id, path: 'ai', ms, ok: true, text: text.slice(0, 200), recognized: raw.recognized || null });
       const shown = state.raw;
       clearTimeout(state.keepT);
@@ -881,6 +901,7 @@ export function mount(root, options) {
         }
       }, 20000);
     } catch (e) {
+      live.hide();
       if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey' || e.code === 'upgrade' || (e.status === 429 && opts.upgrade)) openKey(e.message); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); track('voice', { path: o.sketch ? 'sketch' : 'ai', ok: 0, status: e.status || e.code || 'err' }); }
     } finally {
       clearInterval(pulse);
@@ -1234,8 +1255,10 @@ export function mount(root, options) {
   // ---- ears ----
   const ear = listener(t => heard(t, { source: 'voice' }), (st, text) => {
     R.mic.dataset.state = st; R.tbMic.dataset.state = st; R.rlMic.dataset.state = st;
-    if (st === 'hearing') R.heard.textContent = text;
-    if (st === 'listening') { hush(); R.heard.textContent = 'Listening…'; R.heard.classList.remove('fix'); chime('ask'); }
+    if (st === 'hearing') { R.heard.textContent = text; live.hear(text); }
+    if (st === 'idle' && !text && live.mode === 'listen') live.hide();
+    if (st === 'error') live.hide();
+    if (st === 'listening') { hush(); live.listen(); R.heard.textContent = 'Listening…'; R.heard.classList.remove('fix'); chime('ask'); }
     if (st === 'error' && text) toast(text);
   }, blob => transcribe(blob, state.sport.id), () => vocabulary(state.sport));
   if (!ear) { R.mic.disabled = true; R.mic.title = 'This browser cannot hear you. Type instead.'; }
@@ -1473,8 +1496,8 @@ export function mount(root, options) {
   function playsSheet() {
     const groups = {};
     state.sport.plays.forEach(p => { (groups[p.concept] = groups[p.concept] || []).push(p); });
-    openPanel(R.playChip, state.sport.name + ' plays', `<button type="button" class="ct-minebar" data-mine="1">${icon('film')}<span><b>My plays</b><small>${history.all().filter(e => e.sport === state.sport.id).length} you’ve drawn · instant, no AI</small></span>›</button><div class="ct-playgrid">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}" class="${p.key === state.libKey ? 'on' : ''}"><small>${esc(p.concept)}</small><b>${esc(p.title)}</b></button>`).join('')}</div>`, pb => {
-      pb.onclick = e => { if (e.target.closest('[data-mine]')) { myPlays(); return; } const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
+    openPanel(R.playChip, state.sport.name + ' plays', `<button type="button" class="ct-minebar" data-mine="1">${icon('film')}<span><b>My plays</b><small>${history.all().filter(e => e.sport === state.sport.id).length} you’ve drawn · instant, no AI</small></span>›</button>${recentHTML()}<div class="ct-playgrid">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}" class="${p.key === state.libKey ? 'on' : ''}"><small>${esc(p.concept)}</small><b>${esc(p.title)}</b></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => { if (e.target.closest('[data-mine]')) { myPlays(); return; } const hb = e.target.closest('[data-hist]'); if (hb) { runHistory(hb.dataset.hist); return; } const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
     }, 'ct-xl');
   }
   // the control center: destinations as tiles, and every on/off as a stock switch row that flips in place
@@ -1640,7 +1663,7 @@ export function mount(root, options) {
         const fb = e.target.closest('[data-f]'); if (fb) { f = fb.dataset.f; pb.querySelectorAll('[data-f]').forEach(b => b.classList.toggle('on', b === fb)); redraw(); return; }
         const a = e.target.closest('[data-a]'), li = e.target.closest('[data-id]'); if (!a || !li) return;
         const id = li.dataset.id, entry = history.all().find(x => x.id === id); if (!entry) return;
-        if (a.dataset.a === 'play') { closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null); R.status.textContent = 'From My plays · instant, no AI used'; return; }
+        if (a.dataset.a === 'play') { runHistory(id); return; }
         if (a.dataset.a === 'fav') { history.update(id, { fav: !entry.fav }); redraw(); return; }
         if (a.dataset.a === 'del') { history.remove(id); redraw(); return; }
         if (a.dataset.a === 'name') {
@@ -1652,6 +1675,30 @@ export function mount(root, options) {
       };
     }, 'ct-xl ct-histp');
   }
+
+
+  // ---- the live moment, front and center: listening (your words, big, as you say them), then drawing (the
+  // steps it's working through, a clock), then the result. Tap Done to stop listening, Cancel to stop either.
+  const live = (() => {
+    let mode = null, t0 = 0, tick = 0, hideT = 0;
+    const steps = ['Hearing your play', 'Placing the players', 'Drawing every move', 'Checking the read'];
+    const clock = () => { R.liveTime.textContent = mode === 'draw' || mode === 'listen' ? ((performance.now() - t0) / 1000).toFixed(1) + ' s' : ''; if (mode === 'draw') { const k = Math.min(steps.length - 1, Math.floor((performance.now() - t0) / 2600)); R.liveSteps.querySelectorAll('li').forEach((li, i) => { li.className = i < k ? 'done' : i === k ? 'now' : ''; }); } };
+    const open = m => { clearTimeout(hideT); mode = m; R.live.hidden = false; R.live.dataset.mode = m; root.classList.add('ct-liveon'); clearInterval(tick); t0 = performance.now(); tick = setInterval(clock, 100); clock(); };
+    return {
+      listen() { open('listen'); R.liveK.textContent = 'Listening'; R.liveSaid.textContent = 'Say the play: who has the ball, who moves, where it goes.'; R.liveSaid.classList.add('hint'); R.liveSteps.innerHTML = ''; R.liveStop.hidden = false; },
+      hear(text) { if (mode !== 'listen') return; R.liveSaid.textContent = '“' + text + '”'; R.liveSaid.classList.remove('hint'); R.liveOrb.classList.remove('beat'); void R.liveOrb.offsetWidth; R.liveOrb.classList.add('beat'); },
+      draw(text, sketch) {
+        open('draw'); R.liveK.textContent = sketch ? 'The AI is taking over your sketch' : 'Drawing your play'; R.liveStop.hidden = true;
+        if (text) { R.liveSaid.textContent = '“' + text + '”'; R.liveSaid.classList.remove('hint'); } else R.liveSaid.textContent = '';
+        R.liveSteps.innerHTML = steps.map(x => `<li>${x}</li>`).join('');
+      },
+      done(msg) { if (!mode) return; mode = 'done'; R.live.dataset.mode = 'done'; clearInterval(tick); R.liveK.textContent = msg; R.liveSteps.querySelectorAll('li').forEach(li => { li.className = 'done'; }); R.liveTime.textContent = ''; R.liveStop.hidden = true; hideT = setTimeout(() => this.hide(), 1100); },
+      hide() { mode = null; clearInterval(tick); clearTimeout(hideT); R.live.hidden = true; root.classList.remove('ct-liveon'); },
+      get mode() { return mode; }
+    };
+  })();
+  R.liveStop.onclick = () => { if (ear && ear.on) ear.stop(); };
+  R.liveCancel.onclick = () => { if (ear && ear.on) { ear.stop(); } if (state.busy) state.busy.abort(); live.hide(); };
 
   // ---- the keys ----
   function badge(el2, kind) { el2.textContent = kind ? '✓ ' + kind : ''; el2.className = 'ct-badge' + (kind ? ' ok' : ''); }
