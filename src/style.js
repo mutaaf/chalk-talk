@@ -1010,5 +1010,16 @@ export const CSS = `
 .ct-edge.tucked span { writing-mode: vertical-rl; font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 40cqh; }
 .ct-edgel.tucked span { transform: rotate(180deg); }
 .ct-edge.tucked i { font-style: normal; color: var(--mute); font-size: 15px; }
+/* the playbook builder */
+.ct-pb { padding: 12px 14px 0; } .ct-pb h6 { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font-family: var(--display); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--mute); }
+.ct-pbtop { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; } .ct-pbtop input:not([type]) { flex: 1 1 260px; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--night); color: var(--paper); font: inherit; }
+.ct-pbtop .ct-check { padding: 0; }
+.ct-pbrow { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; } .ct-pbrow:hover { background: var(--ice-dim); }
+.ct-pbrow input { width: 18px; height: 18px; accent-color: var(--o); flex: none; } .ct-pbrow span { display: grid; min-width: 0; } .ct-pbrow b { font-size: 14px; } .ct-pbrow small { color: var(--mute); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct .ct-pball { font-size: 11px; color: var(--o); letter-spacing: .04em; text-transform: none; font-family: var(--body); }
+.ct-pbgo { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px -14px 0; padding: 12px 14px; background: var(--deep); border-top: 1px solid var(--line); }
+.ct-pbgo span { color: var(--mute); font-size: 13px; } .ct .ct-pbgo .go { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 21px; } .ct-pbgo .go:disabled { opacity: .4; } .ct-pbgo .ct-i { width: 17px; height: 17px; }
+.ct .ct-fcard.settled { animation: ct-settle .45s ease-out both; } .ct-fsee.settled { animation: ct-settle .45s ease-out both; }
+@keyframes ct-settle { from { opacity: .55; box-shadow: 0 0 0 2px rgba(184, 156, 255, .5); } }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;

@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.19.2';
+export const VERSION = '0.20.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.20.0', date: '2026-10-30', title: 'Your playbook', items: [
+    { title: 'Print a playbook', call: 'Pick any plays (the library, your own, what’s on the board) and get a clean playbook: a cover with contents, then each play on its own page with a top-down diagram, numbered steps, step-by-step frames, the kid version, the cues and the reads. Save it as a PDF from any device. In More, or My plays.', show: 'moreBtn' },
+    { title: 'A calmer film room', call: 'Each player’s card fills in on its own as its brain answers; the rest of the film room stays still.', show: 'filmTop' }
+  ] },
   { version: '0.19.2', date: '2026-10-30', title: 'Done means done', items: [
     { title: 'Done and Cancel work', call: 'While you talk, Done draws what you said and Cancel throws it away. Nothing gets drawn after a Cancel.', show: 'mic' }
   ] },

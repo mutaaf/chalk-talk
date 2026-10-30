@@ -25,6 +25,7 @@ import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as m
 import { chime, soundOn, setSound } from './sound.js';
 import { startTracking, track } from './track.js';
 import { strip } from './engine/strip.js';
+import { buildPlaybook, openPlaybook } from './playbook.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -1346,6 +1347,7 @@ export function mount(root, options) {
     if (k2 === 'f') present();
     if (k2 === 'w') boardOnly();
     if (k2 === 'h') myPlays();
+    if (e.key === 'P' && e.shiftKey) playbookBuilder();
     if (e.key === '[') flipSide('lib');
     if (e.key === ']') flipSide('card');
     if (k2 === 'm' && !state.sketch) R.moreBtn.click();
@@ -1556,6 +1558,7 @@ export function mount(root, options) {
     const fb = !!state.sport.kinds.route;
     const tiles = [
       ['mine', 'film', 'My plays', 'Everything you’ve drawn'],
+      ['playbook', 'book', 'Playbook', 'Print any plays as a PDF'],
       ['guide', 'book', 'Guide', 'Positions in depth'],
       ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
       ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
@@ -1596,7 +1599,7 @@ export function mount(root, options) {
           return;
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
-        ({ mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+        ({ playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
           ai: () => openKey(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
@@ -1713,11 +1716,12 @@ export function mount(root, options) {
       return rows.length ? `<ul class="ct-hist">${rows.map(e => `<li data-id="${esc(e.id)}"><button type="button" class="ct-hplay" data-a="play"><small>${esc(e.concept || 'Your play')} · ${esc(SRC[e.source] || 'Typed')} · ${when(e.at)}${e.uses > 1 ? ' · used ' + e.uses + '×' : ''}</small><b>${esc(e.name || e.title || 'Untitled play')}</b>${e.said && e.source !== 'sketch' ? `<span>“${esc(e.said)}”</span>` : ''}</button>
         <button type="button" data-a="fav" class="${e.fav ? 'on' : ''}" aria-label="${e.fav ? 'Unfavorite' : 'Favorite'}">${e.fav ? '★' : '☆'}</button><button type="button" data-a="name" aria-label="Rename">${icon('draw')}</button><button type="button" data-a="del" aria-label="Delete">${icon('close')}</button></li>`).join('')}</ul>` : '<p class="ct-empty">Nothing matches.</p>';
     };
-    const body = `<div class="ct-histbar"><input type="search" data-r="hq" placeholder="Search your plays and the words you used" autocomplete="off"><div class="ct-seg">${[['all', 'All'], ['fav', '★'], ['voice', 'Said'], ['text', 'Typed'], ['sketch', 'Sketched']].map(([k, l]) => `<button type="button" data-f="${k}" class="${k === f ? 'on' : ''}">${l}</button>`).join('')}</div></div><div data-r="hlist">${list()}</div>`;
+    const body = `<button type="button" class="ct-minebar" data-pbook="1">${icon('book')}<span><b>Make a playbook</b><small>Pick any plays and print them as a PDF</small></span>›</button><div class="ct-histbar"><input type="search" data-r="hq" placeholder="Search your plays and the words you used" autocomplete="off"><div class="ct-seg">${[['all', 'All'], ['fav', '★'], ['voice', 'Said'], ['text', 'Typed'], ['sketch', 'Sketched']].map(([k, l]) => `<button type="button" data-f="${k}" class="${k === f ? 'on' : ''}">${l}</button>`).join('')}</div></div><div data-r="hlist">${list()}</div>`;
     openPanel(R.playChip, 'My plays · ' + state.sport.short, body, pb => {
       const L = pb.querySelector('[data-r=hlist]'), redraw = () => { L.innerHTML = list(); };
       pb.querySelector('[data-r=hq]').oninput = e => { q = e.target.value.trim().toLowerCase(); redraw(); };
       pb.onclick = e => {
+        if (e.target.closest('[data-pbook]')) { playbookBuilder(); return; }
         const fb = e.target.closest('[data-f]'); if (fb) { f = fb.dataset.f; pb.querySelectorAll('[data-f]').forEach(b => b.classList.toggle('on', b === fb)); redraw(); return; }
         const a = e.target.closest('[data-a]'), li = e.target.closest('[data-id]'); if (!a || !li) return;
         const id = li.dataset.id, entry = history.all().find(x => x.id === id); if (!entry) return;
@@ -1773,6 +1777,43 @@ export function mount(root, options) {
     try { localStorage.setItem('chalktalk.coach', b.dataset.coach); } catch (e2) {}
     track('coach_style', { id: b.dataset.coach }); renderCoaches();
   });
+
+
+  // ---- playbooks: pick any plays (on the board, yours, the library) and print them as a PDF ----
+  function playbookBuilder() {
+    const S = state.sport, mine = history.all().filter(e => e.sport === S.id && e.raw);
+    let team = ''; try { team = localStorage.getItem('chalktalk.pbteam') || ''; } catch (e) {}
+    const row = (key, title, sub, on) => `<label class="ct-pbrow"><input type="checkbox" data-pk="${esc(key)}"${on ? ' checked' : ''}><span><b>${esc(title)}</b><small>${esc(sub)}</small></span></label>`;
+    const board = state.play && !state.libKey ? row('board', state.play.title, 'On the board now', true) : '';
+    const body = `<div class="ct-pb">
+      <div class="ct-pbtop"><input data-r="pbTeam" placeholder="Team or playbook name (optional)" value="${esc(team)}" autocomplete="off">
+        <label class="ct-check"><input type="checkbox" data-r="pbSteps" checked> Step-by-step diagrams</label>
+        <label class="ct-check"><input type="checkbox" data-r="pbDef"> Show the defense</label></div>
+      ${board ? `<h6>On the board</h6>${board}` : ''}
+      ${mine.length ? `<h6>My plays <button type="button" class="ct-pball" data-all="mine">All</button></h6>${mine.map(e => row('h:' + e.id, e.name || e.title || 'Your play', e.said && e.source !== 'sketch' ? '“' + e.said + '”' : e.concept || '', false)).join('')}` : ''}
+      <h6>Library <button type="button" class="ct-pball" data-all="lib">All</button></h6>${S.plays.map(p => row('l:' + p.key, p.title, p.concept, p.key === state.libKey)).join('')}
+      <div class="ct-pbgo"><span data-r="pbCount"></span><button type="button" class="go" data-r="pbMake">${icon('book')}<span>Make the playbook</span></button></div></div>`;
+    openPanel(R.playChip, 'Playbook · ' + S.short, body, pb => {
+      const count = () => { const n = pb.querySelectorAll('[data-pk]:checked').length; pb.querySelector('[data-r=pbCount]').textContent = n + ' play' + (n === 1 ? '' : 's'); pb.querySelector('[data-r=pbMake]').disabled = !n; };
+      pb.addEventListener('change', count); count();
+      pb.addEventListener('click', e => {
+        const all = e.target.closest('[data-all]');
+        if (all) { const pre = all.dataset.all === 'lib' ? 'l:' : 'h:', boxes = [...pb.querySelectorAll(`[data-pk^="${pre}"]`)], on = !boxes.every(b => b.checked); boxes.forEach(b => { b.checked = on; }); count(); return; }
+        if (!e.target.closest('[data-r=pbMake]')) return;
+        const raws = [...pb.querySelectorAll('[data-pk]:checked')].map(b => {
+          const k = b.dataset.pk;
+          if (k === 'board') return state.raw;
+          if (k.startsWith('h:')) { const h = mine.find(x => x.id === k.slice(2)); return h && Object.assign({}, h.raw, { title: h.name || h.raw.title }); }
+          return S.plays.find(p => p.key === k.slice(2));
+        }).filter(Boolean);
+        const t = pb.querySelector('[data-r=pbTeam]').value.trim().slice(0, 60);
+        try { localStorage.setItem('chalktalk.pbteam', t); } catch (e2) {}
+        const html = buildPlaybook(S, raws, { team: t, title: S.name + ' playbook', steps: pb.querySelector('[data-r=pbSteps]').checked, defense: pb.querySelector('[data-r=pbDef]').checked });
+        track('playbook', { plays: raws.length });
+        if (!openPlaybook(html)) toast('Allow pop-ups for this site to open the playbook.');
+      });
+    }, 'ct-xl ct-pbp');
+  }
 
   // ---- the keys ----
   function badge(el2, kind) { el2.textContent = kind ? '✓ ' + kind : ''; el2.className = 'ct-badge' + (kind ? ' ok' : ''); }
@@ -1836,7 +1877,7 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();

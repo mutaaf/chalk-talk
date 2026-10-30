@@ -73,6 +73,7 @@ export function openFilm(ctx, startId) {
     </div>`;
   };
   let view = startId || null, pb = null;
+  ids.filter(id => !notes[id]).forEach(id => pending.add(id));   // so the cards open already saying "thinking"
   const redraw = keep => { if (!pb || !pb.isConnected) return; const y = pb.scrollTop; pb.innerHTML = view ? detail(view) : grid(); if (keep) pb.scrollTop = y; };
   ctx.openPanel('Film room · ' + play.title, view ? detail(view) : grid(), body => {
     pb = body;
@@ -89,12 +90,23 @@ export function openFilm(ctx, startId) {
       if (b === 'say') { const ai = notes[t.dataset.id], L = local(t.dataset.id); ctx.say(ai ? `${ai.read} Watch out: ${ai.risk} The cue: ${ai.tip}` : `${L.read} The cue: ${L.tip}`); }
     };
   }, 'ct-xl ct-filmp');
+  // one card at a time: when a brain answers, only its card (or, open on that player, only the read) changes
+  const swap = (el, html) => { const t = document.createElement('div'); t.innerHTML = html; const nu = t.firstElementChild; if (nu) { nu.classList.add('settled'); el.replaceWith(nu); } };
+  const showDown = () => {
+    if (!down || Object.keys(notes).length || !pb || pb.querySelector('.ct-fconnect')) return;
+    const anchor = view ? pb.querySelector('.ct-fsee') : pb.firstElementChild;
+    if (anchor) anchor.insertAdjacentHTML('beforebegin', connect());
+  };
+  const updateOne = id => {
+    if (!pb || !pb.isConnected) return;
+    if (!view) { const el = pb.querySelector(`.ct-fcard[data-id="${id}"]`); if (el) swap(el, card(id, ids.indexOf(id))); }
+    else if (view === id) { const el = pb.querySelector('.ct-fsee'), t = document.createElement('div'); t.innerHTML = detail(id); const nu = t.querySelector('.ct-fsee'); if (el && nu) { nu.classList.add('settled'); el.replaceWith(nu); } }
+    showDown();
+  };
   // the brains, all at once; each card fills in as its brain answers
   ids.filter(id => !notes[id]).forEach(id => {
-    pending.add(id);
     filmFor(ctx.strip, id, { sport: S }).then(n => { if (n) notes[id] = n; })
       .catch(e => { if (e.name === 'AbortError') return; down = e.code === 'upgrade' ? 'Your plan doesn’t include the AI brains yet.' : e.code === 'nokey' ? 'Connect AI to wake the brains.' : e.status === 429 ? 'The free AI is resting for today.' : 'The brains are offline right now.'; })
-      .finally(() => { pending.delete(id); redraw(true); });
+      .finally(() => { pending.delete(id); updateOne(id); });
   });
-  redraw(true);
 }
