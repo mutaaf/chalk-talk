@@ -23,6 +23,7 @@ import { analyze } from './analyst.js';
 import { analyst } from './ai.js';
 import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
 import { chime, soundOn, setSound } from './sound.js';
+import { startTracking, track } from './track.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -102,7 +103,7 @@ const TEMPLATE = `
   <button type="button" data-tb="plays">${icon('book')}<span>Plays</span></button>
   <button type="button" data-tb="sketch" data-r="tbSketch">${icon('sketch')}<span>Sketch</span></button>
   <button type="button" data-tb="mic" class="ct-tbmic" data-r="tbMic" aria-label="Talk: tap, say the play, tap again">${MIC}</button>
-  <button type="button" data-tb="defense" class="ct-switch" data-r="tbDef" role="switch">${icon('shield')}<span>Defense</span></button>
+  <button type="button" data-tb="film">${icon('film')}<span>Film room</span></button>
   <button type="button" data-tb="more">${icon('grid')}<span>More</span><i class="ct-dot" data-r="tbDot" hidden></i></button>
 </nav>
 <div class="ct-toast" data-r="toast" role="status"></div>
@@ -558,7 +559,7 @@ export function mount(root, options) {
     if (c === 'slower') sim.speed(sim.speed() / 1.5 < 0.3 ? 0.25 : +(sim.speed() / 1.5).toFixed(2));
     if (c === 'faster') sim.speed(+(sim.speed() * 1.5).toFixed(2));
     if (c === 'defense-on' || c === 'defense-off' || c === 'defense') {
-      state.defense = c === 'defense' ? !state.defense : c === 'defense-on';
+      state.defense = c === 'defense' ? !state.defense : c === 'defense-on'; track('defense', { on: state.defense ? 1 : 0 });
       renderDefense();
       load(state.raw, { key: state.libKey, quiet: true, keepAI: true });
       toast(state.defense ? 'Defense on: each X guards its man on its own.' : 'Defense off.');
@@ -597,7 +598,7 @@ export function mount(root, options) {
     R.lib.innerHTML = state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
   R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (b) teach(b.dataset.key); });
-  function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
+  function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = state.sport.id !== 'basketball';
     const row = (svg, t) => `<span><svg viewBox="-10 -10 20 20">${svg}</svg>${t}</span>`;
@@ -690,9 +691,11 @@ export function mount(root, options) {
   // the host's AI subscription, if it offers one: mount({ upgrade: { label, href, note } or { label, onClick } })
   function upgradeAI() {
     const u = opts.upgrade; if (!u) return;
+    track('upgrade_click');
     if (u.onClick) u.onClick(); else if (u.href) location.assign(u.href);
   }
   function openFilmRoom(id) {
+    track('film_open', { one: id ? 1 : 0 });
     openFilm({ sport: state.sport, play: state.play, sim: state.sim, raw: state.raw, strip: strip(state.play), openPanel: panelAt(R.filmTop), posName, mark, watch, band,
       booth: state.booth ? (state.booth.ai || state.booth.lines) : null, say: t => say(spoken(t), key.get()),
       upgrade: opts.upgrade, connectAI: () => { closePanel(); openKey('Connect AI and every position gets its own brain in the film room.'); }, upgradeAI }, id);
@@ -742,7 +745,7 @@ export function mount(root, options) {
     place();
     if (state.narrate) say(st.call, key.get());
   }
-  function endTour() { R.spot.hidden = true; closePanel(); hush(); seen.set('tour', VERSION); seen.set('version', VERSION); R.newsDot.hidden = true; }
+  function endTour() { track('tour_done'); R.spot.hidden = true; closePanel(); hush(); seen.set('tour', VERSION); seen.set('version', VERSION); R.newsDot.hidden = true; }
   const startTour = () => spotlight(TOUR, 0);
   function whatsNew() {
     seen.set('version', VERSION); R.newsDot.hidden = true; R.tbDot.hidden = true;
@@ -799,7 +802,7 @@ export function mount(root, options) {
     if (state.quiz) return;
     if (!o.sketch) {
       const u = understand(text, state.sport.aliases);
-      const done = (path, extra) => { const ms = performance.now() - t0; logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.textContent = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms`; };
+      const done = (path, extra) => { const ms = performance.now() - t0; track('voice', { path, ms: Math.round(ms), ok: 1 }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.textContent = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms`; };
       if (u.cmd) { act(u.cmd); done('command'); return; }
       if (u.concept) { teach(u.concept); done('library'); return; }
       const learned = recall(state.sport.id, text);   // a phrase this coach taught it before
@@ -821,6 +824,7 @@ export function mount(root, options) {
       showAI(raw, null);
       R.status.textContent = (raw.reply || '') + ` · drawn in ${secs}`;
       // learn: if the coach keeps what was drawn for this phrase, it becomes instant next time
+      track('voice', { path: 'ai', ms: Math.round(ms), ok: 1 });
       const li = logVoice({ sport: sport.id, path: 'ai', ms, ok: true, text: text.slice(0, 200), recognized: raw.recognized || null });
       const shown = state.raw;
       clearTimeout(state.keepT);
@@ -832,7 +836,7 @@ export function mount(root, options) {
         }
       }, 20000);
     } catch (e) {
-      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey' || e.code === 'upgrade' || (e.status === 429 && opts.upgrade)) openKey(e.message); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); }
+      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey' || e.code === 'upgrade' || (e.status === 429 && opts.upgrade)) openKey(e.message); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); track('voice', { path: o.sketch ? 'sketch' : 'ai', ok: 0, status: e.status || e.code || 'err' }); }
     } finally {
       clearInterval(pulse);
       if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); }
@@ -885,6 +889,7 @@ export function mount(root, options) {
     const sk = state.sketch; state.sketch = null;
     root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on'); R.tbSketch.classList.remove('on');
     if (!sk.raw.beats.length) { R.caption.textContent = ''; return; }
+    track('sketch_done', { beats: sk.raw.beats.length });
     const mine = JSON.parse(JSON.stringify(sk.raw));
     load(mine, { quiet: true }); state.sim.seek(0); state.sim.playing(true);
     const like = recognize(mine);
@@ -1206,9 +1211,9 @@ export function mount(root, options) {
   // ---- the guide, CourtIQ / FieldIQ, stats ----
   const panelAt = anchor => (title, body, onMount, cls) => openPanel(anchor, title, body, onMount, cls);
   let band = 'young'; try { band = localStorage.getItem('chalktalk.band') || 'young'; } catch (e) {}
-  const guide = start => openGuide({ sport: state.sport, play: state.play, openPanel: panelAt(R.guideBtn), mark, band,
+  const guide = start => (track('guide_open'), openGuide({ sport: state.sport, play: state.play, openPanel: panelAt(R.guideBtn), mark, band,
     setBand: b => { band = b; try { localStorage.setItem('chalktalk.band', b); } catch (e) {} },
-    say: t => say(t, key.get()), watch }, start);
+    say: t => say(t, key.get()), watch }, start));
   R.guideBtn.onclick = () => guide();
   // watch one player: everyone else dims, their routes light up, and the play runs from their first move
   function watch(id, beat) {
@@ -1220,7 +1225,7 @@ export function mount(root, options) {
   R.focusChip.onclick = () => { state.focus = null; R.focusChip.hidden = true; };
 
   const iq = createIQ({
-    root, team: opts.team, sport: () => state.sport, openPanel: panelAt(R.iqBtn), closePanel, toast, posName, strip,
+    root, team: opts.team, track, sport: () => state.sport, openPanel: panelAt(R.iqBtn), closePanel, toast, posName, strip,
     speak: t => speak(spoken(t)),
     enter() { closePanel(); hush(); state.quiz = { defense: state.defense, raw: state.raw, key: state.libKey }; root.classList.add('ct-quiz'); },
     exit() {
@@ -1241,7 +1246,7 @@ export function mount(root, options) {
     const host = R.ink.getBoundingClientRect(), pt = unproject(e.clientX - host.left, e.clientY - host.top);
     iq.answer(pt);
   }, true);
-  R.statsBtn.onclick = () => openStats({ sport: state.sport, sim: state.sim, openPanel: panelAt(R.statsBtn), posName, mark, toast });
+  R.statsBtn.onclick = () => (track('stats_open'), openStats({ sport: state.sport, sim: state.sim, openPanel: panelAt(R.statsBtn), posName, mark, toast }));
 
   // ---- the booth: the AI analyst rewrites the engine's read with colour (once per play, when narrating) ----
   const boothCache = new Map();
@@ -1256,7 +1261,6 @@ export function mount(root, options) {
   function renderDefense() {
     R.defBtn.classList.toggle('on', state.defense); R.defBtn.setAttribute('aria-checked', state.defense);
     R.pDef.classList.toggle('on', state.defense); R.pDef.setAttribute('aria-checked', state.defense);
-    R.tbDef.classList.toggle('on', state.defense); R.tbDef.setAttribute('aria-checked', state.defense);
   }
   function renderPresent() {
     if (!root.classList.contains('ct-present-on') || !state.play) return;
@@ -1273,6 +1277,7 @@ export function mount(root, options) {
     root.classList.toggle('ct-present-on', on); R.presentBar.hidden = !on; R.presentBtn.classList.toggle('on', on);
     closePanel();
     if (on) {
+      track('present');
       try { if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
       try { wake = navigator.wakeLock ? await navigator.wakeLock.request('screen') : null; } catch (e) {}
       toast('Presenter mode. Mirror this screen with AirPlay or Cast; ← → step, P plays, Esc exits.');
@@ -1385,33 +1390,55 @@ export function mount(root, options) {
       pb.onclick = e => { const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
     }, 'ct-xl');
   }
+  // the control center: destinations as tiles, and every on/off as a stock switch row that flips in place
   function controlCenter() {
-    const fb = !!state.sport.kinds.route, V = state.view;
+    const fb = !!state.sport.kinds.route;
     const tiles = [
-      ['film', 'film', 'Film room', 'Every position, broken down'],
       ['guide', 'book', 'Guide', 'Positions in depth'],
       ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
-      ['voice', state.narrate ? 'speaker' : 'mute', 'Voice', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
-      ['view', 'view', 'View', V.locked ? 'Locked' : 'Orbit, zoom, lock'],
       ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
       ['stats', 'chart', 'Stats', 'Play numbers, AI cost'],
-      fb ? ['fb', 'draw', 'Routes & coverage', root.classList.contains('ct-fbopen') ? 'Showing' : 'Route tree, Cover 2/3, QB eyes'] : null,
-      names.any() ? ['names', 'names', 'Names', state.showNames ? 'On' : 'Off'] : null,
-      ['theme', root.classList.contains('ct-light') ? 'sun' : 'moon', 'Appearance', theme === 'auto' ? 'Auto' : theme === 'light' ? 'Light' : 'Dark'],
-      ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : 'Free AI'],
+      ['view', 'view', 'Angles', 'Coach, top-down, sideline'],
+      ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : opts.api ? 'Included' : 'Free AI'],
       ['help', 'info', 'Help', hasNews() ? 'What’s new' : 'Tour, shortcuts']
+    ];
+    const switches = () => [
+      ['defense', 'shield', 'Defense', 'X’s guard, help and react on their own', state.defense],
+      ['voice', 'speaker', 'Analyst voice', 'Explains the read as the play runs', state.narrate],
+      fb ? ['fb', 'draw', 'Routes & coverage', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')] : null,
+      names.any() ? ['names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      ['lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked],
+      ['light', 'sun', 'Light mode', 'For a bright sideline', root.classList.contains('ct-light')],
+      ['sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
+      ['share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()]
     ].filter(Boolean);
-    openPanel(R.playChip, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}" class="${(k === 'voice' && state.narrate) || (k === 'fb' && root.classList.contains('ct-fbopen')) || (k === 'names' && state.showNames) ? 'on' : ''}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`, pb => {
+    const rows = () => switches().map(([k, ic, t, sub, on]) => `<button type="button" class="ct-row" role="switch" aria-checked="${!!on}" data-sw="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(sub)}</small></span><i class="ct-ios${on ? ' on' : ''}"></i></button>`).join('');
+    openPanel(R.playChip, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>
+      <div class="ct-rows" data-r="ccRows">${rows()}</div>`, pb => {
       pb.onclick = e => {
+        const sw = e.target.closest('[data-sw]');
+        if (sw) {
+          const k = sw.dataset.sw;
+          if (k === 'defense') act('defense');
+          if (k === 'voice') { state.narrate = !state.narrate; if (state.narrate) { state.style = 'analyst'; saveStyle(); boothAI(); } else hush(); renderNarrate(); renderPresent(); }
+          if (k === 'fb') root.classList.toggle('ct-fbopen');
+          if (k === 'names') R.namesBtn.click();
+          if (k === 'lock') toggleLock();
+          if (k === 'light') setTheme(root.classList.contains('ct-light') ? 'dark' : 'light');
+          if (k === 'sound') { setSound(!soundOn()); if (soundOn()) chime('yes'); }
+          if (k === 'share') setSharing(!sharing());
+          pb.querySelector('[data-r=ccRows]').innerHTML = rows();   // flip in place, the sheet stays open
+          return;
+        }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
-        ({ film: () => openFilmRoom(), guide: () => guide(), iq: () => iq.open(), voice: voiceMenu, view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
-          fb: () => { root.classList.toggle('ct-fbopen'); }, names: () => R.namesBtn.click(), theme: () => themeMenu(R.playChip), ai: () => openKey(), help: () => R.helpBtn.click() })[k]();
+        ({ guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+          ai: () => openKey(), help: () => R.helpBtn.click() })[k]();
       };
     }, 'ct-xl ct-ccp');
   }
   root.querySelector('.ct-tabbar').addEventListener('click', e => {
     const b = e.target.closest('[data-tb]'); if (!b) return;
-    ({ plays: playsSheet, sketch: () => act('sketch'), mic: () => R.mic.click(), defense: () => act('defense'), more: controlCenter })[b.dataset.tb]();
+    ({ plays: playsSheet, sketch: () => act('sketch'), mic: () => R.mic.click(), film: () => openFilmRoom(), more: controlCenter })[b.dataset.tb]();
   });
   R.playChip.onclick = () => root.classList.toggle('ct-info');
 
@@ -1425,7 +1452,7 @@ export function mount(root, options) {
     R.themeBtn.innerHTML = icon(light ? 'sun' : 'moon') + '<span>' + (theme === 'auto' ? 'Auto' : light ? 'Light' : 'Dark') + '</span>';
     const meta = document.querySelector('meta[name=theme-color]'); if (meta && opts.fullscreen) meta.setAttribute('content', light ? '#f3efe6' : '#04070c');
   }
-  function setTheme(t) { theme = t; try { localStorage.setItem('chalktalk.theme', t); } catch (e) {} applyTheme(); }
+  function setTheme(t) { track('theme', { t }); theme = t; try { localStorage.setItem('chalktalk.theme', t); } catch (e) {} applyTheme(); }
   function themeMenu(anchor) {
     openPanel(anchor || R.themeBtn, 'Appearance', `<div class="ct-menu ct-voices">${[['dark', 'moon', 'Dark', 'The board glows. Best indoors and on a TV.'], ['light', 'sun', 'Light', 'High contrast for a bright sideline.'], ['auto', 'view', 'Auto', 'Follows this device.']].map(([k, ic, t, sub]) => `<button type="button" data-t="${k}" class="${theme === k ? 'on' : ''}">${icon(ic)}<span>${t}<small>${sub}</small></span></button>`).join('')}</div>`, pb => {
       pb.onclick = e => { const b = e.target.closest('[data-t]'); if (b) { setTheme(b.dataset.t); closePanel(); } };
@@ -1455,13 +1482,13 @@ export function mount(root, options) {
   };
   R.keyBtn.onclick = () => openKey();
   R.keyPro.onclick = () => { R.keyDlg.close(); upgradeAI(); };
-  R.shareVoice.onchange = () => { setSharing(R.shareVoice.checked); toast(R.shareVoice.checked ? 'Thanks, coach. Kept plays and fixed words will help every coach (names stay here).' : 'Voice sharing off. Learning stays on this device.'); };
+  R.shareVoice.onchange = () => { setSharing(R.shareVoice.checked); track('share', { on: R.shareVoice.checked ? 1 : 0 }); toast(R.shareVoice.checked ? 'Thanks, coach. Kept plays and fixed words will help every coach (names stay here).' : 'Voice sharing off. Learning stays on this device.'); };
   R.keyCancel.onclick = () => R.keyDlg.close();
   R.keyX.onclick = () => R.keyDlg.close();
   R.keyDlg.addEventListener('click', e => { if (e.target === R.keyDlg) R.keyDlg.close(); });   // a tap on the backdrop closes it
   R.keyForm.onsubmit = e => {
     e.preventDefault();
-    key.set(R.keyInput.value); voiceKey.set(R.voiceInput.value); R.keyDlg.close(); refreshKey();
+    key.set(R.keyInput.value); voiceKey.set(R.voiceInput.value); track('key_saved', { kind: keyKind(key.get()) || 'none', voice: voiceKey.get() ? 1 : 0 }); R.keyDlg.close(); refreshKey();
     toast(keyKind(key.get()) ? 'Saved. Say any play.' : 'Keys saved.');
     if (state.play && state.narrate) prefetch(state.play.beats.map(b => spoken(b.say)), key.get());
   };
@@ -1478,7 +1505,17 @@ export function mount(root, options) {
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });
   tipify(root);
-  refreshLexicon(ownApi());   // what other coaches taught it (no one's data, just confirmed phrases)
+  refreshLexicon(ownApi());
+  // anonymous usage analytics (track.js): never names, words, keys or IPs. Off in development and when the host says so.
+  const dev = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const refHost = (() => { try { const r = new URL(document.referrer).hostname; return r && r !== location.hostname ? r : null; } catch (e) { return null; } })();
+  startTracking(ownApi(), opts.analytics !== false && !dev, {
+    host: typeof location !== 'undefined' ? location.hostname : '', ref: refHost, v: VERSION,
+    device: root.clientWidth < 640 ? 'phone' : root.clientWidth < 1100 || (matchMedia && matchMedia('(pointer: coarse)').matches) ? 'tablet' : 'desktop',
+    pwa: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches),
+    live: () => ({ sport: state.sport.id, ai: keyKind(key.get()) || (opts.api ? 'host' : 'free'), theme: root.classList.contains('ct-light') ? 'light' : 'dark' })
+  });
+  track('view', { lang: (navigator.language || '').slice(0, 5) });   // what other coaches taught it (no one's data, just confirmed phrases)
   if (opts.tour !== false) {
     if (!seen.get().tour) setTimeout(() => { if (!dead) startTour(); }, 1600);
     else if (hasNews()) { R.newsDot.hidden = false; R.tbDot.hidden = false; setTimeout(() => { if (!dead) toast(`New in v${VERSION}: ${RELEASES[0].title}. Tap ? to see it.`); }, 1800); }

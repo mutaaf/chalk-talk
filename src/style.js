@@ -618,6 +618,17 @@ export const CSS = `
   .ct-panel.sheet { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
   .ct-panel:not(.sheet):not(.ct-tourcard) { bottom: auto; }
 }
+/* stock-style switch rows (control center on phones and tablets) */
+.ct-rows { margin: 0 14px 16px; border-radius: 16px; overflow: hidden; background: rgba(140, 188, 255, .05); border: 1px solid rgba(140, 188, 255, .12); }
+.ct .ct-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 9px 14px; text-align: left; border-bottom: 1px solid rgba(140, 188, 255, .08); -webkit-tap-highlight-color: transparent; }
+.ct .ct-row:last-child { border-bottom: 0; }
+.ct .ct-row:active { background: rgba(140, 188, 255, .06); }
+.ct-row > .ct-i { width: 22px; height: 22px; color: var(--ice); flex: none; }
+.ct-row > span { flex: 1; display: grid; gap: 1px; min-width: 0; } .ct-row b { font-size: 15.5px; font-weight: 700; } .ct-row small { color: var(--mute); font-size: 12.5px; }
+.ct-ios { position: relative; flex: none; width: 51px; height: 31px; border-radius: 16px; background: rgba(120, 120, 128, .32); transition: background .25s; }
+.ct-ios::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, .25), 0 1px 1px rgba(0, 0, 0, .12); transition: transform .25s cubic-bezier(.3, .7, .3, 1); }
+.ct-ios.on { background: #34c759; } .ct-ios.on::after { transform: translateX(20px); }
+.ct.ct-light .ct-ios { background: rgba(120, 120, 128, .2); }
 /* the control center and the plays sheet */
 .ct-cc { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 14px; }
 .ct-cc button { display: grid; justify-items: start; align-content: start; gap: 4px; min-height: 104px; padding: 14px; border-radius: 18px; text-align: left; background: linear-gradient(160deg, rgba(140, 188, 255, .1), rgba(140, 188, 255, .03)); border: 1px solid rgba(140, 188, 255, .14) !important; animation: ct-rise .3s both; animation-delay: calc(var(--i) * 25ms); transition: transform .12s; }
@@ -630,7 +641,7 @@ export const CSS = `
 .ct-playgrid button small { color: var(--o); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
 .ct-playgrid button b { font-family: var(--display); font-size: 18px; text-transform: uppercase; letter-spacing: .02em; }
 .ct-playgrid button.on { border-color: var(--o) !important; background: rgba(255, 142, 58, .12); }
-@container (max-width: 520px) { .ct-top [data-r=keyBtn], .ct-top [data-r=helpBtn] { display: none !important; } .ct-word { font-size: 18px; } .ct-sports .ct-pill { padding: 0 9px; font-size: 12.5px !important; } .ct-cc { grid-template-columns: 1fr 1fr; } .ct-playgrid { grid-template-columns: 1fr 1fr; } }
+@container (max-width: 520px) { .ct-top [data-r=keyBtn], .ct-top [data-r=helpBtn] { display: none !important; } .ct-word { font-size: 18px; } .ct-sports .ct-pill { padding: 0 9px; font-size: 12.5px !important; } .ct-cc { grid-template-columns: repeat(4, 1fr); gap: 8px; } .ct-cc button { min-height: 76px; padding: 10px 4px; justify-items: center; text-align: center; border-radius: 16px; } .ct-cc button small { display: none; } .ct-cc button b { font-size: 12px; } .ct-cc button .ct-i { margin-bottom: 2px; } .ct-playgrid { grid-template-columns: 1fr 1fr; } }
 /* desktop that's a little narrow: secondary pills go icon-only so the bar never runs off */
 @container (min-width: 1101px) and (max-width: 1440px) { .ct-top [data-r=viewBtn] > span, .ct-top [data-r=statsBtn] > span, .ct-top [data-r=presentBtn] > span, .ct-top [data-r=namesBtn] > span, .ct-top [data-r=narrate] > span { display: none; } .ct-word small { display: none; } }
 

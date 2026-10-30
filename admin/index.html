@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Chalk Talk Analytics</title>
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --night: #04070c; --deep: #0a1220; --line: rgba(140, 188, 255, .16); --ice: #8cbcff; --o: #ff8e3a; --paper: #eef4ff; --mute: #8a9bb5; --g: #4ade80; --v: #b89cff;
+  --display: 'Big Shoulders Display', Impact, sans-serif; --body: 'Atkinson Hyperlegible', system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(70% 50% at 50% 0%, rgba(60, 110, 200, .18), transparent 70%), var(--night); color: var(--paper); font: 15px/1.45 var(--body); -webkit-font-smoothing: antialiased; }
+main { max-width: 1240px; margin: 0 auto; padding: 22px 16px 60px; }
+header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+h1 { margin: 0; font: 900 30px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; } h1 i { font-style: normal; color: var(--o); }
+h1 small { font: 400 13px var(--body); letter-spacing: 0; text-transform: none; color: var(--mute); margin-left: 10px; }
+.sp { flex: 1; }
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 11px; border: 1px solid var(--line); background: rgba(140, 188, 255, .06); }
+.seg button { font: inherit; font-size: 13px; color: var(--mute); background: none; border: 0; height: 30px; padding: 0 12px; border-radius: 8px; cursor: pointer; }
+.seg button.on { background: var(--paper); color: var(--night); font-weight: 700; }
+.ghost { font: inherit; font-size: 13px; color: var(--mute); background: none; border: 1px solid var(--line); height: 36px; padding: 0 12px; border-radius: 18px; cursor: pointer; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.tile { padding: 14px; border-radius: 14px; background: linear-gradient(170deg, rgba(140, 188, 255, .09), rgba(140, 188, 255, .02)); border: 1px solid var(--line); }
+.tile small { display: block; color: var(--mute); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.tile b { display: block; font: 900 36px/1.05 var(--display); font-variant-numeric: tabular-nums; margin: 2px 0; }
+.tile span { color: var(--mute); font-size: 12.5px; }
+.grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+.card { grid-column: span 4; padding: 14px 16px; border-radius: 16px; background: var(--deep); border: 1px solid var(--line); min-width: 0; }
+.card.w8 { grid-column: span 8; } .card.w12 { grid-column: span 12; } .card.w6 { grid-column: span 6; }
+.card h2 { margin: 0 0 10px; font: 700 14px var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--mute); display: flex; justify-content: space-between; }
+.card h2 em { font: 400 12px var(--body); letter-spacing: 0; text-transform: none; font-style: normal; }
+.bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.bars li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; font-size: 13.5px; }
+.bars li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bars li b { font-variant-numeric: tabular-nums; }
+.bars li i { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: rgba(140, 188, 255, .1); overflow: hidden; }
+.bars li i::after { content: ''; display: block; height: 100%; width: var(--w); background: linear-gradient(90deg, var(--ice), var(--o)); border-radius: 3px; }
+.empty { color: var(--mute); font-size: 13px; }
+svg.chart { width: 100%; height: 220px; display: block; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--mute); margin-top: 6px; } .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 400; color: var(--mute); font-size: 11.5px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+td { padding: 6px; border-bottom: 1px solid rgba(140, 188, 255, .06); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+td.ev { color: var(--o); font-weight: 700; }
+.gate { max-width: 420px; margin: 18vh auto 0; padding: 24px; border-radius: 18px; background: var(--deep); border: 1px solid var(--line); }
+.gate p { color: var(--mute); font-size: 14px; }
+.gate input { width: 100%; height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--night); color: var(--paper); font: inherit; margin: 6px 0 12px; }
+.gate button { width: 100%; height: 44px; border: 0; border-radius: 22px; background: var(--o); color: var(--night); font: 700 15px var(--body); cursor: pointer; }
+.note { color: var(--mute); font-size: 12.5px; margin-top: 18px; }
+@media (max-width: 900px) { .card, .card.w8, .card.w6 { grid-column: span 12; } }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+// The owner's view of Chalk Talk: who (country, city, device), how they got here, and what they use.
+// The data is anonymous by design: no cookies, no IPs, a visitor hash that rotates daily.
+const API = location.pathname.replace(/\/admin\/?.*$/, '') + '/api';
+const app = document.getElementById('app');
+const esc = s => String(s == null ? '—' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = n => (n >= 1e4 ? (n / 1e3).toFixed(1) + 'k' : String(n || 0));
+const flag = cc => cc && cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map(c => 127397 + c.charCodeAt(0))) + ' ' : '';
+const LABEL = { view: 'Opened the board', play: 'Ran a library play', voice: 'Spoke or typed a play', film_open: 'Film room', guide_open: 'Guide', iq_start: 'IQ game started', iq_done: 'IQ game finished', sketch_done: 'Sketched a play', present: 'Presenter mode', stats_open: 'Stats', theme: 'Changed theme', defense: 'Toggled defense', key_saved: 'Saved an AI key', share: 'Voice sharing', upgrade_click: 'Clicked upgrade', tour_done: 'Finished the tour' };
+let days = 30, token = '';
+try { token = localStorage.getItem('ct.admin.token') || ''; } catch (e) {}
+
+function gate(msg) {
+  app.innerHTML = `<form class="gate"><h1>Chalk <i>Talk</i></h1><p>${msg || 'Analytics for the owner. Paste your stats token.'}</p><input type="password" name="t" placeholder="Stats token" autocomplete="off" required><button>Open analytics</button></form>`;
+  app.querySelector('form').onsubmit = e => { e.preventDefault(); token = e.target.t.value.trim(); try { localStorage.setItem('ct.admin.token', token); } catch (x) {} load(); };
+}
+async function load() {
+  if (!token) return gate();
+  app.innerHTML = '<p class="empty" style="margin:20vh auto;text-align:center">Loading…</p>';
+  const r = await fetch(API + '/stats?days=' + days, { headers: { authorization: 'Bearer ' + token } }).catch(() => null);
+  if (!r || r.status === 401) { try { localStorage.removeItem('ct.admin.token'); } catch (e) {} token = ''; return gate(r ? 'That token didn’t work. Try again.' : 'Couldn’t reach the API.'); }
+  render(await r.json());
+}
+function bars(rows, key, val, fmt) {
+  if (!rows || !rows.length) return '<p class="empty">Nothing yet.</p>';
+  const max = Math.max(...rows.map(r => r[val] || 0), 1);
+  return `<ul class="bars">${rows.slice(0, 12).map(r => `<li><span>${fmt ? fmt(r) : esc(r[key])}</span><b>${num(r[val])}</b><i style="--w:${Math.round((r[val] || 0) / max * 100)}%"></i></li>`).join('')}</ul>`;
+}
+function chart(daily) {
+  if (!daily.length) return '<p class="empty">No visits yet in this range.</p>';
+  const W = 900, H = 220, P = 28, n = daily.length, max = Math.max(...daily.map(d => d.views), 1), bw = (W - P * 2) / n;
+  const x = i => P + i * bw + bw / 2, y = v => H - P - (v / max) * (H - P * 2);
+  const views = daily.map((d, i) => `<rect x="${(x(i) - bw * 0.35).toFixed(1)}" y="${y(d.views).toFixed(1)}" width="${(bw * 0.7).toFixed(1)}" height="${(H - P - y(d.views)).toFixed(1)}" rx="2" fill="rgba(140,188,255,.28)"><title>${d.day}: ${d.views} views</title></rect>`).join('');
+  const line = daily.map((d, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(d.visitors).toFixed(1)).join('');
+  const dots = daily.map((d, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(d.visitors).toFixed(1)}" r="3" fill="#ff8e3a"><title>${d.day}: ${d.visitors} visitors</title></circle>`).join('');
+  const ticks = daily.map((d, i) => (n <= 14 || i % Math.ceil(n / 10) === 0) ? `<text x="${x(i).toFixed(1)}" y="${H - 8}" fill="#8a9bb5" font-size="11" text-anchor="middle">${d.day.slice(5)}</text>` : '').join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Visitors and views per day"><text x="${P}" y="14" fill="#8a9bb5" font-size="11">${max}</text><line x1="${P}" x2="${W - P}" y1="${H - P}" y2="${H - P}" stroke="rgba(140,188,255,.2)"/>${views}<path d="${line}" fill="none" stroke="#ff8e3a" stroke-width="2.4"/>${dots}${ticks}</svg>
+    <div class="legend"><span><i style="background:#ff8e3a"></i>Visitors</span><span><i style="background:rgba(140,188,255,.5)"></i>Board opens</span></div>`;
+}
+const ago = ts => { const s = Math.round((Date.now() - ts) / 1000); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + 'm ago' : s < 86400 ? Math.round(s / 3600) + 'h ago' : Math.round(s / 86400) + 'd ago'; };
+const brief = p => { try { const o = JSON.parse(p || '{}'); return Object.entries(o).map(([k, v]) => k + ': ' + v).join(' · '); } catch (e) { return ''; } };
+function render(s) {
+  const T = s.totals, calls = (s.ai || []).filter(r => r.bucket.startsWith('calls:')).reduce((a, r) => a + r.n, 0), neurons = (s.ai || []).filter(r => r.bucket.startsWith('neurons:')).reduce((a, r) => a + r.n, 0);
+  const iqN = (s.iq || []).reduce((a, r) => a + r.sessions, 0), fv = Object.fromEntries((s.features || []).map(f => [f.k, f]));
+  const pct = k => T.visitors ? Math.round(((fv[k] && fv[k].visitors) || 0) / T.visitors * 100) + '%' : '–';
+  app.innerHTML = `<header><h1>Chalk <i>Talk</i><small>Analytics · since ${esc(s.since)}</small></h1><span class="sp"></span>
+    <div class="seg">${[7, 30, 90, 365].map(d => `<button data-d="${d}" class="${d === days ? 'on' : ''}">${d === 365 ? '1 yr' : d + ' days'}</button>`).join('')}</div>
+    <button class="ghost" data-x="out">Sign out</button></header>
+  <div class="tiles">
+    <div class="tile"><small>Visitors</small><b>${num(T.visitors)}</b><span>unique per day, summed</span></div>
+    <div class="tile"><small>Board opens</small><b>${num(T.views)}</b><span>${T.visitors ? (T.events / T.visitors).toFixed(1) : 0} actions per visitor</span></div>
+    <div class="tile"><small>Used the voice</small><b>${pct('voice')}</b><span>of visitors spoke or typed a play</span></div>
+    <div class="tile"><small>Film room</small><b>${pct('film_open')}</b><span>of visitors opened it</span></div>
+    <div class="tile"><small>IQ games</small><b>${num(iqN)}</b><span>sessions finished</span></div>
+    <div class="tile"><small>Free AI</small><b>${num(calls)}</b><span>calls · ${num(neurons)} neurons</span></div>
+    <div class="tile"><small>Voice sharing</small><b>${num(s.learn ? s.learn.coaches : 0)}</b><span>coaches opted in · ${num(s.learn ? s.learn.n : 0)} lessons</span></div>
+  </div>
+  <div class="grid">
+    <section class="card w12"><h2>Every day <em>visitors and board opens</em></h2>${chart(s.daily)}</section>
+    <section class="card"><h2>Where <em>countries</em></h2>${bars(s.countries, 'k', 'visitors', r => flag(r.k) + esc(r.k))}</section>
+    <section class="card"><h2>Cities</h2>${bars(s.cities, 'k', 'visitors')}</section>
+    <section class="card"><h2>Devices</h2>${bars(s.devices, 'k', 'visitors')}<h2 style="margin-top:14px">Systems</h2>${bars(s.oses, 'k', 'visitors')}</section>
+    <section class="card"><h2>How they got here <em>referrers</em></h2>${bars(s.refs.filter(r => r.k), 'k', 'visitors')}</section>
+    <section class="card"><h2>Which app <em>host</em></h2>${bars(s.hosts, 'k', 'visitors')}<h2 style="margin-top:14px">Browsers</h2>${bars(s.browsers, 'k', 'visitors')}</section>
+    <section class="card"><h2>Sports</h2>${bars(s.sports, 'k', 'visitors')}<h2 style="margin-top:14px">AI</h2>${bars(s.ais, 'k', 'visitors', r => esc({ free: 'Free AI', claude: 'Own Claude key', openai: 'Own OpenAI key', host: 'CourtIQ plan' }[r.k] || r.k))}</section>
+    <section class="card w6"><h2>What they use <em>visitors</em></h2>${bars(s.features, 'k', 'visitors', r => esc(LABEL[r.k] || r.k))}</section>
+    <section class="card w6"><h2>Voice <em>how plays get drawn</em></h2>${(s.voice || []).length ? `<table><thead><tr><th>Path</th><th>Uses</th><th>Avg time</th><th>Worked</th></tr></thead><tbody>${s.voice.map(v => `<tr><td>${esc({ command: 'Command (instant)', library: 'Library match (instant)', learned: 'Learned shortcut (instant)', ai: 'AI drawn', sketch: 'Sketch takeover' }[v.k] || v.k)}</td><td>${num(v.events)}</td><td>${v.ms ? (v.ms >= 1000 ? (v.ms / 1000).toFixed(1) + ' s' : v.ms + ' ms') : '–'}</td><td>${v.events ? Math.round((v.ok || 0) / v.events * 100) + '%' : '–'}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Nothing yet.</p>'}
+      <h2 style="margin-top:14px">IQ by age</h2>${(s.iq || []).length ? `<table><thead><tr><th>Ages</th><th>Sessions</th><th>Avg right</th></tr></thead><tbody>${s.iq.map(r => `<tr><td>${esc({ young: '6–11', mid: '12–14', older: '15+' }[r.k] || r.k)}</td><td>${r.sessions}</td><td>${r.pct == null ? '–' : r.pct + '%'}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">No games yet.</p>'}</section>
+    <section class="card w12"><h2>Live <em>the latest 60 actions</em></h2>${(s.recent || []).length ? `<table><thead><tr><th>When</th><th>What</th><th>Where</th><th>Device</th><th>App</th><th>Sport</th><th>Details</th></tr></thead><tbody>${s.recent.map(e => `<tr><td>${ago(e.ts)}</td><td class="ev">${esc(LABEL[e.name] || e.name)}</td><td>${flag(e.country)}${esc(e.city || e.country)}</td><td>${esc(e.device)} · ${esc(e.os)} · ${esc(e.browser)}</td><td>${esc(e.host)}</td><td>${esc(e.sport)}</td><td>${esc(brief(e.props))}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Waiting for the first visitor.</p>'}</section>
+  </div>
+  <p class="note">Anonymous by design: no cookies, no IPs stored, visitors counted with a hash that rotates daily, and never a player name, a key or anything a coach said. Development (localhost) isn't counted.</p>`;
+  app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { days = +b.dataset.d; load(); });
+  app.querySelector('[data-x=out]').onclick = () => { try { localStorage.removeItem('ct.admin.token'); } catch (e) {} token = ''; gate(); };
+}
+load();
+</script>
+</body>
+</html>

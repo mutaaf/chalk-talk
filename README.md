@@ -52,6 +52,10 @@ board.heard('cover 3');  board.setSport('basketball');  board.destroy();
 Options: `sport`, `sports` (which tabs to show), `play`, `narrate`, `fullscreen`, `title`,
 `glossary`, `onLoad(play, sport)`, `onSport(id)`.
 
+## Analytics
+
+Anonymous, cookieless usage counts (country and city, device, browser, how people arrived, which features they use) go to the Worker; the owner reads them at `/chalktalk/admin` with the stats token. No IPs are stored, visitors are a hash that rotates daily, and nothing a coach says, names or keys is ever included. Hosts can turn it off: `mount(el, { analytics: false })`.
+
 ## Add a sport
 
 A sport is data: `src/sports/<sport>.js` exports a pack with its field (units, bounds, lines,

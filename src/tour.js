@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.8.0';
+export const VERSION = '0.9.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.9.0', date: '2026-10-30', title: 'Settings the way your phone does them', items: [
+    { title: 'Switches, not buttons', call: 'On a phone or tablet, More now has real switches for defense, the analyst, routes and coverage, the view lock, light mode and sound. They flip right there.', show: null },
+    { title: 'Film room in the tab bar', call: 'One tap from anywhere on a phone or tablet.', show: null },
+    { title: 'Anonymous usage counts', call: 'To make the board better we count which features get used, by country and device. No cookies, no names, nothing you say.', show: null }
+  ] },
   { version: '0.8.0', date: '2026-10-30', title: 'Smarter with every coach', items: [
     { title: 'Help the voice learn (opt-in)', call: 'Turn it on in AI settings and the plays you keep and the words you fix teach it for every coach, with your players\' names removed on your device first. Off unless you say so.', show: 'keyBtn' },
     { title: 'Shortcuts from other coaches', call: 'Phrases three or more coaches confirmed now work instantly for you too, offline.', show: 'mic' },

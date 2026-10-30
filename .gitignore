@@ -3,3 +3,6 @@ dist
 .DS_Store
 .env*
 .wrangler
+
+# the owner analytics token (also a Worker secret)
+.stats-token

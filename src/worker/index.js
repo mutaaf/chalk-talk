@@ -9,6 +9,8 @@
 //   POST /chalktalk/api/say    {text ≤ 300 chars}                → audio    (MeloTTS, cached)
 //   POST /chalktalk/api/learn  {kind, sport, text, concept, kept | a, b} → opt-in voice learning (names scrubbed on the device)
 //   GET  /chalktalk/api/lexicon                                 → phrases and word fixes 3+ coaches confirmed
+//   POST /chalktalk/api/event  {ctx, events[]}                → anonymous usage analytics (no cookies, no IPs, daily-rotating visitor hash)
+//   GET  /chalktalk/api/stats  Bearer STATS_TOKEN              → the owner's analytics rollup (for /chalktalk/admin)
 //   GET  /chalktalk/api/health                                   → {ok, models, today}
 // Prompts, schemas, validation and the one repair round are src/ai.js's, shared with the browser.
 // Requests carry X's and O's only (player names never leave the coach's device); nothing is stored
@@ -28,11 +30,11 @@ export const MODELS = {
 // Per hashed IP per UTC day, and for everyone together, so this stays inside the free Workers AI
 // allowance (10k neurons a day, shared with COLD GAS and Hearth).
 export const LIMITS = {
-  perIp: { learn: 300, play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
+  perIp: { event: 400, learn: 300, play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
   neuronsPerDay: 3500,
   // charged up front, then corrected to what the call really cost (tokens × price, below)
   lexiconMin: 3,   // distinct coaches before a phrase or a fix is shared with everyone
-  estNeurons: { learn: 0, play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
+  estNeurons: { event: 0, learn: 0, play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
   maxJson: 64 * 1024, maxAudio: 2 * 1024 * 1024, maxSay: 300
 };
 const SPORTS = ['basketball', 'flag5', 'flag7'];
@@ -73,11 +75,39 @@ async function whoHash(req, env) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode((env.SALT || 'chalk-talk') + '|who|' + ip));
   return [...new Uint8Array(d)].slice(0, 10).map(b => b.toString(16).padStart(2, '0')).join('');
 }
+// analytics: a visitor is a salted hash of (day, IP, browser) that rotates daily, so a person can't be
+// followed across days and no IP is ever stored; browser and OS are reduced to a family name
+async function visitorHash(req, env) {
+  const ip = req.headers.get('cf-connecting-ip') || 'local', ua = req.headers.get('user-agent') || '';
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode((env.SALT || 'chalk-talk') + '|v|' + day() + '|' + ip + '|' + ua));
+  return [...new Uint8Array(d)].slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export const browserOf = ua => /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : /bot|crawl|spider/i.test(ua) ? 'Bot' : 'Other';
+export const osOf = ua => /iPhone/.test(ua) ? 'iOS' : /iPad/.test(ua) ? 'iPadOS' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Other';
+async function rollup(d, days) {
+  const since = new Date(Date.now() - (days - 1) * 864e5).toISOString().slice(0, 10), all = async (sql, ...a) => ((await d.prepare(sql).bind(since, ...a).all()).results || []);
+  const top = col => all(`SELECT ${col} k, COUNT(DISTINCT visitor || day) visitors, COUNT(*) events FROM events WHERE day >= ? AND name = 'view' GROUP BY ${col} ORDER BY visitors DESC LIMIT 25`);
+  const [daily, countries, cities, devices, browsers, oses, hosts, refs, sports, ais, features, voice, iq, recent, ai] = await Promise.all([
+    all("SELECT day, COUNT(DISTINCT visitor) visitors, SUM(name = 'view') views, COUNT(*) events FROM events WHERE day >= ? GROUP BY day ORDER BY day"),
+    top('country'), all("SELECT city || ', ' || COALESCE(region, '') || ' ' || COALESCE(country, '') k, COUNT(DISTINCT visitor || day) visitors FROM events WHERE day >= ? AND name = 'view' AND city IS NOT NULL GROUP BY k ORDER BY visitors DESC LIMIT 25"),
+    top('device'), top('browser'), top('os'), top('host'), top('ref'), top('sport'), top('ai'),
+    all("SELECT name k, COUNT(DISTINCT visitor || day) visitors, COUNT(*) events FROM events WHERE day >= ? AND name != 'view' GROUP BY name ORDER BY visitors DESC"),
+    all("SELECT json_extract(props, '$.path') k, COUNT(*) events, ROUND(AVG(json_extract(props, '$.ms'))) ms, SUM(json_extract(props, '$.ok') = 1) ok FROM events WHERE day >= ? AND name = 'voice' GROUP BY k ORDER BY events DESC"),
+    all("SELECT json_extract(props, '$.band') k, COUNT(*) sessions, ROUND(AVG(json_extract(props, '$.right') * 100.0 / json_extract(props, '$.of'))) pct FROM events WHERE day >= ? AND name = 'iq_done' GROUP BY k"),
+    all("SELECT ts, name, country, city, device, browser, os, host, sport, props FROM events WHERE day >= ? ORDER BY ts DESC LIMIT 60"),
+    (async () => { const r = await d.prepare("SELECT bucket, n FROM ai_usage WHERE bucket LIKE 'neurons:%' OR bucket LIKE 'calls:%'").all(); return (r.results || []).filter(x => x.bucket.split(':')[1] >= since); })()
+  ]);
+  const tot = daily.reduce((a, r) => ({ visitors: a.visitors + r.visitors, views: a.views + r.views, events: a.events + r.events }), { visitors: 0, views: 0, events: 0 });
+  const learn = await d.prepare("SELECT COUNT(*) n, COUNT(DISTINCT who) coaches FROM voice_learn WHERE day >= ?").bind(since).first().catch(() => null);
+  return { days, since, totals: tot, daily, countries, cities, devices, browsers, oses, hosts, refs, sports, ais, features, voice, iq, recent, ai, learn };
+}
 const ready = new WeakSet();   // per database binding
 async function db(env) {
   if (!env.DB) return null;
   if (!ready.has(env.DB)) {
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_usage (bucket TEXT PRIMARY KEY, n INTEGER NOT NULL)').run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS events (day TEXT NOT NULL, ts INTEGER NOT NULL, visitor TEXT NOT NULL, name TEXT NOT NULL, country TEXT, region TEXT, city TEXT, device TEXT, browser TEXT, os TEXT, host TEXT, ref TEXT, sport TEXT, ai TEXT, props TEXT)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS events_day ON events (day)').run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS voice_learn (day TEXT NOT NULL, sport TEXT NOT NULL, kind TEXT NOT NULL, a TEXT NOT NULL, b TEXT NOT NULL, kept INTEGER NOT NULL, who TEXT NOT NULL)').run();
     ready.add(env.DB);
   }
@@ -140,6 +170,23 @@ export default {
       if (path === '/health' && req.method === 'GET') {
         const d = await db(env);
         return json({ ok: true, models: Object.assign({}, MODELS, { play: env.PLAY_MODEL || MODELS.play }), today: { calls: await peek(d, `calls:${day()}`), neurons_est: await peek(d, `neurons:${day()}`), cap: LIMITS.neuronsPerDay } }, 200, h);
+      }
+      if (path === '/stats' && req.method === 'GET') {
+        if (!env.STATS_TOKEN || req.headers.get('authorization') !== 'Bearer ' + env.STATS_TOKEN) return json({ error: 'Not authorized.' }, 401, h);
+        const d = await db(env); if (!d) return json({ error: 'No database.' }, 503, h);
+        return json(await rollup(d, Math.max(1, Math.min(365, +url.searchParams.get('days') || 30))), 200, h);
+      }
+      if (path === '/event' && req.method === 'POST') {
+        const body = await readJson(req), d = await db(env);
+        const events = Array.isArray(body.events) ? body.events.slice(0, 40) : [];
+        if (!d || !events.length || !(await allow(req, env, 'event'))) return new Response(null, { status: 204, headers: h });
+        const c = body.ctx || {}, cf = req.cf || {}, ua = req.headers.get('user-agent') || '', s = v => (v == null ? null : String(v).slice(0, 60));
+        const visitor = await visitorHash(req, env), dev = s(c.device), br = browserOf(ua), os = osOf(ua);
+        const stmt = d.prepare('INSERT INTO events (day, ts, visitor, name, country, region, city, device, browser, os, host, ref, sport, ai, props) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        const rows = events.map(e => stmt.bind(day(), Date.now(), visitor, String(e.n || '').slice(0, 32), s(cf.country), s(cf.region), s(cf.city), dev, br, os, s(c.host), s(e.n === 'view' ? c.ref : null), s(c.sport), s(c.ai), JSON.stringify(e.p || {}).slice(0, 300)));
+        await (d.batch ? d.batch(rows) : Promise.all(rows.map(r => r.run())));
+        if (Math.random() < 0.01) ctx && ctx.waitUntil && ctx.waitUntil(d.prepare("DELETE FROM events WHERE day < date('now', '-400 days')").run());
+        return new Response(null, { status: 204, headers: h });
       }
       if (path === '/lexicon' && req.method === 'GET') {
         const d = await db(env), out = { words: {}, phrases: {} };

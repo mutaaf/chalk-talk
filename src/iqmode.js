@@ -82,7 +82,7 @@ export function createIQ(ctx) {
     const age = pl ? pl.age : guestAge, before = pl ? profOf(pl) : blank();
     run = { pi, age, sport, prof: before, before, qs: quiz(sport, { age, iq: before.iq, n: 6 }), i: -1, score: 0, log: [] };
     if (!run.qs.length) { ctx.toast('No questions for this sport yet.'); run = null; return; }
-    ctx.enter();
+    ctx.enter(); ctx.track && ctx.track('iq_start', { band: ageOf(age).band, guest: pl ? 0 : 1 });
     hud.hidden = false; H.brand.textContent = sport.iq.name + (pl ? ' · ' + pl.nick : '');
     ask(0);
   }
@@ -151,6 +151,7 @@ export function createIQ(ctx) {
     if (r.pi != null && d.players[r.pi]) { const pl = d.players[r.pi]; pl.fam = pl.fam || {}; r.prof.history = (r.prof.history || []).concat([Math.round(r.prof.iq)]).slice(-30); pl.fam[IQ.name] = r.prof; db.put(d); }
     const lv0 = level(r.before.iq, sport), lv = level(r.prof.iq, sport), lk = likeness(r.prof, sport), delta = Math.round((r.prof.iq - r.before.iq) * 10) / 10;
     const right = r.log.filter(x => x.right).length;
+    ctx.track && ctx.track('iq_done', { band: ageOf(r.age).band, right, of: r.log.length, level: lv.name, up: lv.i > lv0.i ? 1 : 0 });
     const bars = DIMS.map(k => { const v = k === 'speed' ? r.prof.dims.speed : Math.max(0, Math.min(100, (r.prof.dims[k] - 60) * 1.25)); return `<li><span>${esc(IQ.dims[k])}</span><i><i style="--w:${Math.round(v)}%"></i></i><b>${Math.round(k === 'speed' ? v : r.prof.dims[k])}</b></li>`; }).join('');
     const body = `<div class="ct-iqend">
       <div class="ct-iqbig"><span class="ct-iqcount" data-from="${Math.round(r.before.iq)}" data-to="${Math.round(r.prof.iq)}">${Math.round(r.before.iq)}</span><small>${esc(IQ.name)}</small>

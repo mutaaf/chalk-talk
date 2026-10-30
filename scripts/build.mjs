@@ -6,6 +6,7 @@ const out = 'dist/chalktalk';
 rmSync('dist', { recursive: true, force: true });
 mkdirSync(out + '/vendor', { recursive: true });
 copyFileSync('index.html', out + '/index.html');
+mkdirSync(out + '/admin', { recursive: true }); copyFileSync('admin/index.html', out + '/admin/index.html');   // the owner's analytics (not cached offline)
 cpSync('src', out + '/src', { recursive: true });
 copyFileSync('node_modules/aurora-field/dist/aurora-field.mjs', out + '/vendor/aurora-field.mjs');
 copyFileSync('node_modules/aurora-field/LICENSE', out + '/vendor/aurora-field.LICENSE');
@@ -15,5 +16,5 @@ copyFileSync('manifest.webmanifest', out + '/manifest.webmanifest');
 const files = [];
 (function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else files.push('./' + relative(out, p)); } })(out);
 let rev = 'dev'; try { rev = execSync('git rev-parse --short HEAD').toString().trim() + '-' + Date.now().toString(36); } catch (e) {}
-writeFileSync(out + '/sw.js', readFileSync('sw.js', 'utf8').replace('__BUILD__', rev).replace('__SHELL__', JSON.stringify(['./'].concat(files.filter(f => f !== './index.html')))));
+writeFileSync(out + '/sw.js', readFileSync('sw.js', 'utf8').replace('__BUILD__', rev).replace('__SHELL__', JSON.stringify(['./'].concat(files.filter(f => f !== './index.html' && !f.startsWith('./admin/'))))));
 console.log('built → ' + out + ' (' + files.length + ' files, sw ' + rev + ')');

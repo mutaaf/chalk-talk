@@ -129,3 +129,21 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
   assert.equal((await post('4.4.4.4', { kind: 'phrase', sport: 'basketball', text: 'whatever', concept: 'not-a-play', kept: true })).status, 400);
   console.log('ok: opt-in voice learning shares only what 3+ coaches confirm, never names');
 }
+// analytics: events land without IPs or cookies; the rollup is the owner's only (Bearer STATS_TOKEN)
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  const mk = (sql, a = []) => ({ first: async () => sq.prepare(sql).get(...a) ?? null, run: async () => { sq.prepare(sql).run(...a); return {}; }, all: async () => ({ results: sq.prepare(sql).all(...a) }) });
+  const D = { prepare: sql => Object.assign(mk(sql), { bind: (...a) => mk(sql, a) }) };
+  const e = env('{}', { DB: D, STATS_TOKEN: 'owner' });
+  const send = (ip, ua, events) => worker.fetch(new Request('https://x/chalktalk/api/event', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip, 'user-agent': ua }, body: JSON.stringify({ ctx: { host: 'mutaafaziz.com', device: 'phone', sport: 'flag5', ai: 'free', ref: 'google.com' }, events }) }), e);
+  assert.equal((await send('1.1.1.1', 'Mozilla/5.0 (iPhone) Safari/604', [{ n: 'view' }, { n: 'film_open' }, { n: 'voice', p: { path: 'ai', ms: 9000, ok: 1 } }])).status, 204);
+  await send('2.2.2.2', 'Mozilla/5.0 (Windows) Chrome/140', [{ n: 'view' }, { n: 'iq_done', p: { band: 'young', right: 4, of: 6 } }]);
+  assert.equal(sq.prepare("SELECT COUNT(*) n FROM events WHERE visitor LIKE '%1.1.1.1%' OR props LIKE '%1.1.1.1%'").get().n, 0);   // no IPs anywhere
+  assert.equal((await worker.fetch(new Request('https://x/chalktalk/api/stats'), e)).status, 401);
+  const st = await (await worker.fetch(new Request('https://x/chalktalk/api/stats?days=7', { headers: { authorization: 'Bearer owner' } }), e)).json();
+  assert.equal(st.totals.visitors, 2); assert.equal(st.totals.views, 2);
+  assert.ok(st.features.some(f => f.k === 'film_open')); assert.ok(st.browsers.some(b => b.k === 'Safari')); assert.ok(st.refs.some(r => r.k === 'google.com'));
+  assert.equal(st.iq[0].pct, 67);
+  console.log('ok: anonymous analytics ingest and the owner-only rollup');
+}
