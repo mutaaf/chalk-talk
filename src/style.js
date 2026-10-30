@@ -1032,5 +1032,11 @@ export const CSS = `
 .ct-ink .readline { fill: none; stroke: #4ade80; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 6; filter: drop-shadow(0 0 6px rgba(74, 222, 128, .8)); animation: ct-march 0.8s linear infinite; }
 .ct-ink .readring { fill: rgba(74, 222, 128, .12); stroke: #4ade80; stroke-width: 2; }
 .ct.ct-light .ct-best h6 { color: #15803d; } .ct.ct-light .ct-ink .readline, .ct.ct-light .ct-ink .readring { stroke: #15803d; }
+/* sport families with a format toggle */
+.ct-formats { display: inline-flex; gap: 2px; margin-left: 4px; padding: 2px; border-radius: 12px; background: rgba(140, 188, 255, .08); align-self: center; }
+.ct .ct-formats button { height: 22px; padding: 0 8px; border-radius: 10px; font-size: 11.5px; font-weight: 700; color: var(--mute); }
+.ct .ct-formats button.on { background: var(--paper); color: var(--night); }
+/* a soccer ball is white with a dark seam */
+.ct-ink .ball.soccer { fill: #fff; stroke: #111; stroke-width: 1.4; }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;

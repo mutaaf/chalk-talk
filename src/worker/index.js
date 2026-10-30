@@ -44,7 +44,7 @@ export const LIMITS = {
   estNeurons: { event: 0, learn: 0, play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
   maxJson: 64 * 1024, maxAudio: 2 * 1024 * 1024, maxSay: 300
 };
-const SPORTS = ['basketball', 'flag5', 'flag7'];
+const SPORTS = ['basketball', 'flag5', 'flag7', 'soccer7', 'soccer9'];
 // USD per million tokens (in, out); a neuron is $0.011 per 1000
 const PRICES = {
   '@cf/google/gemma-4-26b-a4b-it': [0.1, 0.3], '@cf/meta/llama-3.3-70b-instruct-fp8-fast': [0.293, 2.253],

@@ -8,7 +8,7 @@ import { coverages, progression, readStart, READ_STEP, separation } from './engi
 const NUMW = ['', 'first', 'second', 'third', 'fourth', 'fifth'];
 
 export function analyze(sim, sport, nameOf) {
-  const nm = nameOf || (id => id), play = sim.play, K = sport.kinds, fb = !!K.route, lines = [];
+  const nm = nameOf || (id => id), play = sim.play, K = sport.kinds, fb = !!K.route, soccer = /^soccer/.test(sport.id), unitWord = sport.unit === 'yd' ? 'yards' : 'feet', lines = [];
   const D = sim.players.map((p, i) => i).filter(i => sim.players[i].side === 'D');
   const defOf = ri => D.find(d => sim.match[d] === ri);
   const nearestD = (t, i) => { const P = sim.posAt(t); let b = null, bd = 1e9; D.forEach(d => { const v = Math.hypot(P[d][0] - P[i][0], P[d][1] - P[i][1]); if (v < bd) { bd = v; b = d; } }); return b == null ? null : { d: b, dist: bd }; };
@@ -21,6 +21,7 @@ export function analyze(sim, sport, nameOf) {
         const deep = cov.jobs.filter(j => j[1] === 'zone' && /deep/i.test(j[2].label)).length, rush = cov.jobs.some(j => j[1] === 'rush');
         out.push(`Look at the shell: it's ${cov.name}. ${deep ? deep + ' deep, so ' + (deep >= 3 ? 'the seams are covered but the flats and the hooks are soft' : deep === 2 ? 'the hole is the middle of the field, between the safeties' : 'one-high, so you want to work the outside') : 'Nobody deep. Man everywhere, so somebody has to win on the route'}.${rush ? ' And they bring a rusher, so the ball has to come out on time.' : ''}`);
       } else if (fb) out.push('Defense is in man. Every receiver has a shadow, so it comes down to who wins off the line.');
+      else if (soccer) out.push('Look at their shape: each X is goal-side of a player and the far side tucks in toward the ball. Watch for the moment a defender has to choose.');
       else out.push('Man to man. Every X has a player, and the help is sinking off the weak side. Keep your eye on who has to make a decision.');
     }
     const screens = b.actions.filter(a => K[a.kind] && K[a.kind].style === 'screen' && a.target);
@@ -40,12 +41,12 @@ export function analyze(sim, sport, nameOf) {
           let why = '';
           if (d != null && hold >= 0) { const toBall = Math.hypot(P[d][0] - P[hold][0], P[d][1] - P[hold][1]), toMan = Math.hypot(P[d][0] - P[ri][0], P[d][1] - P[ri][1]); if (toBall < toMan) why = `${nm(dd)} stepped over to help on the ball, and that leaves ${nm(a.target)} alone.`; }
           if (!why && d != null && sim.screened[k] && sim.screened[k][d] != null) why = `${nm(dd)} is stuck on the screen.`;
-          if (!why) why = `${nm(sim.players[near.d].id)} is ${near.dist.toFixed(0)} feet away.`;
+          if (!why) why = `${nm(sim.players[near.d].id)} is ${near.dist.toFixed(0)} ${unitWord} away.`;
           const st = sim.passStyle && sim.passStyle(k);
           out.push(`${nm(a.who)} sees it: ${why} ${st === 'bounce' ? 'Bounce pass, under the hands.' : st === 'chest' ? 'Chest pass, on a line.' : ''} That's the read: the ball goes to the open man.`.replace(/\s+/g, ' '));
         } else out.push(`${nm(a.who)} finds ${nm(a.target)}. Turn the defense on and you'll see why that's the right look.`);
       }
-      if (T.type === 'shot') out.push(`${nm(a.who)} rises up in rhythm. That's what spacing buys you: a clean look.`);
+      if (T.type === 'shot') out.push(soccer ? `${nm(a.who)} strikes it low and early, before the keeper is set. That's what the movement bought: a clean look at goal.` : `${nm(a.who)} rises up in rhythm. That's what spacing buys you: a clean look.`);
       if (T.type === 'handoff') out.push(`The handoff: ${nm(a.who)} to ${nm(a.target)}, and now the defense is guarding a moving target.`);
     });
     if (!out.length) out.push(b.say);

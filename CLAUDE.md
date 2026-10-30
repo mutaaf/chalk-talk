@@ -4,7 +4,7 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 
 ## Layout
 - `src/engine/` is pure and sport-agnostic: `sim.js` (normalize + compile a play into a timeline; defenders' man/zone/rush jobs), `field.js` (the aurora shape + view + particle budget), `geom.js`, `football.js` (route tree, coverages, QB reads).
-- `src/sports/` is data: one pack per sport (`basketball.js`, `flag.js` → flag5/flag7) and its plays. Never put sport rules in the engine.
+- `src/sports/` is data: one pack per sport (`basketball.js`, `flag.js` → flag5/flag7, `soccer.js` → soccer7/soccer9, researched in `research/SOCCER.md`) and its plays. Never put sport rules in the engine.
 - `src/ui.js` mounts everything in one element; `src/style.js` is scoped under `.ct`. `src/ai.js` builds the schema and briefing from the sport pack; `src/voice.js` is speech in/out and the offline command grammar.
 - `src/guide.js` (positions guide + mini boards), `src/iqmode.js` (CourtIQ / FieldIQ game) on `src/engine/iq.js` (pure: questions cut from library plays, Elo, levels, likeness), `src/stats.js` (play numbers, voice, AI meter), `src/analyst.js` (booth commentary from the engine), `src/learn.js` (voice healing + on-device learning), `src/sound.js` (synthesized cues). Position/IQ data lives in the sport packs (`basketball-positions.js`, `flag-positions.js`).
 - `research/` holds the cited glossaries; `npm run glossary` regenerates `src/sports/basketball-glossary.js`.

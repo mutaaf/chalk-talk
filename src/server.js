@@ -9,7 +9,7 @@ import { getSport } from './sports/index.js';
 
 export const TASKS = ['play', 'smart', 'brain', 'tutor', 'analyst'];
 export const LITE = { play: false, smart: false, brain: true, tutor: true, analyst: true };
-const SPORTS = ['basketball', 'flag5', 'flag7'];
+const SPORTS = ['basketball', 'flag5', 'flag7', 'soccer7', 'soccer9'];
 const bad = msg => Object.assign(new Error(msg), { status: 400 });
 
 export function requestFor(task, body) {

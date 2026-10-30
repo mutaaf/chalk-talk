@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.21.0';
+export const VERSION = '0.22.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.22.0', date: '2026-10-30', title: 'Soccer kicks off', items: [
+    { title: 'Soccer 7v7 and 9v9', call: 'Youth soccer joins: 7v7 with the build-out line and 9v9, numbered the way coaches draw it (1 keeper, 2 and 3 backs, the 8, the 9, 7 and 11 wide), with researched plays from the wall pass and the overlap to the third-man run, switches, counters, low corners, and pressing lessons.', show: 'sports' },
+    { title: 'PitchIQ, the guide and coach styles', call: 'Every position in depth, a PitchIQ game for your players, and coaching lenses inspired by the modern game. Say it, sketch it, print it as a playbook.', show: 'guideBtn' }
+  ] },
   { version: '0.21.0', date: '2026-10-30', title: 'Best reads', items: [
     { title: 'The best read, any moment', call: 'Tap any player at any point in a play: it holds still and shows their best read right now (who’s open and how open, the drive, the shot, the cut, where to relocate, or for defenders: pressure, deny, help, close out), with the play’s own read marked and a green arrow on the board.', show: 'ink' }
   ] },

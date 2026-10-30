@@ -177,7 +177,9 @@ const TEMPLATE = `
 const HINTS = {
   basketball: ['Tap the mic (or hold space) and say a play: “1 dribbles to the right wing, 5 sets the ball screen…”', '…or type it: run Spain pick and roll'],
   flag5: ['Tap the mic (or hold space) and say a play: “Z runs a slant, Y runs to the flat, QB reads the flat defender…”', '…or type it: show me mesh'],
-  flag7: ['Tap the mic (or hold space) and say a play: “Trips right, X runs a post, the slot runs a dig…”', '…or type it: show me four verticals']
+  flag7: ['Tap the mic (or hold space) and say a play: “Trips right, X runs a post, the slot runs a dig…”', '…or type it: show me four verticals'],
+  soccer7: ['Tap the mic (or hold space) and say a play: “The 8 plays it to the 11, gets it back and runs in behind…”', '…or type it: show me a wall pass'],
+  soccer9: ['Tap the mic (or hold space) and say a play: “Switch it to the 7, the 2 overlaps, cross it low to the 9…”', '…or type it: show me a third-man run']
 };
 
 // how big the field is drawn: the whole field fits with every player on screen, leaving room for the header and dock
@@ -321,6 +323,7 @@ export function mount(root, options) {
     const p = byId(m); if (!p) return m;
     if (withNames && names.all()[m]) return names.all()[m];
     const nm = state.sport.notation.name(p);
+    if (/^soccer/.test(state.sport.id)) return side === 'O' ? (nm === '1' ? 'the keeper' : 'the ' + nm) : 'X ' + m[1];
     return state.sport.id === 'basketball' ? (side === 'O' ? 'the ' + nm : 'X ' + m[1]) : nm === 'QB' ? 'the quarterback' : nm === 'C' ? 'the center' : nm;
   });
 
@@ -363,7 +366,7 @@ export function mount(root, options) {
     const order = fb && V.mode !== 'off' ? progression(sim, V.mode, V.side) : [];
     const badges = order.map((pi, n) => { const g = el('g', 'rd', gP); const c = el('circle', '', g); const tx = el('text', '', g); tx.textContent = n + 1; return { pi, g, c, tx }; });
     const routes = sim.routes.map(r => el('path', 'r ' + r.side + ' ' + r.kind + ' ' + r.type, gR));
-    const shadow = el('ellipse', 'shadow', svg), ball = el('circle', 'ball', svg);
+    const shadow = el('ellipse', 'shadow', svg), ball = el('circle', 'ball' + (/^soccer/.test(state.sport.id) ? ' soccer' : ''), svg);
     // football: a pointed oval with laces, turned to where it's going (basketball and soccer stay round)
     const pig = fb ? el('g', 'pigskin', svg) : null;
     if (pig) { el('path', 'pig', pig); el('path', 'laces', pig); ball.setAttribute('r', 0); }
@@ -697,7 +700,7 @@ export function mount(root, options) {
   }
   function blank() {
     const s = state.sport;
-    return { title: 'Blank board', concept: 'Your play', summary: 'Say a play, or sketch one.', beats: [], ball: 'O' + (s.id === 'basketball' ? 1 : 2), los: s.los,
+    return { title: 'Blank board', concept: 'Your play', summary: 'Say a play, or sketch one.', beats: [], ball: s.startBall || 'O' + (s.id === 'basketball' ? 1 : 2), los: s.los,
       players: s.starter.map((at, i) => ({ id: 'O' + (i + 1), side: 'O', at })) };
   }
   R.playBtn.onclick = () => act('toggle');
@@ -713,10 +716,17 @@ export function mount(root, options) {
   R.sketchBtn.onclick = () => act('sketch');
 
   // ---- sports, library, legend ----
+  const famOf = s => s.id.replace(/\d+$/, ''), FAM = { basketball: 'Hoops', flag: 'Flag', soccer: 'Soccer' };
+  const fmt = s => (s.roster && s.roster.perSide ? s.roster.perSide + 'v' + s.roster.perSide : s.short);
   function renderSports() {
     if (R.iqLabel) R.iqLabel.textContent = state.sport.iq ? state.sport.iq.name : 'IQ';
     R.sports.hidden = allowed.length < 2;
-    R.sports.innerHTML = allowed.map(s => `<button role="tab" class="ct-pill${s === state.sport ? ' on' : ''}" aria-selected="${s === state.sport}" data-id="${s.id}">${esc(s.short)}</button>`).join('');
+    // one tab per sport family (Hoops · Flag · Soccer); the current family's formats as a small toggle
+    const fams = [...new Set(allowed.map(famOf))], cur = famOf(state.sport), formats = allowed.filter(x => famOf(x) === cur);
+    const lastOf = f => { try { const id = localStorage.getItem('chalktalk.format.' + f); const x = allowed.find(y => y.id === id); if (x) return x; } catch (e) {} return allowed.find(y => famOf(y) === f); };
+    R.sports.innerHTML = fams.map(f => `<button role="tab" class="ct-pill${f === cur ? ' on' : ''}" aria-selected="${f === cur}" data-id="${lastOf(f).id}">${esc(FAM[f] || lastOf(f).short)}</button>`).join('')
+      + (formats.length > 1 ? `<span class="ct-formats" role="group" aria-label="Format">${formats.map(x => `<button type="button" data-id="${x.id}" class="${x === state.sport ? 'on' : ''}">${esc(fmt(x))}</button>`).join('')}</span>` : '');
+    try { localStorage.setItem('chalktalk.format.' + cur, state.sport.id); } catch (e) {}
   }
   R.sports.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSport(getSport(b.dataset.id)); });
   function renderLibrary() {
@@ -735,7 +745,18 @@ export function mount(root, options) {
   R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
-    const fb = state.sport.id !== 'basketball';
+    const fb = !!state.sport.kinds.route, soc = /^soccer/.test(state.sport.id);
+    if (soc) {   // soccer: shirt numbers, runs, dribbles, passes and shots
+      const row2 = (svg, t) => `<span><svg viewBox="-10 -10 20 20">${svg}</svg>${t}</span>`;
+      R.legend.innerHTML = [
+        row2('<circle r="7" fill="none" stroke="#ff8e3a" stroke-width="2"/><text y="3.5" text-anchor="middle" font-size="9" font-weight="900" fill="#ff8e3a">9</text>', 'Offense, by shirt number'),
+        row2('<path d="M-6 -6L6 6M-6 6L6 -6" stroke="#a9d4ff" stroke-width="2.4" stroke-linecap="round"/>', 'Defense'),
+        row2('<path d="M-9 0H7M3 -4L7 0L3 4" fill="none" stroke="#ff8e3a" stroke-width="2"/>', 'Run'),
+        row2('<path d="M-9 0l3 -3l3 6l3 -6l3 6l3 -3" fill="none" stroke="#ff8e3a" stroke-width="2"/>', 'Dribble'),
+        row2('<path d="M-9 0H9" stroke="#eef4ff" stroke-width="2" stroke-dasharray="4 3"/>', 'Pass or shot')
+      ].join('');
+      return;
+    }
     const row = (svg, t) => `<span><svg viewBox="-10 -10 20 20">${svg}</svg>${t}</span>`;
     R.legend.innerHTML = [
       row('<circle r="7" fill="none" stroke="#ff8e3a" stroke-width="2"/><text y="3.5" text-anchor="middle" font-size="9" font-weight="900" fill="#ff8e3a">' + (fb ? 'Q' : '1') + '</text>', fb ? 'Offense, by position' : 'Offense, 1–5 by position'),

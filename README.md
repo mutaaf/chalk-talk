@@ -1,5 +1,7 @@
 # Chalk Talk
 
+Basketball, flag football (5v5, 7v7) and youth soccer (7v7, 9v9).
+
 Say a play out loud, or sketch it, and watch it draw itself in light. X's and O's for youth
 coaches, on an [aurora-field](https://github.com/mutaaf/aurora-field) court: basketball, flag
 football 5v5 and 7v7, and any sport you add as a data file.
