@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.13.1';
+export const VERSION = '0.14.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.14.0', date: '2026-10-30', title: 'The dock', items: [
+    { title: 'A floating dock', call: 'On phones and tablets the sections live in a floating dock: Plays, Guide, Talk, Film room and More, each labeled, the one you’re in lit up. Panels float just above it, so it’s always one tap to switch.', show: null }
+  ] },
   { version: '0.13.1', date: '2026-10-30', title: 'iPad, fixed', items: [
     { title: 'iPad in landscape', call: 'The whole field fits again, the play card is a sheet you pull up instead of a panel over the board, and collapsing a panel can never hide the board.', show: null }
   ] },

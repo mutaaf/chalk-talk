@@ -702,7 +702,9 @@ export const CSS = `
 .ct .ct-fcbtns button { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 21px; font-weight: 700; font-size: 14px; }
 .ct .ct-fcbtns .go { background: linear-gradient(135deg, #7b5cff, #b04cff); color: #fff; }
 .ct .ct-fcbtns .pro { background: linear-gradient(135deg, var(--gold), #ff8e3a); color: #04070c; }
-.ct-fcbtns .ct-i { width: 17px; height: 17px; }
+.ct-fcbtns .ct-i { width: 17px; height: 17px; flex: none; }
+.ct .ct-fcbtns button { max-width: 100%; }
+@container (max-width: 520px) { .ct-fconnect { flex-direction: column; gap: 8px; } .ct .ct-fcbtns button { width: 100%; justify-content: center; } }
 
 /* dismissing: panels fade and slide out; the big ones dim the board behind them */
 .ct-scrim { position: absolute; inset: 0; z-index: 15; background: rgba(2, 4, 8, .42); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .2s; }
@@ -921,5 +923,49 @@ export const CSS = `
 .ct.ct-touch .ct-cardx { display: grid; }
 .ct.ct-touch .ct-legend, .ct.ct-touch .ct-lib { display: none !important; }
 .ct.ct-touch .ct-mic { width: 58px; height: 58px; }
+
+/* the dock: a floating, labeled bar of sections (phones and tablets) */
+@container (max-width: 1100px) { .ct .ct-panel.sheet { left: 8px !important; right: 8px; bottom: calc(84px + env(safe-area-inset-bottom)); max-height: calc(100% - 150px); border-radius: 22px; padding-bottom: 0; } }
+.ct.ct-touch .ct-panel.sheet { left: 8px !important; right: 8px; bottom: calc(84px + env(safe-area-inset-bottom)); max-height: calc(100% - 150px); border-radius: 22px; padding-bottom: 0; }
+@keyframes ct-live2 { 50% { box-shadow: 0 0 0 8px rgba(255, 77, 77, .22); } }
+@container (max-width: 1100px) {
+  .ct nav.ct-tabbar { display: flex; align-items: stretch; gap: 2px; position: absolute; z-index: 17; left: 50%; right: auto; translate: -50% 0; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; max-width: calc(100% - 20px); padding: 6px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, .08); border-top-color: rgba(255, 255, 255, .14); background: rgba(10, 16, 28, .72); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); box-shadow: 0 18px 50px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05); }
+  .ct nav.ct-tabbar button { display: grid; justify-items: center; align-content: center; gap: 4px; min-width: 70px; min-height: 0; height: 58px; padding: 6px 10px; border-radius: 24px; color: rgba(238, 244, 255, .62); font-size: 11px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; transition: background .2s, color .2s, transform .12s; }
+  .ct nav.ct-tabbar button .ct-i { width: 22px; height: 22px; }
+  .ct nav.ct-tabbar button:active { transform: scale(.94); }
+  .ct nav.ct-tabbar button.on { color: var(--o); background: rgba(255, 142, 58, .15); }
+  .ct nav.ct-tabbar .ct-dot { top: 6px; right: 18px; }
+  .ct nav.ct-tabbar .ct-tbmic { width: auto; height: 58px; margin: 0 4px; padding: 4px 12px 6px; border-radius: 24px; background: none !important; box-shadow: none; color: var(--o) !important; animation: none !important; }
+  .ct nav.ct-tabbar .ct-tbmic i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffb067, var(--o)); color: #04070c; box-shadow: 0 6px 18px rgba(255, 142, 58, .45); transition: background .2s, box-shadow .2s; }
+  .ct nav.ct-tabbar .ct-tbmic i svg { width: 18px; height: 18px; fill: currentColor; }
+  .ct nav.ct-tabbar .ct-tbmic span { color: var(--o); }
+  .ct nav.ct-tabbar .ct-tbmic[data-state=listening] i, .ct nav.ct-tabbar .ct-tbmic[data-state=hearing] i { background: radial-gradient(circle at 35% 30%, #ff9a9a, #ff4d4d); animation: ct-live2 1.2s ease-in-out infinite; }
+  .ct nav.ct-tabbar .ct-tbmic[data-state=listening] span, .ct nav.ct-tabbar .ct-tbmic[data-state=hearing] span { color: #ff6b6b; }
+
+  .ct .ct-dock { bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .ct .ct-coach { bottom: calc(90px + env(safe-area-inset-bottom)); }
+  .ct .ct-card { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+}
+
+.ct.ct-touch nav.ct-tabbar { display: flex; align-items: stretch; gap: 2px; position: absolute; z-index: 17; left: 50%; right: auto; translate: -50% 0; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; max-width: calc(100% - 20px); padding: 6px; border-radius: 30px; border: 1px solid rgba(255, 255, 255, .08); border-top-color: rgba(255, 255, 255, .14); background: rgba(10, 16, 28, .72); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); box-shadow: 0 18px 50px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05); }
+.ct.ct-touch nav.ct-tabbar button { display: grid; justify-items: center; align-content: center; gap: 4px; min-width: 70px; min-height: 0; height: 58px; padding: 6px 10px; border-radius: 24px; color: rgba(238, 244, 255, .62); font-size: 11px; font-weight: 600; letter-spacing: .02em; white-space: nowrap; transition: background .2s, color .2s, transform .12s; }
+.ct.ct-touch nav.ct-tabbar button .ct-i { width: 22px; height: 22px; }
+.ct.ct-touch nav.ct-tabbar button:active { transform: scale(.94); }
+.ct.ct-touch nav.ct-tabbar button.on { color: var(--o); background: rgba(255, 142, 58, .15); }
+.ct.ct-touch nav.ct-tabbar .ct-dot { top: 6px; right: 18px; }
+.ct.ct-touch nav.ct-tabbar .ct-tbmic { width: auto; height: 58px; margin: 0 4px; padding: 4px 12px 6px; border-radius: 24px; background: none !important; box-shadow: none; color: var(--o) !important; animation: none !important; }
+.ct.ct-touch nav.ct-tabbar .ct-tbmic i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffb067, var(--o)); color: #04070c; box-shadow: 0 6px 18px rgba(255, 142, 58, .45); transition: background .2s, box-shadow .2s; }
+.ct.ct-touch nav.ct-tabbar .ct-tbmic i svg { width: 18px; height: 18px; fill: currentColor; }
+.ct.ct-touch nav.ct-tabbar .ct-tbmic span { color: var(--o); }
+.ct.ct-touch nav.ct-tabbar .ct-tbmic[data-state=listening] i, .ct.ct-touch nav.ct-tabbar .ct-tbmic[data-state=hearing] i { background: radial-gradient(circle at 35% 30%, #ff9a9a, #ff4d4d); animation: ct-live2 1.2s ease-in-out infinite; }
+.ct.ct-touch nav.ct-tabbar .ct-tbmic[data-state=listening] span, .ct.ct-touch nav.ct-tabbar .ct-tbmic[data-state=hearing] span { color: #ff6b6b; }
+
+.ct.ct-touch .ct-dock { bottom: calc(86px + env(safe-area-inset-bottom)); }
+.ct.ct-touch .ct-coach { bottom: calc(90px + env(safe-area-inset-bottom)); }
+.ct.ct-touch .ct-card { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+@container (max-width: 420px) { .ct nav.ct-tabbar button { min-width: 58px; padding: 6px 6px; font-size: 10.5px; } .ct nav.ct-tabbar { gap: 0; padding: 5px; } }
+.ct.ct-light nav.ct-tabbar { background: rgba(255, 253, 248, .82); border-color: rgba(16, 26, 43, .1); box-shadow: 0 16px 40px rgba(16, 26, 43, .16); }
+.ct.ct-light nav.ct-tabbar button { color: rgba(16, 26, 43, .6); }
+.ct.ct-light nav.ct-tabbar button.on { color: var(--o); background: rgba(194, 65, 12, .1); }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;

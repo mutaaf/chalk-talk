@@ -86,7 +86,8 @@ export function storyOf(play, id) {
     const mine = (b.actions || []).filter(a => a.who === id || a.target === id);
     if (!mine.length) return;
     const lines = String(b.say || '').split(/(?<=\.)\s+/).filter(s => new RegExp('\\b' + id + '\\b').test(s));
-    out.push({ beat: k, text: lines.join(' ') || mine.map(a => a.who !== id ? `gets it from ${a.who}` : (VERBS[a.kind] || 'moves') + (a.target ? ' ' + a.target : '')).join(', then ') });
+    const text = lines.join(' ') || id + ' ' + [...new Set(mine.map(a => a.who !== id ? `gets it from ${a.who}` : (VERBS[a.kind] || 'moves') + (a.target ? ' ' + a.target : '')))].join(', then ') + '.';
+    if (!out.length || out[out.length - 1].text !== text) out.push({ beat: k, text });
   });
   return out;
 }

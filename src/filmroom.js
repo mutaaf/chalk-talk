@@ -34,7 +34,7 @@ export function openFilm(ctx, startId) {
     const catches = []; play.beats.forEach((b, k) => b.actions.forEach(a => { if (a.target === id && S.kinds[a.kind].type === 'pass' && a.kind !== 'snap') catches.push({ k, space: sim.space(k + 0.94, i) }); }));
     const beaten = sim.beaten.some(bk => bk[i]);
     return { pos, story: st, catches, beaten,
-      read: st.length ? st.map(s => s.text).join(' ') : p.side === 'O' ? 'Spaces the floor and reads the ball.' : 'Guards the play and reacts to the ball.',
+      read: st.length ? [...new Set(st.map(s => s.text))].join(' ') : p.side === 'O' ? 'Spaces the floor and reads the ball.' : 'Guards the play and reacts to the ball.',
       risk: pos ? pos.donts[0] : '', tip: pos ? pos.cue : '' };
   };
   const card = (id, n) => {

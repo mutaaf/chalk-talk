@@ -117,10 +117,10 @@ const TEMPLATE = `
   <i></i>
   <button type="button" data-rl="exit" aria-label="Leave whiteboard only">${icon('shrink')}</button>
 </nav>
-<nav class="ct-tabbar" aria-label="Board">
+<nav class="ct-tabbar" aria-label="Sections" data-r="tabbar">
   <button type="button" data-tb="plays">${icon('book')}<span>Plays</span></button>
   <button type="button" data-tb="guide">${icon('book')}<span>Guide</span></button>
-  <button type="button" data-tb="mic" class="ct-tbmic" data-r="tbMic" aria-label="Talk: tap, say the play, tap again">${MIC}</button>
+  <button type="button" data-tb="mic" class="ct-tbmic" data-r="tbMic" aria-label="Talk: tap, say the play, tap again"><i>${MIC}</i><span>Talk</span></button>
   <button type="button" data-tb="film">${icon('film')}<span>Film room</span></button>
   <button type="button" data-tb="more">${icon('grid')}<span>More</span><i class="ct-dot" data-r="tbDot" hidden></i></button>
 </nav>
@@ -542,6 +542,7 @@ export function mount(root, options) {
   function closePanel() {
     root.querySelectorAll('.ct-panel:not(.out)').forEach(p => { p._off && p._off(); p.classList.add('out'); p.setAttribute('aria-hidden', 'true'); setTimeout(() => p.remove(), 200); });
     R.scrim.classList.remove('on');
+    if (R.tabbar) R.tabbar.querySelectorAll('[data-tb].on').forEach(x => x.classList.remove('on'));
     if (R.spot && !root.querySelector('.ct-panel:not(.out).ct-tourcard')) R.spot.hidden = true;
   }
   const markAnchor = i => { const m = ink.marks[i]; return { x: +m.hot.getAttribute('cx'), y: +m.hot.getAttribute('cy') + (+m.hot.getAttribute('r') || 10) }; };
@@ -1553,6 +1554,8 @@ export function mount(root, options) {
   }
   root.querySelector('.ct-tabbar').addEventListener('click', e => {
     const b = e.target.closest('[data-tb]'); if (!b) return;
+    if (b.classList.contains('on') && b.dataset.tb !== 'mic') { closePanel(); return; }   // tap the lit section again to close it
+    setTimeout(() => { if (root.querySelector('.ct-panel:not(.out)')) { R.tabbar.querySelectorAll('[data-tb]').forEach(x => x.classList.toggle('on', x === b && b.dataset.tb !== 'mic')); } }, 0);
     ({ plays: playsSheet, guide: () => guide(), mic: () => R.mic.click(), film: () => openFilmRoom(), more: controlCenter })[b.dataset.tb]();
   });
   R.playChip.onclick = () => root.classList.toggle('ct-info');
