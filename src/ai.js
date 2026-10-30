@@ -86,7 +86,8 @@ async function ask(k, sys, messages, signal, schema) {
   if (kind === 'claude') {
     const call = async fallback => {
       const h = { 'content-type': 'application/json', 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
-      const body = { model: 'claude-opus-5-5', max_tokens: 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
+      // Sonnet 5.5 at low effort: a coach is waiting, and it draws plays as well as Opus did here
+      const body = { model: 'claude-sonnet-5-5', max_tokens: 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
       if (fallback) { h['anthropic-beta'] = 'server-side-fallback-2026-07-01'; body.fallbacks = 'default'; }
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: h, body: JSON.stringify(body), signal });
       const j = await r.json().catch(() => ({}));
