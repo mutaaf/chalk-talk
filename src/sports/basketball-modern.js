@@ -197,33 +197,49 @@ export const MODERN = [
   // ---------------------------------------------------------------- off-ball: Flex
   {
     key: 'flex', title: 'Flex Cut', concept: 'Screen the screener',
-    summary: 'O4 screens on the baseline and O3 cuts across the lane for a layup. Then O1 screens for the screener, so O4 comes up open too.',
-    cues: ['Flex screen', 'Cut across', 'Screen the screener'],
-    players: [O(1, 'right slot'), O(2, 'left slot'), O(3, xy(16, 5)), O(4, 'right block'), O(5, 'left wing')], ball: 'O1',
+    summary: 'A continuity: swing the ball, the baseline screen frees a cutter across the lane, then the passer screens for the screener. The posts trade places and it runs the other way. Two cycles and the ball is back where it started.',
+    cues: ['Flex screen', 'Cut across', 'Screen the screener', 'Reverse and run it again'],
+    players: [O(1, 'right slot'), O(2, 'left slot'), O(3, xy(16, 5)), O(4, 'right block'), O(5, 'left block')], ball: 'O1',
     beats: [
       { say: 'O1 swings the ball to O2.', actions: [{ kind: 'pass', who: 'O1', target: 'O2' }] },
-      { say: 'O4 sets a flex screen on the baseline.', actions: [{ kind: 'screen', who: 'O4', to: xy(7, 7.5) }] },
-      { say: 'O3 cuts across the lane, low off the screen. O1 screens down for O4.', actions: [
-        { kind: 'cut', who: 'O3', to: xy(-5, 7), via: xy(8, 4) }, { kind: 'screen', who: 'O1', to: xy(7, 13) }] },
-      { say: 'O2 passes to O3. O4 comes up off the screen.', actions: [
-        { kind: 'pass', who: 'O2', target: 'O3' }, { kind: 'cut', who: 'O4', to: xy(4, 21), via: xy(11, 13) }] },
-      { say: 'Layup.', actions: [{ kind: 'shot', who: 'O3' }] }
+      { say: 'O4 sets the flex screen on the baseline. O5 steps out to the corner to make room.', actions: [
+        { kind: 'screen', who: 'O4', to: xy(7, 7.5), target: 'O3' }, { kind: 'move', who: 'O5', to: xy(-16, 5) }] },
+      { say: 'O3 cuts across the lane, low off the screen. O1 screens down for O4: screen the screener.', actions: [
+        { kind: 'cut', who: 'O3', to: 'left block', via: xy(8, 4) }, { kind: 'screen', who: 'O1', to: xy(7, 13), target: 'O4' }] },
+      { say: 'O4 comes up off the down screen to the top. O3 was open for a layup; no shot, so swing it.', actions: [
+        { kind: 'cut', who: 'O4', to: 'right slot', via: xy(11, 15) }, { kind: 'move', who: 'O1', to: 'right block' }] },
+      { say: 'O2 reverses it to O4. Same play, other side.', actions: [{ kind: 'pass', who: 'O2', target: 'O4' }] },
+      { say: 'O3 sets the flex screen. O1 steps out to the corner.', actions: [
+        { kind: 'screen', who: 'O3', to: xy(-7, 7.5), target: 'O5' }, { kind: 'move', who: 'O1', to: xy(16, 5) }] },
+      { say: 'O5 cuts across, low. O2 screens down for O3.', actions: [
+        { kind: 'cut', who: 'O5', to: 'right block', via: xy(-8, 4) }, { kind: 'screen', who: 'O2', to: xy(-7, 13), target: 'O3' }] },
+      { say: 'O3 comes up to the top, O2 stays on the block. Ball on the right, a cutter in the corner, two posts: the same shape we started in, new players in the spots. Run it again.', actions: [
+        { kind: 'cut', who: 'O3', to: 'left slot', via: xy(-11, 15) }, { kind: 'move', who: 'O2', to: 'left block' }] }
     ],
-    reads: [{ who: 'O3', text: 'Layup off the flex screen' }, { who: 'O4', text: 'Elbow jumper off the down screen' }]
+    reads: [{ who: 'O3', text: 'Layup off the flex screen' }, { who: 'O4', text: 'Elbow jumper off the down screen' }, { who: 'O5', text: 'Layup off the second flex screen' }]
   },
   // ---------------------------------------------------------------- youth motion: pass-cut-fill
   {
     key: 'pass-cut-fill', title: '5-Out Pass, Cut, Fill', concept: 'Motion offense',
-    summary: 'Pass, cut to the basket, then fill the empty spot. Everyone else slides over one spot. Do it again and again.',
+    summary: 'Pass, cut to the basket, then fill the empty spot. Everyone else slides over one spot. Three times around and everyone is back where they started.',
     cues: ['Pass', 'Cut', 'Fill the empty spot'],
     players: [O(1, 'top', 'point'), O(2, 'right wing'), O(3, 'left wing'), O(4, 'right corner'), O(5, 'left corner')], ball: 'O1',
     beats: [
       { say: 'O1 passes to O2 on the wing.', actions: [{ kind: 'pass', who: 'O1', target: 'O2' }] },
       { say: 'O1 cuts hard to the basket, hand up.', actions: [{ kind: 'cut', who: 'O1', to: xy(2, 8), via: xy(-2, 20) }] },
-      { say: 'No pass, so O1 runs to the far corner. Everyone fills one spot toward the ball.', actions: [
-        { kind: 'cut', who: 'O1', to: 'left corner', via: xy(-9, 4) }, { kind: 'lift', who: 'O5', to: 'left wing' },
-        { kind: 'move', who: 'O3', to: 'top' }] },
-      { say: 'O2 passes back to the top. Now do it again.', actions: [{ kind: 'pass', who: 'O2', target: 'O3' }] }
+      { say: 'No pass, so O1 fills the far corner. O5 lifts to the wing, O3 fills the top.', actions: [
+        { kind: 'cut', who: 'O1', to: 'left corner', via: xy(-9, 4) }, { kind: 'lift', who: 'O5', to: 'left wing' }, { kind: 'move', who: 'O3', to: 'top' }] },
+      { say: 'O2 passes back to O3 at the top. Now O3 goes.', actions: [{ kind: 'pass', who: 'O2', target: 'O3' }] },
+      { say: 'O3 passes to O2 on the wing.', actions: [{ kind: 'pass', who: 'O3', target: 'O2' }] },
+      { say: 'O3 cuts hard to the basket, hand up.', actions: [{ kind: 'cut', who: 'O3', to: xy(2, 8), via: xy(-2, 20) }] },
+      { say: 'No pass, so O3 fills the far corner. O1 lifts to the wing, O5 fills the top.', actions: [
+        { kind: 'cut', who: 'O3', to: 'left corner', via: xy(-9, 4) }, { kind: 'lift', who: 'O1', to: 'left wing' }, { kind: 'move', who: 'O5', to: 'top' }] },
+      { say: 'Back to O5 at the top. One more.', actions: [{ kind: 'pass', who: 'O2', target: 'O5' }] },
+      { say: 'O5 passes to O2 on the wing.', actions: [{ kind: 'pass', who: 'O5', target: 'O2' }] },
+      { say: 'O5 cuts hard to the basket, hand up.', actions: [{ kind: 'cut', who: 'O5', to: xy(2, 8), via: xy(-2, 20) }] },
+      { say: 'No pass, so O5 fills the far corner. O3 lifts to the wing, O1 fills the top.', actions: [
+        { kind: 'cut', who: 'O5', to: 'left corner', via: xy(-9, 4) }, { kind: 'lift', who: 'O3', to: 'left wing' }, { kind: 'move', who: 'O1', to: 'top' }] },
+      { say: 'Back to O1 at the top: everyone is on their first spot again. Keep it going.', actions: [{ kind: 'pass', who: 'O2', target: 'O1' }] }
     ],
     reads: [{ who: 'O1', text: 'Open on the cut: layup' }, { who: 'O3', text: 'Fill the top, ready to catch' }]
   },

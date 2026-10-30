@@ -9,7 +9,7 @@ const FIVE_OUT = [O(1, 'top', 'point'), O(2, 'right wing'), O(3, 'left wing'), O
 export const PLAYS = [
   {
     key: 'spacing', title: 'Five Out Spacing', concept: 'Spacing',
-    summary: 'Stand far apart, like stars in the sky. When two of us are close, one defender can guard both of us.',
+    summary: 'Stand far apart, like stars in the sky. When two of us are close, one defender can guard both of us. Then move the ball all the way around: every pass makes the defense run.',
     cues: ['Find a spot', 'Two big steps apart', 'See the ball'],
     players: [O(1, xy(0, 30)), O(2, xy(3, 26)), O(3, xy(-3, 25)), O(4, xy(5, 22)), O(5, xy(-4, 21))], ball: 'O1',
     beats: [
@@ -17,10 +17,16 @@ export const PLAYS = [
       { say: 'Run to your spots: top, two wings, two corners.', actions: [
         { kind: 'move', who: 'O1', to: 'top' }, { kind: 'move', who: 'O2', to: 'right wing' }, { kind: 'move', who: 'O3', to: 'left wing' },
         { kind: 'move', who: 'O4', to: 'right corner' }, { kind: 'move', who: 'O5', to: 'left corner' }] },
-      { say: 'O1 dribbles left. Everyone slides to keep the space.', actions: [
-        { kind: 'dribble', who: 'O1', to: 'left slot' }, { kind: 'move', who: 'O2', to: 'right slot' }, { kind: 'move', who: 'O3', to: xy(-21, 13) }] }
+      { say: 'O1 passes to O2 on the right wing. The whole defense has to shift.', actions: [{ kind: 'pass', who: 'O1', target: 'O2' }] },
+      { say: 'O2 swings it down to O4 in the corner.', actions: [{ kind: 'pass', who: 'O2', target: 'O4' }] },
+      { say: 'O4 sends it back up to O2.', actions: [{ kind: 'pass', who: 'O4', target: 'O2' }] },
+      { say: 'O2 to O1 at the top.', actions: [{ kind: 'pass', who: 'O2', target: 'O1' }] },
+      { say: 'O1 reverses it to O3 on the left wing. Now the defense runs the other way.', actions: [{ kind: 'pass', who: 'O1', target: 'O3' }] },
+      { say: 'O3 down to O5 in the corner.', actions: [{ kind: 'pass', who: 'O3', target: 'O5' }] },
+      { say: 'O5 back up to O3.', actions: [{ kind: 'pass', who: 'O5', target: 'O3' }] },
+      { say: 'O3 to O1. The ball went all the way around and nobody had to come closer to catch it.', actions: [{ kind: 'pass', who: 'O3', target: 'O1' }] }
     ],
-    reads: [{ who: 'O1', text: 'Lots of room to drive' }]
+    reads: [{ who: 'O1', text: 'Lots of room to drive' }, { who: 'O4', text: 'Open corner three when the defense is late' }]
   },
   {
     key: 'give-and-go', title: 'Give and Go', concept: 'Pass and cut',
@@ -100,8 +106,8 @@ export const PLAYS = [
   },
   {
     key: 'help-defense', title: 'Help Defense', concept: 'Defense',
-    summary: 'If your teammate gets beat, slide over and stop the ball. Everyone is one step toward the ball, ready to help.',
-    cues: ['See ball, see your player', 'Slide, don\'t reach', 'Talk: "I got ball!"'],
+    summary: 'If your teammate gets beat, slide over and stop the ball. When the ball gets kicked out, sprint back to your player. Every pass, everyone moves: one step toward the ball, ready to help.',
+    cues: ['See ball, see your player', 'Slide, don\'t reach', 'Talk: "I got ball!"', 'Help, then recover'],
     players: [O(1, 'top'), O(2, 'right wing'), O(3, 'left wing'), O(4, 'right corner'), O(5, 'left corner'),
       X(1, xy(0, 24)), X(2, xy(15.5, 18)), X(3, xy(-10, 16)), X(4, xy(16.5, 6)), X(5, xy(-8, 6))], ball: 'O2',
     beats: [
@@ -109,8 +115,14 @@ export const PLAYS = [
       { say: 'O2 beats X2 on the baseline drive.', actions: [{ kind: 'dribble', who: 'O2', to: xy(15, 6), via: xy(20, 12) }, { kind: 'slide', who: 'X2', to: xy(17, 11) }] },
       { say: 'X5 slides over to stop the ball. X3 drops to cover the rim.', actions: [
         { kind: 'help', who: 'X5', to: xy(11, 4.5) }, { kind: 'slide', who: 'X3', to: xy(-3, 6) }, { kind: 'slide', who: 'X1', to: xy(-4, 18) }] },
+      { say: 'O2 kicks it to O5, the man X5 left. X5 sprints back: high hand, short steps.', actions: [
+        { kind: 'pass', who: 'O2', target: 'O5' }, { kind: 'closeout', who: 'X5', to: xy(-16.5, 6) }, { kind: 'slide', who: 'X3', to: xy(-9, 12) }] },
+      { say: 'O5 swings it to O3. Everyone jumps toward the ball. O2 gets back out to the wing.', actions: [
+        { kind: 'pass', who: 'O5', target: 'O3' }, { kind: 'move', who: 'O2', to: 'right wing' }] },
+      { say: 'O3 to O1 at the top. The help side is the right side now.', actions: [{ kind: 'pass', who: 'O3', target: 'O1' }] },
+      { say: 'O1 back to O2. Same spots as the start: run it again, the other way next.', actions: [{ kind: 'pass', who: 'O1', target: 'O2' }] }
     ],
-    reads: [{ who: 'X5', text: '"I got ball!"' }, { who: 'X3', text: 'Cover the rim' }]
+    reads: [{ who: 'X5', text: '"I got ball!"' }, { who: 'X3', text: 'Cover the rim' }, { who: 'X5', text: 'Close out on the kick' }]
   },
   {
     key: 'fast-break', title: 'Three-Lane Fast Break', concept: 'Transition',
