@@ -94,13 +94,15 @@ async function free(task, body, signal) {
 
 // one call to the provider the key belongs to; resolves with the reply's text
 // one call to the provider the key belongs to; resolves with the reply's text
-async function ask(k, sys, messages, signal, schema) {
+async function ask(k, sys, messages, signal, schema, lite) {
   const kind = keyKind(k);
   if (kind === 'claude') {
     const call = async fallback => {
       const h = { 'content-type': 'application/json', 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
       // Sonnet 5.5 at low effort: a coach is waiting, and it draws plays as well as Opus did here
-      const body = { model: 'claude-sonnet-5-5', max_tokens: 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
+      // position brains run on Haiku 5.5: small, fast, one per player, in parallel
+      const body = { model: lite ? 'claude-haiku-5-5' : 'claude-sonnet-5-5', max_tokens: lite ? 4000 : 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
+      if (lite) fallback = false;   // Haiku has no server-side fallback
       if (fallback) { h['anthropic-beta'] = 'server-side-fallback-2026-07-01'; body.fallbacks = 'default'; }
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: h, body: JSON.stringify(body), signal });
       const j = await r.json().catch(() => ({}));
@@ -111,7 +113,7 @@ async function ask(k, sys, messages, signal, schema) {
     return call(true);
   }
   if (kind === 'openai') {
-    const models = ['gpt-5', 'gpt-4.1', 'gpt-4o'];
+    const models = lite ? ['gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini'] : ['gpt-5', 'gpt-4.1', 'gpt-4o'];
     for (let i = 0; i < models.length; i++) {
       const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', signal,
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + k },
@@ -156,6 +158,26 @@ You are now playing as a smart, alive ${sport.name} player in one or more positi
   const content = `The play on the board:\n${JSON.stringify(play)}\n\nPlay these positions smartly: ${ids.join(', ')}.`;
   return { sys, schema: smartSchemaFor(sport, ids), messages: [{ role: 'user', content }], check: raw => checkSmart(raw, play, sport, ids) };
 }
+// one position, one brain: the persona's instincts, that player's eyes
+export function brainFor(sport, play, id) {
+  const p = (play.players || []).find(q => String(q.id).toUpperCase() === id) || { id, side: id[0] === 'X' ? 'D' : 'O', role: '' };
+  return sport.brains ? sport.brains(p) : { key: 'player', name: 'Player brain', instincts: '' };
+}
+const FILM = { type: 'object', additionalProperties: false, required: ['read', 'risk', 'tip'], properties: {
+  read: { type: 'string', description: 'What this position sees and does in the play, first person, under 18 words.' },
+  risk: { type: 'string', description: 'The one thing that could go wrong for this position, under 14 words.' },
+  tip: { type: 'string', description: 'A coaching cue for a kid in this spot, under 10 words.' } } };
+export function brainRequest({ sport, play, id, mode }) {
+  const brain = brainFor(sport, play, id);
+  if (mode === 'film') {
+    const sys = system(sport, '', sport.plays) + `\n\nYou are the ${brain.name} for ${id}. ${brain.instincts}\nWatch the play from ${id}'s eyes and say what you see, your risk and a cue a kid in your spot can use. Speak as the player ("I").`;
+    return { brain, sys, schema: FILM, messages: [{ role: 'user', content: `The play:\n${JSON.stringify(play)}\n\nYou are ${id}.` }], check: raw => ({ ok: !!(raw && raw.read), errors: raw && raw.read ? [] : ['no read'] }) };
+  }
+  const r = smartRequest({ sport, play, ids: [id] });
+  r.sys += `\n\nYou are the ${brain.name}. Your instincts: ${brain.instincts}`;
+  return Object.assign(r, { brain });
+}
+
 export function mergeSmart(play, smart, sport) {
   const out = JSON.parse(JSON.stringify(play)), ids = (smart.players || []).map(p => p.id);
   out.beats = (out.beats || []).map(b => Object.assign({}, b, { actions: (b.actions || []).filter(a => ids.indexOf(String(a.who)) < 0 || sport.kinds[a.kind] && sport.kinds[a.kind].type !== 'move') }));
@@ -199,10 +221,30 @@ export async function drawPlay(text, current, opts) {
   if (!keyKind(k)) return free('play', { sport: sport.id, text, current, sketch: !!opts.sketch }, opts.signal);
   return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema));
 }
+// smart players: each position gets its own brain (a persona on a lite model), all thinking in
+// parallel; their moves are merged one by one and any that break the play are dropped
+async function brain(sport, play, id, mode, opts) {
+  const k = opts.key || key.get();
+  if (keyKind(k)) { const req = brainRequest({ sport, play, id, mode }); return solve(req, (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true)); }
+  return free('brain', { sport: sport.id, play, id, mode }, opts.signal);
+}
 export async function smartPlayers(play, ids, opts) {
   opts = opts || {};
-  const k = opts.key || key.get(), sport = opts.sport;
-  const raw = keyKind(k) ? await solve(smartRequest({ sport, play, ids }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema))
-    : await free('smart', { sport: sport.id, play, ids }, opts.signal);
-  return { play: mergeSmart(play, raw, sport), reply: raw.reply };
+  const sport = opts.sport;
+  const answers = await Promise.allSettled(ids.map(id => brain(sport, play, id, 'smart', opts)));
+  let out = play; const used = [], lines = [];
+  answers.forEach((a, i) => {
+    if (a.status !== 'fulfilled' || !a.value || !Array.isArray(a.value.players)) return;
+    const next = mergeSmart(out, { players: a.value.players.filter(p => p.id === ids[i]) }, sport), n = normalize(next, sport);
+    if (n.ok && !n.errors.length) { out = next; used.push(ids[i]); if (a.value.reply) lines.push(a.value.reply); }
+  });
+  if (!used.length) { const e = answers.find(a => a.status === 'rejected'); throw e ? e.reason : new Error('The brains couldn’t agree on a move. Try again.'); }
+  return { play: out, reply: lines[0] || `${used.join(', ')} are thinking for themselves now.`, used };
+}
+// the film room: every position's brain watches the play and says what it sees
+export async function filmRoom(play, ids, opts) {
+  opts = opts || {};
+  const sport = opts.sport;
+  const answers = await Promise.allSettled(ids.map(id => brain(sport, play, id, 'film', opts)));
+  return answers.map((a, i) => a.status === 'fulfilled' && a.value && a.value.read ? Object.assign({ id: ids[i], brain: brainFor(sport, play, ids[i]).name }, a.value) : null).filter(Boolean);
 }

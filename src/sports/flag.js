@@ -102,7 +102,24 @@ function openSpots(play, me, sport) {
   return out;
 }
 
+// a dedicated brain per position: how that player thinks
+const BRAINS = {
+  QB: { key: 'qb', name: 'Quarterback brain', instincts: 'Snap, set your feet, read the key defender (who does the flat defender take, is the safety high), go through the progression on time, throw to the open man early and away from the defender, never throw into double coverage.' },
+  C: { key: 'c', name: 'Center brain', instincts: 'Clean snap, then release to the open middle or sit as the hot read under pressure; stay in the QB\'s eyes.' },
+  X: { key: 'x', name: 'Outside receiver brain', instincts: 'Win leverage at the line, stem at the defender, break sharp at the right depth, run away from man coverage and sit in the window against zone, show your numbers to the QB.' },
+  Z: { key: 'z', name: 'Flanker brain', instincts: 'Use motion and alignment to get free, break off the defender\'s leverage, settle in zone holes, run to daylight after the catch.' },
+  Y: { key: 'y', name: 'Slot brain', instincts: 'Find the soft spot between underneath zones, option your route off the defender, be the quick answer when the QB is pressured.' },
+  H: { key: 'h', name: 'Slot brain', instincts: 'Find the soft spot between underneath zones, option your route off the defender, be the quick answer when the QB is pressured.' },
+  RB: { key: 'rb', name: 'Back brain', instincts: 'Be the checkdown: release to the flat or wheel late, take the handoff or pitch with eyes up, find the crease.' },
+  R: { key: 'rusher', name: 'Rusher brain', instincts: 'Start 7 yards off, sprint at the QB\'s throwing shoulder, hands up to bother the throw, contain a rollout.' },
+  CB: { key: 'cb', name: 'Corner brain', instincts: 'Know your coverage: in man, stay on the receiver\'s hip and play through the hands; in zone, keep your area, eyes on the QB, break on the throw.' },
+  S: { key: 's', name: 'Safety brain', instincts: 'Stay deeper than the deepest receiver, read the QB\'s eyes, help over the top, rally to the ball and pull the flag.' },
+  LB: { key: 'lb', name: 'Linebacker brain', instincts: 'Wall off crossers, sink under curls and digs, spy a running QB or back, pull flags in space.' },
+  N: { key: 'n', name: 'Nickel brain', instincts: 'Take the slot in man, own the flat in zone, break fast on quick throws.' }
+};
+
 const base = (o) => ({
+  brains: p => BRAINS[p.role] || (p.side === 'D' ? BRAINS.LB : BRAINS.Y),
   notation, autoRoles,
   autonomy: { afterSnap: 'snap', crowd: 3.5, drive: 0, pressed: 1.6, findSpace: true, kind: 'move', spots: openSpots,
     skip: p => p.role === 'QB' || p.role === 'C' || p.role === 'RB',

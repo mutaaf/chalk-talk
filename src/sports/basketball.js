@@ -86,6 +86,18 @@ export default {
     inside: p => p.id.slice(1),
     name: p => (p.side === 'O' ? p.id.slice(1) : p.id)
   },
+  // a dedicated brain per position: how that player thinks
+  brains: p => p.side === 'D'
+    ? ({ 1: 'on-ball', 2: 'wing', 3: 'wing', 4: 'big', 5: 'big' }[p.id[1]] === 'on-ball'
+      ? { key: 'onball-d', name: 'On-ball defender', instincts: 'Stay between your player and the rim, hands active, call out screens early, fight over or go under on purpose, never get beat baseline.' }
+      : { key: 'help-d', name: 'Help defender', instincts: 'See ball, see your player. One pass away: in the gap. Two away: in the paint at the nail or the help line. Stunt at drives, recover to shooters, box out when the shot goes up.' })
+    : ({
+      1: { key: 'pg', name: 'Point guard brain', instincts: 'Run the offense: read the defender guarding the ball screen (drop, hedge, ICE, switch), find the open teammate, keep your dribble alive, reverse the ball when the side is dead, never pick up the dribble in a trap.' },
+      2: { key: 'sg', name: 'Shooting guard brain', instincts: 'Space to the corner or slot, be shot-ready with hands up, relocate when your defender helps, cut backdoor when overplayed, fill behind any drive.' },
+      3: { key: 'wing', name: 'Wing brain', instincts: 'Lift or drift with the drive, 45-cut when your defender turns their head, replace yourself, crash weak side on shots, keep two big steps from every teammate.' },
+      4: { key: 'four', name: 'Power forward brain', instincts: 'Pop for the open shot or short roll, seal your defender inside, set screens with angles that free the shooter, dive to the dunker spot when the big helps.' },
+      5: { key: 'big', name: 'Center brain', instincts: 'Set wide, still screens at the right angle, roll hard with a hand up, slip when they switch or hedge hard, seal deep, rebound everything.' }
+    }[p.id[1]] || { key: 'player', name: 'Player brain', instincts: 'Space, cut, fill, help.' }),
   plays: PLAYS.concat(MODERN), aliases: Object.assign({}, ALIASES, MODERN_ALIASES), glossary,
   starter: ['top', 'right wing', 'left wing', 'right corner', 'left corner'],
   ai: {
