@@ -676,6 +676,12 @@ export const CSS = `
 .ct-fbooth { display: block; margin: 0 0 6px 30px; color: var(--mute); font-size: 12.5px; font-style: italic; }
 @container (max-width: 760px) { .ct-fsee { grid-template-columns: 1fr; } }
 
+/* coach style picker */
+.ct-coachsel { margin: 12px 0 4px; }
+.ct-coachgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.ct .ct-coachgrid button { display: grid; gap: 2px; text-align: left; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--line) !important; background: rgba(140, 188, 255, .04); color: var(--paper); font: inherit; cursor: pointer; }
+.ct .ct-coachgrid button.on { border-color: var(--o) !important; background: rgba(255, 142, 58, .12); }
+.ct-coachgrid b { font-size: 13.5px; } .ct-coachgrid small { font-size: 11.5px; color: var(--mute); font-weight: 400; }
 /* CourtIQ connection in AI settings */
 .ct-ciq { display: flex; align-items: center; gap: 12px; margin: 12px 0 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255, 142, 58, .45); background: rgba(255, 142, 58, .08); }
 .ct-ciq > div { flex: 1; display: grid; gap: 2px; } .ct-ciq b { font-size: 14px; } .ct-ciq small { font-size: 12.5px; color: var(--mute); }

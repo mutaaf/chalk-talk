@@ -19,7 +19,7 @@ export function requestFor(task, body) {
   const sport = getSport(body.sport);
   if (task === 'play') {
     if (!String(body.text || '').trim() && !body.sketch) throw bad('Say or sketch a play first.');
-    return playRequest({ sport, text: String(body.text || '').slice(0, 2000), current: body.current || null, sketch: !!body.sketch });
+    return playRequest({ sport, text: String(body.text || '').slice(0, 2000), current: body.current || null, sketch: !!body.sketch, coach: typeof body.coach === 'string' ? body.coach.slice(0, 20) : undefined });
   }
   if (task === 'smart') {
     if (!body.play || !Array.isArray(body.ids) || !body.ids.length) throw bad('Pick a player to make smart.');

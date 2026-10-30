@@ -1,0 +1,151 @@
+{
+  "label": "warriors",
+  "avg": 1,
+  "perfect": 18,
+  "results": [
+    {
+      "id": "dho-wing",
+      "ms": 8899,
+      "score": 1,
+      "notes": [],
+      "title": "Wing Screen into DHO",
+      "recognized": "handoff"
+    },
+    {
+      "id": "spain",
+      "ms": 9316,
+      "score": 1,
+      "notes": [],
+      "title": "Spain Pick and Roll",
+      "recognized": "spain-pnr"
+    },
+    {
+      "id": "give-go",
+      "ms": 5279,
+      "score": 1,
+      "notes": [],
+      "title": "Give and Go",
+      "recognized": "give-and-go"
+    },
+    {
+      "id": "backdoor",
+      "ms": 7240,
+      "score": 1,
+      "notes": [],
+      "title": "Backdoor Cut Layup",
+      "recognized": "backdoor"
+    },
+    {
+      "id": "horns-pop",
+      "ms": 7968,
+      "score": 1,
+      "notes": [],
+      "title": "Horns Ball Screen Pop",
+      "recognized": "horns"
+    },
+    {
+      "id": "drive-kick",
+      "ms": 7218,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Drive and Kick",
+      "recognized": "spacing"
+    },
+    {
+      "id": "chicago",
+      "ms": 6523,
+      "score": 1,
+      "notes": [],
+      "title": "Chicago Action",
+      "recognized": "chicago"
+    },
+    {
+      "id": "slant-flat",
+      "ms": 6842,
+      "score": 1,
+      "notes": [],
+      "title": "Slant–Flat Right",
+      "recognized": "slant-flat"
+    },
+    {
+      "id": "mesh",
+      "ms": 7896,
+      "score": 1,
+      "notes": [],
+      "title": "Mesh",
+      "recognized": "mesh"
+    },
+    {
+      "id": "trips-dig",
+      "ms": 8039,
+      "score": 1,
+      "notes": [],
+      "title": "Trips Right Post-Dig-Go",
+      "recognized": "none"
+    },
+    {
+      "id": "four-verts",
+      "ms": 8330,
+      "score": 1,
+      "notes": [],
+      "title": "Four Verticals",
+      "recognized": "four-verts"
+    },
+    {
+      "id": "boxout",
+      "ms": 7262,
+      "score": 1,
+      "notes": [],
+      "title": "Box Out: Shot from the Right Wing",
+      "recognized": "box-out"
+    },
+    {
+      "id": "messy-pnr",
+      "ms": 6705,
+      "score": 1,
+      "notes": [],
+      "title": "Top Pick and Roll",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "defense-ice",
+      "ms": 8386,
+      "score": 1,
+      "notes": [],
+      "title": "Side Pick and Roll vs ICE Drop",
+      "recognized": "ice-defense"
+    },
+    {
+      "id": "edit-pop",
+      "ms": 6716,
+      "score": 1,
+      "notes": [],
+      "title": "Pick and Pop",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "long-motion",
+      "ms": 7785,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Motion: Pass, Cut, Fill, Screen Away",
+      "recognized": "pass-cut-fill"
+    },
+    {
+      "id": "vague-flag",
+      "ms": 7577,
+      "score": 1,
+      "notes": [],
+      "title": "Quick Slant to Z",
+      "recognized": "slant-flat"
+    },
+    {
+      "id": "cover3-out",
+      "ms": 7499,
+      "score": 1,
+      "notes": [],
+      "title": "Quick Out vs Cover 3",
+      "recognized": "cover-3"
+    }
+  ]
+}

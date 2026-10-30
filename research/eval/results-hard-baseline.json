@@ -1,0 +1,55 @@
+{
+  "label": "hard-baseline",
+  "avg": 1,
+  "perfect": 6,
+  "results": [
+    {
+      "id": "messy-pnr",
+      "ms": 8407,
+      "score": 1,
+      "notes": [],
+      "title": "Top Pick and Roll Left",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "defense-ice",
+      "ms": 9180,
+      "score": 1,
+      "notes": [],
+      "title": "Side Pick and Roll vs ICE and Drop",
+      "recognized": "ice-defense"
+    },
+    {
+      "id": "edit-pop",
+      "ms": 8414,
+      "score": 1,
+      "notes": [],
+      "title": "Pick and Pop",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "long-motion",
+      "ms": 7352,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Motion: Pass, Cut, Fill, Screen Away",
+      "recognized": "pass-cut-fill"
+    },
+    {
+      "id": "vague-flag",
+      "ms": 9025,
+      "score": 1,
+      "notes": [],
+      "title": "Quick Slant to Z",
+      "recognized": "slant-flat"
+    },
+    {
+      "id": "cover3-out",
+      "ms": 10981,
+      "score": 1,
+      "notes": [],
+      "title": "Quick Out vs Cover 3",
+      "recognized": "cover-3"
+    }
+  ]
+}

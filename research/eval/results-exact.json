@@ -1,0 +1,154 @@
+{
+  "label": "exact",
+  "avg": 0.9722222222222222,
+  "perfect": 17,
+  "results": [
+    {
+      "id": "dho-wing",
+      "ms": 7220,
+      "score": 1,
+      "notes": [],
+      "title": "Wing Screen into Handoff",
+      "recognized": "handoff"
+    },
+    {
+      "id": "spain",
+      "ms": 8044,
+      "score": 1,
+      "notes": [],
+      "title": "Spain Pick and Roll",
+      "recognized": "spain-pnr"
+    },
+    {
+      "id": "give-go",
+      "ms": 5802,
+      "score": 1,
+      "notes": [],
+      "title": "Give and Go",
+      "recognized": "give-and-go"
+    },
+    {
+      "id": "backdoor",
+      "ms": 6158,
+      "score": 1,
+      "notes": [],
+      "title": "Backdoor Cut for a Layup",
+      "recognized": "backdoor"
+    },
+    {
+      "id": "horns-pop",
+      "ms": 7509,
+      "score": 1,
+      "notes": [],
+      "title": "Horns Ball Screen Pop",
+      "recognized": "horns"
+    },
+    {
+      "id": "drive-kick",
+      "ms": 6854,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Drive and Kick",
+      "recognized": "spacing"
+    },
+    {
+      "id": "chicago",
+      "ms": 6166,
+      "score": 1,
+      "notes": [],
+      "title": "Chicago Action",
+      "recognized": "chicago"
+    },
+    {
+      "id": "slant-flat",
+      "ms": 7545,
+      "score": 1,
+      "notes": [],
+      "title": "Slant–Flat Right",
+      "recognized": "slant-flat"
+    },
+    {
+      "id": "mesh",
+      "ms": 7904,
+      "score": 1,
+      "notes": [],
+      "title": "Mesh",
+      "recognized": "mesh"
+    },
+    {
+      "id": "trips-dig",
+      "ms": 8816,
+      "score": 1,
+      "notes": [],
+      "title": "Trips Right Post-Dig-Go",
+      "recognized": "none"
+    },
+    {
+      "id": "four-verts",
+      "ms": 7624,
+      "score": 1,
+      "notes": [],
+      "title": "Four Verticals",
+      "recognized": "four-verts"
+    },
+    {
+      "id": "boxout",
+      "ms": 6613,
+      "score": 1,
+      "notes": [],
+      "title": "Box Out",
+      "recognized": "box-out"
+    },
+    {
+      "id": "messy-pnr",
+      "ms": 7211,
+      "score": 1,
+      "notes": [],
+      "title": "Top Pick and Roll",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "defense-ice",
+      "ms": 7113,
+      "score": 1,
+      "notes": [],
+      "title": "Side Pick and Roll vs ICE and Drop",
+      "recognized": "ice-defense"
+    },
+    {
+      "id": "edit-pop",
+      "ms": 7104,
+      "score": 1,
+      "notes": [],
+      "title": "Pick and Pop",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "long-motion",
+      "ms": 7551,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Motion: Pass, Cut, Fill",
+      "recognized": "pass-cut-fill"
+    },
+    {
+      "id": "vague-flag",
+      "ms": 4390,
+      "score": 0.5,
+      "notes": [
+        "missing {\"role\":\"Z\",\"kind\":[\"route\"]}",
+        "missing {\"who\":\"O1\",\"kind\":[\"throw\"],\"targetRole\":\"Z\"}"
+      ],
+      "title": "Quick Slant to Z",
+      "recognized": "none"
+    },
+    {
+      "id": "cover3-out",
+      "ms": 7981,
+      "score": 1,
+      "notes": [],
+      "title": "Quick Out vs Cover 3",
+      "recognized": "cover-3"
+    }
+  ]
+}

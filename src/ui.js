@@ -163,6 +163,7 @@ const TEMPLATE = `
     <input data-r="voiceInput" type="password" placeholder="optional: OpenAI sk-… or ElevenLabs sk_…" autocomplete="off" spellcheck="false">
     <p class="ct-fine" data-r="voiceFine"></p>
     <label class="ct-share"><input type="checkbox" data-r="shareVoice"><span><b>Help the voice get better for every coach</b><small>Off unless you turn it on. Shares only the words of plays you keep and words you fix, with your players' names removed on this device first. Never audio, never names. A phrase reaches other coaches only after three of them confirm it.</small></span></label>
+    <div class="ct-coachsel" data-r="coachWrap" hidden><label for="ct-coachsel">Coach style <span class="ct-badge">how plays are named, explained and taught</span></label><div class="ct-coachgrid" data-r="coachSel" role="radiogroup" aria-label="Coach style"></div></div>
     <div class="ct-ciq" data-r="ciq" hidden></div>
     <button type="button" class="ct-keypro" data-r="keyPro" hidden></button>
     <menu><button type="button" data-r="keyClear">Forget keys</button><button type="button" data-r="keyCancel">Cancel</button><button value="save">Save</button></menu>
@@ -879,7 +880,7 @@ export function mount(root, options) {
     root.classList.add('ct-drawing'); live.draw(o.sketch ? '' : text, !!o.sketch); R.status.textContent = o.sketch ? 'The AI is taking over your sketch…' : 'Drawing your play…';
     const pulse = setInterval(() => field && field.signal(), 500);
     try {
-      const raw = await drawPlay(text, state.play ? strip(state.play) : null, { signal: ctl.signal, glossary: opts.glossary || sport.glossary, sport, library: sport.plays, sketch: !!o.sketch });
+      const raw = await drawPlay(text, state.play ? strip(state.play) : null, { signal: ctl.signal, glossary: opts.glossary || sport.glossary, sport, library: sport.plays, sketch: !!o.sketch, coach: sport.coaches ? coachStyle() : undefined });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
       const ms = performance.now() - t0, secs = (ms / 1000).toFixed(1) + ' s';
       live.done(`${o.sketch ? 'Taken over' : 'Drawn'} in ${secs} ✓`);
@@ -1700,12 +1701,27 @@ export function mount(root, options) {
   R.liveStop.onclick = () => { if (ear && ear.on) ear.stop(); };
   R.liveCancel.onclick = () => { if (ear && ear.on) { ear.stop(); } if (state.busy) state.busy.abort(); live.hide(); };
 
+
+  // ---- coach style: the lens the AI draws and explains plays through (basketball) ----
+  const coachStyle = () => { try { return localStorage.getItem('chalktalk.coach') || 'youth'; } catch (e) { return 'youth'; } };
+  function renderCoaches() {
+    const C = state.sport.coaches; R.coachWrap.hidden = !C; if (!C) return;
+    const cur = coachStyle();
+    R.coachSel.innerHTML = C.map(c => `<button type="button" role="radio" aria-checked="${c.id === cur}" data-coach="${esc(c.id)}" class="${c.id === cur ? 'on' : ''}"><b>${esc(c.name)}</b><small>${esc(c.note)}</small></button>`).join('');
+  }
+  R.coachSel.addEventListener('click', e => {
+    const b = e.target.closest('[data-coach]'); if (!b) return;
+    try { localStorage.setItem('chalktalk.coach', b.dataset.coach); } catch (e2) {}
+    track('coach_style', { id: b.dataset.coach }); renderCoaches();
+  });
+
   // ---- the keys ----
   function badge(el2, kind) { el2.textContent = kind ? '✓ ' + kind : ''; el2.className = 'ct-badge' + (kind ? ' ok' : ''); }
   function openKey(why) {
     R.keyWhy.textContent = why || 'Plays from your own words, the AI taking over your sketches and the broadcaster voice all use your own AI account.';
     R.keyInput.value = key.get(); R.voiceInput.value = voiceKey.get();
     R.shareVoice.checked = sharing();
+    renderCoaches();
     renderCourtIQ();
     R.keyPro.hidden = !opts.upgrade; if (opts.upgrade) R.keyPro.innerHTML = `${icon('sparkle')}<span><b>${esc(opts.upgrade.label || 'Get unlimited AI')}</b><small>${esc(opts.upgrade.note || 'No key needed.')}</small></span>`;
     R.keyInput.oninput(); R.voiceInput.oninput();

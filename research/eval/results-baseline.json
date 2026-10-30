@@ -1,0 +1,103 @@
+{
+  "label": "baseline",
+  "avg": 1,
+  "perfect": 12,
+  "results": [
+    {
+      "id": "dho-wing",
+      "ms": 9616,
+      "score": 1,
+      "notes": [],
+      "title": "Wing Screen into DHO",
+      "recognized": "handoff"
+    },
+    {
+      "id": "spain",
+      "ms": 8485,
+      "score": 1,
+      "notes": [],
+      "title": "Spain Pick and Roll",
+      "recognized": "spain-pnr"
+    },
+    {
+      "id": "give-go",
+      "ms": 6860,
+      "score": 1,
+      "notes": [],
+      "title": "Give and Go",
+      "recognized": "give-and-go"
+    },
+    {
+      "id": "backdoor",
+      "ms": 7761,
+      "score": 1,
+      "notes": [],
+      "title": "Backdoor Cut vs Denial",
+      "recognized": "backdoor"
+    },
+    {
+      "id": "horns-pop",
+      "ms": 9727,
+      "score": 1,
+      "notes": [],
+      "title": "Horns Ball Screen Pop",
+      "recognized": "horns"
+    },
+    {
+      "id": "drive-kick",
+      "ms": 8693,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Drive and Kick",
+      "recognized": "spacing"
+    },
+    {
+      "id": "chicago",
+      "ms": 8105,
+      "score": 1,
+      "notes": [],
+      "title": "Chicago Action",
+      "recognized": "chicago"
+    },
+    {
+      "id": "slant-flat",
+      "ms": 8250,
+      "score": 1,
+      "notes": [],
+      "title": "Slant–Flat Right",
+      "recognized": "slant-flat"
+    },
+    {
+      "id": "mesh",
+      "ms": 9230,
+      "score": 1,
+      "notes": [],
+      "title": "Mesh",
+      "recognized": "mesh"
+    },
+    {
+      "id": "trips-dig",
+      "ms": 9148,
+      "score": 1,
+      "notes": [],
+      "title": "Trips Right Post-Dig",
+      "recognized": "none"
+    },
+    {
+      "id": "four-verts",
+      "ms": 10771,
+      "score": 1,
+      "notes": [],
+      "title": "Four Verticals",
+      "recognized": "four-verts"
+    },
+    {
+      "id": "boxout",
+      "ms": 8222,
+      "score": 1,
+      "notes": [],
+      "title": "Box Out: Shot From the Right Wing",
+      "recognized": "box-out"
+    }
+  ]
+}

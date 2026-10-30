@@ -1,0 +1,759 @@
+[
+  {
+    "id": "dho-wing",
+    "sport": "basketball",
+    "said": "1 dribbles to the right wing. 4 comes up from the right corner for the handoff while 2 sets a screen for him. 1 hands off to 4, 4 drives the middle, 5 rolls to the rim, and 3 on the backside lifts to the free throw line with hands ready.",
+    "expect": [
+      {
+        "who": "O1",
+        "kind": [
+          "dribble"
+        ]
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "screen"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "handoff"
+        ],
+        "target": "O4"
+      },
+      {
+        "who": "O4",
+        "kind": [
+          "dribble"
+        ]
+      },
+      {
+        "who": "O5",
+        "kind": [
+          "roll",
+          "cut",
+          "move"
+        ]
+      },
+      {
+        "who": "O3",
+        "kind": [
+          "lift",
+          "move",
+          "cut"
+        ]
+      }
+    ],
+    "geo": {
+      "start": {
+        "O4": "right corner"
+      },
+      "ends": [
+        [
+          "O1",
+          "right wing"
+        ],
+        [
+          "O3",
+          "free throw line"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "spain",
+    "sport": "basketball",
+    "said": "Spain pick and roll. 5 sets a ball screen for 1 at the top, 1 comes off it going right, 2 back screens 5's defender, 5 rolls to the rim and 2 pops out to the top for a three.",
+    "concept": [
+      "spain-pnr",
+      "spain-pick-and-roll",
+      "spain"
+    ],
+    "expect": [
+      {
+        "who": "O5",
+        "kind": [
+          "screen"
+        ],
+        "target": "O1"
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "dribble"
+        ]
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "screen"
+        ]
+      },
+      {
+        "who": "O5",
+        "kind": [
+          "roll"
+        ]
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "pop",
+          "move",
+          "cut"
+        ]
+      }
+    ],
+    "geo": {
+      "start": {
+        "O1": "top"
+      },
+      "ends": [
+        [
+          "O5",
+          "basket"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "give-go",
+    "sport": "basketball",
+    "said": "Give and go: 1 passes to 2 on the right wing and cuts hard to the basket, 2 passes it right back to 1 for the layup.",
+    "concept": [
+      "give-and-go"
+    ],
+    "expect": [
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O2"
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "cut"
+        ]
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "pass"
+        ],
+        "target": "O1"
+      }
+    ],
+    "geo": {
+      "start": {
+        "O2": "right wing"
+      },
+      "ends": [
+        [
+          "O1",
+          "basket"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "backdoor",
+    "sport": "basketball",
+    "said": "2 is being overplayed on the left wing so he cuts backdoor to the rim, 1 hits him with a bounce pass and he lays it in.",
+    "concept": [
+      "backdoor",
+      "backdoor-cut"
+    ],
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "cut"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O2"
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "shot"
+        ]
+      }
+    ],
+    "geo": {
+      "start": {
+        "O2": "left wing"
+      },
+      "ends": [
+        [
+          "O2",
+          "basket"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "horns-pop",
+    "sport": "basketball",
+    "said": "Horns: 4 and 5 start at the elbows, 1 at the top. 1 comes off 5's ball screen going left, 4 pops to the right wing, and 1 swings it to 4 for the shot.",
+    "concept": [
+      "horns"
+    ],
+    "expect": [
+      {
+        "who": "O5",
+        "kind": [
+          "screen"
+        ],
+        "target": "O1"
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "dribble"
+        ]
+      },
+      {
+        "who": "O4",
+        "kind": [
+          "pop",
+          "move",
+          "cut"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O4"
+      },
+      {
+        "who": "O4",
+        "kind": [
+          "shot"
+        ]
+      }
+    ],
+    "geo": {
+      "start": {
+        "O4": "right elbow|left elbow",
+        "O5": "right elbow|left elbow",
+        "O1": "top"
+      },
+      "ends": [
+        [
+          "O4",
+          "right wing"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "drive-kick",
+    "sport": "basketball",
+    "said": "Five out. 1 drives right down the lane, 3 drifts down to the right corner, and when the help comes 1 kicks it out to 3 for a corner three.",
+    "expect": [
+      {
+        "who": "O1",
+        "kind": [
+          "dribble"
+        ]
+      },
+      {
+        "who": "O3",
+        "kind": [
+          "drift",
+          "move",
+          "cut"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O3"
+      },
+      {
+        "who": "O3",
+        "kind": [
+          "shot"
+        ]
+      }
+    ],
+    "geo": {
+      "ends": [
+        [
+          "O3",
+          "right corner"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "chicago",
+    "sport": "basketball",
+    "said": "Chicago action: 2 comes up off a pin down from 5, then takes a dribble handoff from 4 at the top and turns the corner.",
+    "concept": [
+      "chicago",
+      "chicago-action"
+    ],
+    "expect": [
+      {
+        "who": "O5",
+        "kind": [
+          "screen"
+        ],
+        "target": "O2"
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "cut",
+          "move",
+          "curl"
+        ]
+      },
+      {
+        "who": "O4",
+        "kind": [
+          "handoff"
+        ],
+        "target": "O2"
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "dribble"
+        ]
+      }
+    ],
+    "geo": {
+      "ends": [
+        [
+          "O2",
+          "top"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "slant-flat",
+    "sport": "flag5",
+    "said": "Slant flat to the right: Z runs a slant, the slot runs to the flat, the QB reads the flat defender and throws the slant.",
+    "concept": [
+      "slant-flat"
+    ],
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "snap"
+        ],
+        "target": "O1"
+      },
+      {
+        "role": "Z",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "role": "H|Y",
+        "kind": [
+          "route",
+          "move"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "throw"
+        ],
+        "targetRole": "Z"
+      }
+    ]
+  },
+  {
+    "id": "mesh",
+    "sport": "flag5",
+    "said": "Mesh: X and the slot run shallow crosses at about 5 yards, the center sits down in the middle, and the QB hits the crosser running away from his man.",
+    "concept": [
+      "mesh"
+    ],
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "snap"
+        ],
+        "target": "O1"
+      },
+      {
+        "role": "X",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "role": "H|Y",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "throw"
+        ]
+      }
+    ],
+    "geo": {
+      "depth": [
+        [
+          "cross",
+          5
+        ]
+      ]
+    }
+  },
+  {
+    "id": "trips-dig",
+    "sport": "flag7",
+    "said": "Trips right. X runs a post on the left, the inside slot runs a dig at 10 yards, Z runs a go, and the QB throws the dig.",
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "snap"
+        ],
+        "target": "O1"
+      },
+      {
+        "role": "X",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "role": "Z",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "throw"
+        ]
+      }
+    ],
+    "geo": {
+      "depth": [
+        [
+          "slotdig",
+          10
+        ]
+      ]
+    }
+  },
+  {
+    "id": "four-verts",
+    "sport": "flag7",
+    "said": "Four verticals: all four receivers run straight up the field, the QB reads the safety and throws the seam to H.",
+    "concept": [
+      "four-verts",
+      "four-verticals"
+    ],
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "snap"
+        ],
+        "target": "O1"
+      },
+      {
+        "role": "H",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "throw"
+        ],
+        "targetRole": "H"
+      }
+    ]
+  },
+  {
+    "id": "boxout",
+    "sport": "basketball",
+    "said": "Box out: 2 shoots from the right wing, everyone turns and finds a body, 5 seals his man in the middle.",
+    "concept": [
+      "box-out",
+      "boxout"
+    ],
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "shot"
+        ]
+      },
+      {
+        "who": "O5",
+        "kind": [
+          "boxout"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "messy-pnr",
+    "sport": "basketball",
+    "said": "okay so um oh one brings it up top and oh five comes up sets the pick for him uh he goes left and then five rolls down the middle and uh two in the corner just stays there one throws it to five",
+    "expect": [
+      {
+        "who": "O5",
+        "kind": [
+          "screen"
+        ],
+        "target": "O1"
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "dribble"
+        ]
+      },
+      {
+        "who": "O5",
+        "kind": [
+          "roll"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O5"
+      }
+    ]
+  },
+  {
+    "id": "defense-ice",
+    "sport": "basketball",
+    "said": "Side pick and roll on the right wing with defense: X1 ices it and forces 1 toward the baseline, X5 drops back into the paint, so 1 pulls up for the jumper.",
+    "expect": [
+      {
+        "who": "O5",
+        "kind": [
+          "screen"
+        ],
+        "target": "O1"
+      },
+      {
+        "who": "X1",
+        "kind": [
+          "slide",
+          "move",
+          "help",
+          "closeout"
+        ]
+      },
+      {
+        "who": "X5",
+        "kind": [
+          "slide",
+          "move",
+          "help"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "shot"
+        ]
+      }
+    ],
+    "needDefense": [
+      "X1",
+      "X5"
+    ]
+  },
+  {
+    "id": "edit-pop",
+    "sport": "basketball",
+    "current": "pick-and-roll",
+    "said": "now have 5 pop to the top of the key instead of rolling, and 1 kicks it back to him",
+    "expect": [
+      {
+        "who": "O5",
+        "kind": [
+          "pop",
+          "move",
+          "cut"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O5"
+      }
+    ],
+    "forbid": [
+      {
+        "who": "O5",
+        "kind": [
+          "roll"
+        ]
+      }
+    ],
+    "geo": {
+      "ends": [
+        [
+          "O5",
+          "top"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "long-motion",
+    "sport": "basketball",
+    "said": "Five out motion. 1 passes to 2 on the right wing and cuts through to the left corner. 3 fills the top. 2 swings it to 3 and screens away for 4. 4 comes up to the wing and 3 hits him.",
+    "expect": [
+      {
+        "who": "O1",
+        "kind": [
+          "pass"
+        ],
+        "target": "O2"
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "cut",
+          "move"
+        ]
+      },
+      {
+        "who": "O3",
+        "kind": [
+          "move",
+          "cut",
+          "lift"
+        ]
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "pass"
+        ],
+        "target": "O3"
+      },
+      {
+        "who": "O2",
+        "kind": [
+          "screen"
+        ],
+        "target": "O4"
+      },
+      {
+        "who": "O4",
+        "kind": [
+          "cut",
+          "move",
+          "curl"
+        ]
+      },
+      {
+        "who": "O3",
+        "kind": [
+          "pass"
+        ],
+        "target": "O4"
+      }
+    ],
+    "geo": {
+      "ends": [
+        [
+          "O1",
+          "left corner"
+        ]
+      ]
+    }
+  },
+  {
+    "id": "vague-flag",
+    "sport": "flag5",
+    "said": "give me something quick to Z before the rusher gets there",
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "snap"
+        ],
+        "target": "O1"
+      },
+      {
+        "role": "Z",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "throw"
+        ],
+        "targetRole": "Z"
+      }
+    ]
+  },
+  {
+    "id": "cover3-out",
+    "sport": "flag7",
+    "said": "Against cover 3: corners and the safety drop into deep thirds, linebackers take the hook zones, and the QB throws the quick out to Z underneath.",
+    "expect": [
+      {
+        "who": "O2",
+        "kind": [
+          "snap"
+        ],
+        "target": "O1"
+      },
+      {
+        "role": "Z",
+        "kind": [
+          "route"
+        ]
+      },
+      {
+        "who": "O1",
+        "kind": [
+          "throw"
+        ],
+        "targetRole": "Z"
+      }
+    ],
+    "needDefense": [
+      "X1"
+    ]
+  }
+]

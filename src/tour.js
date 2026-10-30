@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.12.0';
+export const VERSION = '0.13.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.13.0', date: '2026-10-30', title: 'Coach it your way', items: [
+    { title: 'Coach styles', call: 'Pick how plays are named and taught: motion and reads like Steve Kerr’s Warriors, pace and space like Erik Spoelstra’s Heat, the beautiful game like Gregg Popovich’s Spurs, five-out threes like Joe Mazzulla’s Celtics, or pressure like Mark Daigneault’s Thunder. In AI settings.', show: 'keyBtn' },
+    { title: 'Every word counts', call: 'The AI now accounts for every clause you say, in order, by the player you named, at the spot you named, and fills in the standard version when you keep it short.', show: 'mic' }
+  ] },
   { version: '0.12.0', date: '2026-10-30', title: 'Front and center', items: [
     { title: 'Your words, big', call: 'When you talk, your words fill the screen as you say them. Then you watch it work: placing the players, drawing every move, checking the read, with a clock and a Cancel.', show: 'mic' },
     { title: 'Your last plays, one tap', call: 'The three plays you made last sit right under My plays, in the list and in the Plays sheet.', show: 'lib' }

@@ -110,6 +110,9 @@ let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0
 // the AI tasks can go to a host's own server (CourtIQ runs them for paid plans); listening and the
 // shared voice lexicon always stay on Chalk Talk's own API
 const OWN = API;
+// for evaluations only: draw plays with a specific Claude model
+let MODEL_OVERRIDE = null;
+export const setModelOverride = m => { MODEL_OVERRIDE = m || null; };
 export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
 // a CourtIQ link token (mutaafaziz.com coaches who connected their CourtIQ account): sent only to that host
 let AUTH = null;
@@ -158,7 +161,7 @@ async function ask(k, sys, messages, signal, schema, lite, task) {
       const h = { 'content-type': 'application/json', 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
       // Sonnet 5.5 at low effort: a coach is waiting, and it draws plays as well as Opus did here
       // position brains run on Haiku 5.5: small, fast, one per player, in parallel
-      const body = { model: lite ? 'claude-haiku-5-5' : 'claude-sonnet-5-5', max_tokens: lite ? 4000 : 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
+      const body = { model: MODEL_OVERRIDE || (lite ? 'claude-haiku-5-5' : 'claude-sonnet-5-5'), max_tokens: lite ? 4000 : 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
       if (lite) fallback = false;   // Haiku has no server-side fallback
       if (fallback) { h['anthropic-beta'] = 'server-side-fallback-2026-07-01'; body.fallbacks = 'default'; }
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: h, body: JSON.stringify(body), signal });
@@ -189,9 +192,12 @@ async function ask(k, sys, messages, signal, schema, lite, task) {
 }
 
 // ---- requests, built the same way in the browser and in the worker ----
-export function playRequest({ sport, text, current, sketch, glossary, library }) {
+export function playRequest({ sport, text, current, sketch, glossary, library, coach }) {
   const lib = library || sport.plays;
-  const sys = system(sport, glossary || sport.glossary, lib), schema = schemaFor(sport, lib.map(p => p.key));
+  const lens = (sport.coaches || []).find(c => c.id === coach);
+  const sys = system(sport, glossary || sport.glossary, lib) + (lens ? `\n\nCoaching lens: ${lens.lens} Name the concept, write every beat, the reads and the cues the way this coach teaches it. Never quote a real coach or claim to be one.` : '')
+    + `\n\nBe exact: every clause the coach said becomes an action, in the order they said it, by the player they named, and nothing that contradicts them. When the coach is vague (\"something quick to Z\", \"run our horns\"), draw the standard, complete version of what they asked for: every route, screen and pass it needs. A beat's "say" describes exactly that beat's actions and names every player in them. When the coach names a spot, use that spot's coordinates.`;
+  const schema = schemaFor(sport, lib.map(p => p.key));
   const content = sketch
     ? `The coach sketched this play by hand on the board (rough lines turned into actions; each stroke became its own beat, in the order drawn):\n${JSON.stringify(current)}\n\n` +
       'Take over from the sketch: keep the coach\'s idea and the players where they put them, but make it a clean, correct play. Merge strokes that should happen at the same time into one beat, fix the ball (only the holder dribbles, passes or shoots), set screens where a defender would be, tidy routes into real cuts, and add the timing a coach would teach. Name the concept it matches. ' + (text ? 'The coach also said: "' + text + '"' : '')
@@ -279,8 +285,8 @@ export { solve };
 export async function drawPlay(text, current, opts) {
   opts = opts || {};
   const k = opts.key || key.get(), sport = opts.sport;
-  if (!keyKind(k)) return free('play', { sport: sport.id, text, current, sketch: !!opts.sketch }, opts.signal);
-  return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, false, opts.sketch ? 'sketch' : 'play'));
+  if (!keyKind(k)) return free('play', { sport: sport.id, text, current, sketch: !!opts.sketch, coach: opts.coach || undefined }, opts.signal);
+  return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library, coach: opts.coach }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, false, opts.sketch ? 'sketch' : 'play'));
 }
 // smart players: each position gets its own brain (a persona on a lite model), all thinking in
 // parallel; their moves are merged one by one and any that break the play are dropped

@@ -6,6 +6,7 @@ import { PLAYS, ALIASES } from './basketball-plays.js';
 import { MODERN, MODERN_ALIASES } from './basketball-modern.js';
 import glossary from './basketball-glossary.js';
 import { POSITIONS, IQ } from './basketball-positions.js';
+import { COACHES } from './basketball-coaches.js';
 
 const BASKET = [0, 5.25, 10];
 
@@ -106,7 +107,7 @@ export default {
       4: { key: 'four', name: 'Power forward brain', instincts: 'Pop for the open shot or short roll, seal your defender inside, set screens with angles that free the shooter, dive to the dunker spot when the big helps.' },
       5: { key: 'big', name: 'Center brain', instincts: 'Set wide, still screens at the right angle, roll hard with a hand up, slip when they switch or hedge hard, seal deep, rebound everything.' }
     }[p.id[1]] || { key: 'player', name: 'Player brain', instincts: 'Space, cut, fill, help.' }),
-  positions: POSITIONS, iq: IQ,
+  positions: POSITIONS, iq: IQ, coaches: COACHES,
   plays: PLAYS.concat(MODERN), aliases: Object.assign({}, ALIASES, MODERN_ALIASES), glossary,
   starter: ['top', 'right wing', 'left wing', 'right corner', 'left corner'],
   ai: {

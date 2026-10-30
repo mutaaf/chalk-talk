@@ -19,6 +19,11 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 - The AI meter (`meter` in ai.js) records model, tokens, cache, latency and estimated cost per call in localStorage; prices in `PRICES`. The worker returns `x-ct-in/out/neurons` headers for it.
 - Keys never leave the browser except to the provider they belong to. The only server is the free open-model Worker (src/worker), which stores hashed-IP counters, opt-in voice lessons, and anonymous usage events (see below). Player names never leave the device.
 
+## Drawing accuracy (`npm run eval`)
+- `research/eval/plays.json`: 18 coach descriptions (clean, messy speech-to-text, edits of the board, defense, long motion, vague requests, flag coverages) with checkable facts: every expected action in order (who, kind, target), the concept, start/end spots (5 ft / 3 yd) and route depths. `CT_EVAL_KEY=… npm run eval <label>` writes `research/eval/results-<label>.json`; `CT_EVAL_MODEL` forces a Claude model, `CT_EVAL_COACH` a lens, `CT_EVAL_ONLY` a subset.
+- 2026-10-30: Sonnet 5.5 99–100% (17–18/18), ~8 s; Haiku 5.5 96% (13/18), ~13 s. Run it before and after any prompt or schema change; add every real miss as a case.
+- Coach lenses (`src/sports/basketball-coaches.js`) shape names, beats, reads and cues ("inspired by" a coach's public system; never quotes or claims to be them).
+
 ## The free AI (src/worker)
 - `/chalktalk/api/*` runs the Worker (`assets.run_worker_first`); everything else is static assets. digitalcraftai.com proxies `/api/chalktalk/*` here (a Vercel rewrite in digital-craft-architect `vercel.json`). The client picks the base in `src/ai.js` (`setApi`).
 - Prompts, schemas, validation and the repair round come from `src/ai.js` (`playRequest`, `smartRequest`, `brainRequest`, `solve`), so the free path and BYOK draw the same plays.
