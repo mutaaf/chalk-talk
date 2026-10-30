@@ -260,7 +260,9 @@ export default {
             return json(JSON.parse(hit.v), 200, Object.assign({ 'x-ct-model': 'cache', 'x-ct-cache': 'hit', 'x-ct-ms': '0', 'access-control-expose-headers': 'x-ct-model, x-ct-cache, x-ct-ms' }, h));
           }
         }
-        if (!(await allow(req, env, task))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
+        // the owner pre-filling the cache (scripts/prewarm-cache.mjs) isn't held to one person's daily caps
+        const owner = env.STATS_TOKEN && req.headers.get('x-ct-prewarm') === env.STATS_TOKEN;
+        if (!owner && !(await allow(req, env, task))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
         // plays: Gemma first (fast, cheap), then Llama 3.3 70B gets one go. Brains: GLM 4.7 Flash,
         // then Gemma. Every call is charged what it really cost.
         const t0 = Date.now(), forced = env.BENCH && req.headers.get('x-ct-model');

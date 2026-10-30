@@ -24,6 +24,7 @@ import { analyst } from './ai.js';
 import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
 import { chime, soundOn, setSound } from './sound.js';
 import { startTracking, track } from './track.js';
+import { strip } from './engine/strip.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -933,9 +934,6 @@ export function mount(root, options) {
     }
   }
   // what leaves the device: X's and O's, roles and the plan. Never names (they aren't in the play at all).
-  const strip = p => ({ title: p.title, los: p.los, coverage: p.coverage || undefined,
-    players: p.players.map(q => Object.assign({ id: q.id, side: q.side, role: q.role, at: { x: +q.x.toFixed(1), y: +q.y.toFixed(1) } }, q.smart ? { smart: true } : {}, q.cover ? { cover: q.cover } : {})),
-    ball: p.ball, beats: p.beats.map(b => Object.assign({ say: b.say, actions: b.actions.map(a => Object.assign({ kind: a.kind, who: a.who, to: a.to, via: a.via, path: a.path, target: a.target }, a.thought ? { thought: a.thought } : {}, a.tree ? { tree: a.tree } : {})) }, b.thoughts ? { thoughts: b.thoughts } : {})), reads: p.reads });
 
   // what the AI (or the local matcher) recognised, its suggestions, and for sketches: use it or keep mine
   function showAI(raw, mine) {

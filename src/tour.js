@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.17.0';
+export const VERSION = '0.17.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.17.1', date: '2026-10-30', title: 'A ready film room', items: [
+    { title: 'Film room, instantly', call: 'Every play in the library now has its film room and analyst ready ahead of time: open it and every position’s brain answers at once.', show: 'filmTop' }
+  ] },
   { version: '0.17.0', date: '2026-10-30', title: 'The court listens', items: [
     { title: 'The mic, fixed', call: 'Talking works again in every browser. If the browser’s own listener can’t run, the board records you and writes it down instead, without you doing anything.', show: 'mic' },
     { title: 'Light that listens', call: 'While you talk, the court ripples out from the mic with your voice. While a play is drawn, light races along the lines. Nothing covers the board.', show: 'mic' },

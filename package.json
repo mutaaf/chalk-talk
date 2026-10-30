@@ -1,6 +1,6 @@
 {
   "name": "chalk-talk",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Say a play out loud (or sketch it) and watch it draw itself in light: X's and O's for youth basketball and flag football coaches, on an aurora-field court.",
   "type": "module",
   "exports": {
