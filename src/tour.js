@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.10.0';
+export const VERSION = '0.10.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.10.1', date: '2026-10-30', title: 'Free stays free', items: [
+    { title: 'A small ad in the playbook', call: 'On mutaafaziz.com, one labelled ad can sit at the foot of the Plays list. It keeps the board free. It never covers the court, and it never interrupts you while you talk or draw.', show: null }
+  ] },
   { version: '0.10.0', date: '2026-10-30', title: 'Just the board', items: [
     { title: 'Whiteboard only', call: 'Full screen, every panel away, a slim rail of icons: talk, sketch, defense, plays, step through. Press W, or find it in More.', show: 'boardBtn' },
     { title: 'Sound on iPhone and iPad', call: 'Chimes and the voice now play on iPhone and iPad, even with the silent switch on. Tap the board once and it\'s on.', show: null },

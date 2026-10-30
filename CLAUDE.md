@@ -34,6 +34,12 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 - `/tutor` (IQ tutor, age band only, never a nickname) and `/analyst` (booth lines) run on the brain chain. `/hear` gets a sport vocabulary `initial_prompt` (`?sport=`).
 - Tests: `test/worker.test.mjs` (stub AI + D1). Live checks used a route-less preview Worker (`BENCH=1` honours an `x-ct-model` header to force a model); it was deleted afterwards.
 
+## Ads (owner decision 2026-10-30)
+- Mutaaf decided on 2026-10-30 to monetize the whole collection through Marquee (mutaafaziz.com/ads; contract in the marquee repo's AGENTS.md), split by audience. Chalk Talk is general audience.
+- Only `index.html` (the standalone page) loads `/ads/v1/ads.js` (`data-app="chalktalk"`, slot `library:banner:menu`; Marquee contexts are only `menu`/`gameplay`). It appends the slot plus an "Ads & privacy" link (https://mutaafaziz.com/ads/privacy/) under the Plays list (`.ct-plays` desktop panel, `.ct-playgrid` phone sheet).
+- Never put ads in `src/` (the package CourtIQ mounts), on `admin/`, over the board, or while the coach is drawing or speaking. No interstitials: there's no share/export moment yet; if one is added, cap it there, never mid-draw.
+- `sw.js` never caches `/ads/*`. `test/ads.test.mjs` guards all of this. Chalk Talk's own cookieless analytics (`src/track.js`) are separate and untouched.
+
 ## Environment nuances
 - `npm run up` installs (idempotent) and serves on **8795** (8790 is taken by another local server). The dev server maps `vendor/aurora-field.mjs` to `node_modules`; the build copies it.
 - Deploy: `npm run deploy` (local wrangler auth). The Worker route `mutaafaziz.com/chalktalk*` beats the site's Custom Domain, like hearth/coldgas.

@@ -9,7 +9,8 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.pathname.includes('/api/')) return;
+  // Marquee ads (/ads/*: the loader, config, creatives) always go to the network, never the shell cache.
+  if (e.request.method !== 'GET' || u.pathname.includes('/api/') || u.pathname.startsWith('/ads/')) return;
   const page = e.request.mode === 'navigate';
   // pages: network first (fresh when online), the cache when not; everything else: cache first
   e.respondWith(page

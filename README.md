@@ -56,6 +56,16 @@ Options: `sport`, `sports` (which tabs to show), `play`, `narrate`, `fullscreen`
 
 Anonymous, cookieless usage counts (country and city, device, browser, how people arrived, which features they use) go to the Worker; the owner reads them at `/chalktalk/admin` with the stats token. No IPs are stored, visitors are a hash that rotates daily, and nothing a coach says, names or keys is ever included. Hosts can turn it off: `mount(el, { analytics: false })`.
 
+## Ads
+
+Per the owner's 2026-10-30 decision to monetize the collection (split by audience; Chalk Talk is
+general audience), the standalone page at mutaafaziz.com/chalktalk/ loads
+[Marquee](https://mutaafaziz.com/ads/) and shows one labelled banner (`library`, menu context) at
+the foot of the Plays list. It never covers the board, never interrupts talking or drawing, isn't on
+`/admin`, and isn't part of the package, so hosts like CourtIQ show no ads. Ads may use cookies and
+Google's ad requests; see the [ad privacy policy](https://mutaafaziz.com/ads/privacy/). Chalk Talk's
+own analytics above are unchanged.
+
 ## Add a sport
 
 A sport is data: `src/sports/<sport>.js` exports a pack with its field (units, bounds, lines,
