@@ -1990,7 +1990,7 @@ export function mount(root, options) {
 
   return {
     load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
-    get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
+    get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku); unwatchDevice(); if (boxRO) boxRO.disconnect();

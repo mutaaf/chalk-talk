@@ -8,6 +8,9 @@ import { clamp, ease, route, measured, walk, slice, toward } from './geom.js';
 
 const HOLD = 1.6;   // beats of stillness at the end before it plays again
 export const SPANS = { move: [0, 0.82], pass: [0.52, 0.94], handoff: [0.55, 0.8], shot: [0.35, 0.95] };
+// screens are a sequence, not a crowd: the screener arrives and sets (stops, wide base) before the teammate
+// uses it; the teammate waits, sets up their defender, then comes off shoulder to shoulder
+export const TIMING = { set: [0, 0.42], wait: [0.36, 0.86] };
 
 // players are never statues: offense sways in a ready stance, defense has active feet
 export function life(sport, side, i, seconds, out) {
@@ -126,6 +129,8 @@ export function compile(play, sport, options) {
   });
   const guards = i => match[i] >= 0 || (job[i] && job[i].type !== 'man');
   const screened = beats.map(() => ({})), beaten = beats.map(() => ({})), react = sport.react || 0.3;
+  // when and where a defender is hung up: { at: the screen's spot (or null: on the screener), f0, f1 (release, or null) }
+  const hung = beats.map(() => ({}));
   // where the offense was a moment ago: defenders react to what they saw, not what's happening now
   function lagged(time) {
     const tt = Math.max(0, time - react), kk = Math.min(Math.floor(tt), beats.length), ff = tt - kk;
@@ -139,7 +144,12 @@ export function compile(play, sport, options) {
     const a = guard(Pl, d, h0, time), b2 = h1 === h0 ? a : guard(Pl, d, h1, time);
     let g = [a[0] + (b2[0] - a[0]) * shift, a[1] + (b2[1] - a[1]) * shift];
     const si = screened[k] && screened[k][d];
-    if (si != null) { const w = ease((f - 0.12) / 0.3), stuck = toward(P[si], g, 1.15 * sport.mark); g = [g[0] + (stuck[0] - g[0]) * w, g[1] + (stuck[1] - g[1]) * w]; }
+    if (si != null) {
+      // hung up on the screener's near side: the body they run into, then (released) they chase
+      const h = hung[k][d] || { f0: 0.12, f1: null }, pin = h.at || P[si];
+      const w = ease((f - h.f0) / 0.3) * (h.f1 == null ? 1 : 1 - ease((f - h.f1) / 0.25)), stuck = toward(pin, g, 1.15 * sport.mark);
+      g = [g[0] + (stuck[0] - g[0]) * w, g[1] + (stuck[1] - g[1]) * w];
+    }
     if (beaten[k] && beaten[k][d]) {
       // beaten: they trail, a step and a half off the receiver on the side they were (late on the cut,
       // ball-watching, caught helping), which is how the pass gets open
@@ -211,7 +221,52 @@ export function compile(play, sport, options) {
   // hit them in stride: a receiver who cuts in one beat and catches in the next doesn't stop and wait.
   // The cut spills into the catch beat: they accelerate through the first part of it, and run the rest
   // at full speed right into the catch, with the ball thrown to where they will be.
-  const LEAD = 0.4, carry = beats.map(() => ({}));
+  const LEAD = 0.4, carry = beats.map(() => ({})), screens = [], screenRoute = {};
+  // where a path is at fraction u of its length, and whether it comes within r of a point
+  const at = (mm, u) => { const o = [0, 0, 0]; walk(mm.m, u, o); return [o[0], o[1]]; };
+  const passes = (mm, p, r) => { for (let s = 0; s <= 16; s++) { const q = at(mm, s / 16); if (Math.hypot(q[0] - p[0], q[1] - p[1]) < r) return true; } return false; };
+  // who runs off a screen at p: the teammate whose path this beat comes closest to it (within 5.5)
+  const user = (mv, si, p) => {
+    let best = -1, bd = 5.5;
+    mv.forEach((mm, j) => {
+      if (!mm || j === si || play.players[j].side !== play.players[si].side) return;
+      for (let s = 0; s <= 16; s++) { const q = at(mm, s / 16), d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = j; } }
+    });
+    return best;
+  };
+  // a handoff happens where the two players meet, on the move. When the sport hands it off off the dribble
+  // (sport.dho) and the receiver has nothing planned, they run by the giver hip to hip and take it at speed,
+  // then the giver's body is a screen on the receiver's defender.
+  function handoffMoment(k, S, E, mv, ev) {
+    const gi = ev.from, ri = ev.to, G = E[gi];
+    if (sport.dho && !mv[ri]) {
+      const R = S[ri], prev = k > 0 ? starts[k - 1][ri] : R;
+      let v = [R[0] - prev[0], R[1] - prev[1]];
+      if (Math.hypot(v[0], v[1]) < 1) v = [G[0] - R[0], G[1] - R[1]];
+      const vl = Math.hypot(v[0], v[1]) || 1; v = [v[0] / vl, v[1] / vl];
+      let n = [-v[1], v[0]]; if (n[0] * (R[0] - G[0]) + n[1] * (R[1] - G[1]) < 0) n = [-n[0], -n[1]];
+      // take it and turn the corner: downhill, toward the rim, off the giver's hip
+      const C = [G[0] + n[0] * 1.3, G[1] + n[1] * 1.3], run = 7, tg = toward([0, 0], [goal[0] - C[0], goal[1] - C[1]], 1);
+      let dir = [v[0] * 0.55 + tg[0], v[1] * 0.55 + tg[1]]; const dl = Math.hypot(dir[0], dir[1]) || 1; dir = [dir[0] / dl, dir[1] / dl];
+      let end = [C[0] + dir[0] * run, C[1] + dir[1] * run];
+      end = [clamp(end[0], F.x[0] + 1, F.x[1] - 1), clamp(end[1], F.y[0] + 1, F.y[1] - 1)];
+      const line = route(R, [C], end, true, 24);
+      mv[ri] = { m: measured(line.map(p => [p[0], p[1], 0])), kind: 'cut', tm: 'dho' };
+      E[ri] = end;
+      routes.push(makeRoute(ri, k, 'cut', line)); routes[routes.length - 1].mv = mv[ri];
+    }
+    // the exchange: the moment of the beat they're closest (hands meet), the ball moves hand to hand
+    let fb = 0.6, bd = Infinity;
+    for (let s = 0; s <= 40; s++) {
+      const f = 0.12 + s / 40 * 0.8, a = mv[gi] ? at(mv[gi], along(mv[gi], f)) : G, b = mv[ri] ? at(mv[ri], along(mv[ri], f)) : E[ri];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (d < bd - 1e-6) { bd = d; fb = f; }
+    }
+    ev.sp = [Math.max(0.1, fb - 0.07), Math.min(0.95, fb + 0.03)];
+    if (sport.dho) {
+      play.players.forEach((_, d) => { if (match[d] === ri) { screened[k][d] = gi; hung[k][d] = { at: null, f0: fb, f1: null }; } });
+      ev.wall = gi;   // the giver plants: drawn as a screen once the ball is handed over
+    }
+  }
   const catchNext = (k, pi) => {
     const nb = beats[k + 1]; if (!nb) return false;
     const pass = nb.actions.find(a => K[a.kind].type === 'pass' && a.kind !== 'snap' && idx[a.target] === pi);
@@ -243,16 +298,29 @@ export function compile(play, sport, options) {
           carry[k + 1][pi] = { m: measured(cut[1].map(p => [p[0], p[1], 0])), kind: a.kind, ease: 'through', end: to.slice() };
           E[pi] = cut[0][cut[0].length - 1].slice();
         }
+        if (spec.style === 'screen') screenRoute[k + ':' + pi] = routes.length;
         routes.push(makeRoute(pi, k, a.kind, line));
+        routes[routes.length - 1].mv = mv[pi];
       } else if (spec.type === 'pass' || spec.type === 'handoff') {
         ev = { kind: a.kind, type: spec.type, from: pi, to: idx[a.target], arc: spec.arc == null ? 1 : spec.arc }; holder = idx[a.target];
       } else if (spec.type === 'shot') {
         ev = { kind: a.kind, type: 'shot', from: pi }; holder = -1;
       }
     });
+    if (ev && ev.type === 'handoff') handoffMoment(k, S, E, mv, ev);
     if (options.smart !== false) offBall(k, b, S, E, mv, holder);
     // screens hold defenders: the defender of the player being screened for gets stuck on the screener
-    b.actions.forEach(a => { if (K[a.kind].style === 'screen' && a.target) play.players.forEach((_, d) => { if (match[d] === idx[a.target]) screened[k][d] = idx[a.who]; }); });
+    b.actions.forEach(a => {
+      if (K[a.kind].style !== 'screen') return;
+      const si = idx[a.who], at = E[si];
+      let ti = a.target != null ? idx[a.target] : -1;
+      if (ti == null || ti < 0) ti = user(mv, si, at);   // no target named: whoever runs off it this beat
+      if (ti < 0) { screens.push({ k, si, ti: -1, at: at.slice(), route: screenRoute[k + ':' + si] }); return; }
+      const uses = !!(mv[ti] && passes(mv[ti], at, 5.5));
+      if (uses && mv[si] && !mv[si].ease) { mv[si].tm = 'set'; if (!mv[ti].ease) mv[ti].tm = 'wait'; }
+      screens.push({ k, si, ti, at: at.slice(), route: screenRoute[k + ':' + si] });
+      play.players.forEach((_, d) => { if (match[d] === ti) { screened[k][d] = si; hung[k][d] = { at: null, f0: uses ? 0.3 : 0.12, f1: null }; } });
+    });
     paths.push(mv); starts.push(E); holders.push(holder); ballEv.push(ev);
     const endPos = () => play.players.map((_, pi) => posIn(k, 1, pi));
     play.players.forEach((_, d) => { if (guards(d) && auto[k][d]) E[d] = defSpot(d, k, 1, k + 1, endPos()); });
@@ -267,14 +335,52 @@ export function compile(play, sport, options) {
       });
     }
   });
+  // a screen set this beat and used the next: the defender is hung up on its spot while the teammate comes off
+  // it, then fights through. And every screen's bar is the screener's shoulders, square to the path the teammate
+  // runs past it (the defender trailing on that path runs into the chest).
+  screens.forEach(s => {
+    const nx = paths[s.k + 1];
+    let ti = s.ti, uses = null;
+    if (nx) {
+      if (ti < 0) ti = user(nx, s.si, s.at);
+      if (ti >= 0 && nx[ti] && passes(nx[ti], s.at, 6) && !(paths[s.k][ti] && passes(paths[s.k][ti], s.at, 5.5))) {
+        uses = nx[ti];
+        play.players.forEach((_, d) => { if (match[d] === ti && screened[s.k + 1][d] == null) { screened[s.k + 1][d] = s.si; hung[s.k + 1][d] = { at: s.at, f0: 0, f1: 0.45 }; } });
+      }
+    }
+    if (ti >= 0 && paths[s.k][ti] && passes(paths[s.k][ti], s.at, 5.5)) uses = paths[s.k][ti];
+    let dir = null;
+    if (uses) {   // the runner's heading where they pass closest
+      let bu = 0, bd = Infinity;
+      for (let j = 0; j <= 24; j++) { const q = at(uses, j / 24), d = Math.hypot(q[0] - s.at[0], q[1] - s.at[1]); if (d < bd) { bd = d; bu = j / 24; } }
+      const a = at(uses, Math.max(0, bu - 0.08)), b = at(uses, Math.min(1, bu + 0.08)); dir = [b[0] - a[0], b[1] - a[1]];
+    } else if (ti >= 0) {
+      const t0 = starts[s.k][ti]; dir = [t0[0] - s.at[0], t0[1] - s.at[1]];   // facing the man they screen for
+    }
+    const r = s.route != null ? routes[s.route] : null;
+    if (r && dir && Math.hypot(dir[0], dir[1]) > 0.2) { const nr = makeRoute(r.p, r.beat, r.kind, r.line, dir); nr.mv = r.mv; routes[s.route] = nr; }
+  });
   // ball routes are drawn from where the ball really goes, so they need the movement first
   ballEv.forEach((ev, k) => {
     if (!ev) return;
-    const sp = SPANS[ev.type];
+    const sp = ev.sp || SPANS[ev.type];
     const p0 = posIn(k, sp[0], ev.from), p1 = ev.type === 'shot' ? [goal[0], goal[1]] : posIn(k, sp[1], ev.to);
-    const line = ev.type === 'handoff' ? route(p0, [[(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + 1.2]], p1, true, 10) : route(p0, [], p1, false, 20);
-    routes.push(makeRoute(ev.from, k, ev.kind, line));
+    let line;
+    if (ev.type === 'handoff') {
+      // drawn the way playbooks draw a handoff: two short bars across the gap where the hands meet
+      const m = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, ux = (p1[0] - p0[0]) / dl, uy = (p1[1] - p0[1]) / dl;
+      const h = 0.7 * sport.mark, g = 0.22 * sport.mark;
+      line = [[m[0] + ux * g - uy * h, m[1] + uy * g + ux * h], [m[0] + ux * g + uy * h, m[1] + uy * g - ux * h], [m[0] - ux * g + uy * h, m[1] - uy * g - ux * h], [m[0] - ux * g - uy * h, m[1] - uy * g + ux * h]];
+    } else line = route(p0, [], p1, false, 20);
+    routes.push(makeRoute(ev.from, k, ev.kind, line)); routes[routes.length - 1].span = sp;
     ev.p0 = p0; ev.p1 = p1;
+    if (ev.wall != null && K.screen) {   // the giver plants and becomes a screen on the receiver's defender
+      const G = posIn(k, sp[1], ev.from), a = posIn(k, sp[0], ev.to), b = posIn(k, Math.min(1, sp[1] + 0.12), ev.to), v = [b[0] - a[0], b[1] - a[1]];
+      if (Math.hypot(v[0], v[1]) > 0.3) {
+        const r = makeRoute(ev.from, k, 'screen', [[G[0] - v[0] * 0.02, G[1] - v[1] * 0.02], G], v);
+        r.span = [sp[1], Math.min(1, sp[1] + 0.12)]; r.wall = true; routes.push(r);
+      }
+    }
     // passing style, where the sport says passes are thrown low (basketball: chest or bounce, never a lob):
     // a bounce pass to a cutter or roller going to the rim, or past a defender in the lane; else a chest pass
     if (sport.ball.passes && ev.type === 'pass') {
@@ -345,12 +451,17 @@ export function compile(play, sport, options) {
     const m = paths[k] && paths[k][pi];
     if (!m) return (starts[k] || starts[starts.length - 1])[pi].slice();
     const o = [0, 0, 0];
-    const u = m.ease === 'in' ? 1 - Math.cos(Math.min(1, f / SPANS.move[1]) * Math.PI / 2)   // speeding up into the next beat
-      : m.ease === 'through' ? Math.min(1, f / SPANS.pass[1])                                   // full speed, into the catch
-      : ease(f / SPANS.move[1]);
-    walk(m.m, u, o); return [o[0], o[1]];
+    walk(m.m, along(m, f), o); return [o[0], o[1]];
   }
-  function makeRoute(pi, k, kind, line) {
+  // how far along its path a mover is at fraction f of the beat
+  function along(m, f) {
+    if (m.ease === 'in') return 1 - Math.cos(Math.min(1, f / SPANS.move[1]) * Math.PI / 2);   // speeding up into the next beat
+    if (m.ease === 'through') return Math.min(1, f / SPANS.pass[1]);                           // full speed, into the catch
+    if (m.tm === 'dho') return clamp((f - 0.08) / 0.8, 0, 1) ** 1.15;                             // already moving: through the handoff at speed
+    const w = m.tm && TIMING[m.tm];
+    return w ? ease((f - w[0]) / (w[1] - w[0])) : ease(f / SPANS.move[1]);
+  }
+  function makeRoute(pi, k, kind, line, bar) {
     const spec = K[kind], u = sport.mark;
     let pts = line.map(p => [p[0], p[1], 0.05 * u]);
     if (spec.style === 'zigzag') {   // a dribble is drawn as a zigzag
@@ -365,6 +476,9 @@ export function compile(play, sport, options) {
     }
     const e = pts[pts.length - 1], q = pts[Math.max(0, pts.length - 3)];
     let dx = e[0] - q[0], dy = e[1] - q[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    if (spec.style === 'screen' && bar) {   // shoulders square to the runner's path: the bar lies across it
+      const bl = Math.hypot(bar[0], bar[1]) || 1; dx = bar[0] / bl; dy = bar[1] / bl;
+    }
     if (spec.style === 'screen') {   // a screen or block ends in a bar: the body the defender runs into
       pts = pts.concat([[e[0] - dy * 1.05 * u, e[1] + dx * 1.05 * u, e[2]], [e[0] + dy * 1.05 * u, e[1] - dx * 1.05 * u, e[2]]]);
     } else if (spec.type === 'move' && pts.length > 2) {   // everything else ends in an arrowhead
@@ -372,7 +486,7 @@ export function compile(play, sport, options) {
       pts = pts.concat([[back[0] - dy * 0.48 * u, back[1] + dx * 0.48 * u, e[2]], e.slice(), [back[0] + dy * 0.48 * u, back[1] - dx * 0.48 * u, e[2]]]);
     }
     const m = measured(pts);
-    return { p: pi, beat: k, kind, side: play.players[pi].side, type: spec.type, pts, m, len: m.len, dashed: spec.type === 'pass' || spec.type === 'shot' };
+    return { p: pi, beat: k, kind, side: play.players[pi].side, type: spec.type, pts, m, len: m.len, line, dashed: spec.type === 'pass' || spec.type === 'shot' };
   }
 
   // ---- the clock, and a per-frame memo so every consumer of a frame shares one computation ----
@@ -433,8 +547,10 @@ export function compile(play, sport, options) {
           if (k < beats.length && age >= 3) return { drawn: 0, age, home: [P[r.p][0], P[r.p][1], 0.2 * sport.mark] };   // long gone: back into the player
           return { drawn: 1, age: k >= beats.length ? 9 : age };
         }
-        const sp = SPANS[r.type] || SPANS.move, d = clamp((f - sp[0]) / (sp[1] - sp[0]), 0, 1), ball = r.type !== 'move';
-        return { drawn: ball ? d : ease(d), age: 0, home: ball ? Bp : [P[r.p][0], P[r.p][1], 0.2 * sport.mark] };
+        const ball = r.type !== 'move', home = ball ? Bp : [P[r.p][0], P[r.p][1], 0.2 * sport.mark];
+        if (!ball && r.mv && !r.span) return { drawn: along(r.mv, f), age: 0, home };   // the line grows with the player, whatever their timing
+        const sp = r.span || SPANS[r.type] || SPANS.move, d = clamp((f - sp[0]) / (sp[1] - sp[0]), 0, 1);
+        return { drawn: ball ? d : ease(d), age: 0, home };
       });
       return memo.R;
     },
@@ -467,7 +583,7 @@ export function compile(play, sport, options) {
     const ev = ballEv[k], hk = holders[k];
     const bouncing = pi => !!(B.bounce && paths[k][pi] && K[paths[k][pi].kind].dribble);
     if (ev) {
-      const sp = SPANS[ev.type];
+      const sp = ev.sp || SPANS[ev.type];
       if (f >= sp[0] && f < sp[1]) {
         const u = (f - sp[0]) / (sp[1] - sp[0]);
         const a = ev.p0, b = ev.type === 'shot' ? goal : ev.type === 'handoff' ? P[ev.to] : ev.p1;   // thrown to where the receiver will be

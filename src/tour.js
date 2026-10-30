@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.24.0';
+export const VERSION = '0.24.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.24.1', date: '2026-10-30', title: 'Screens and handoffs, for real', items: [
+    { title: 'Set the screen, then go', call: 'Screeners now get there first and set; the teammate waits, then comes off shoulder to shoulder while their defender gets hung up on the screener’s chest and fights through. The screen bar is drawn across the runner’s path, the way playbooks draw it. Works for any play you draw or say.', show: 'ink' },
+    { title: 'Dribble handoffs at speed', call: 'A handoff happens hip to hip on the move: the receiver runs by, takes it out of the giver’s hands and turns the corner downhill, and the giver becomes a screen on the receiver’s defender. Drawn with the handoff bars.', show: 'ink' }
+  ] },
   { version: '0.24.0', date: '2026-10-30', title: 'Plays that keep flowing', items: [
     { title: 'Continuity, all the way around', call: 'Five Out Spacing, Help Defense, Flex Cut and 5-Out Pass, Cut, Fill now run full rotations: the ball goes around (drive, help, kick, recover; screen the screener on both sides; three cutters) and comes back to where it started, so the loop never stops after a pass or two.', show: 'lib' },
     { title: 'The best read, flashing', call: 'A green marker flashes on the open option as the play runs: the teammate to pass to, the lane to drive or the shot. Switch it off in More.', show: 'moreBtn' },

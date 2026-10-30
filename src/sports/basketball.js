@@ -83,7 +83,7 @@ export default {
   roster: { perSide: 5, label: '5 on 5' },
   field: { x: [-25, 25], y: [0, 47], goal: BASKET, lines },
   view: { scale: 1 / 26, center: 23.5, tilt: 0.98, lift: -0.02 },
-  mark: 1.7, screenGap: 3, open: 4.5, react: 0.3, help: { at: 13 },
+  mark: 1.7, screenGap: 3, open: 4.5, react: 0.3, help: { at: 13 }, dho: true,
   ball: { r: 0.75, held: 3.6, bounce: true, passes: 'low', offset: [1, -0.6], maxArc: 4, stretch: 1 },   // passes: chest or bounce only
   spots: SPOTS, kinds: KINDS, guard, los: null,
   autonomy: { crowd: 9, drive: 11, pressed: 0, findSpace: false, kind: 'move', spots: () => AUTO_SPOTS,
