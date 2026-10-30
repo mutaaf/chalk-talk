@@ -148,7 +148,18 @@ export function compile(play, sport, options) {
       const sag = [r[0] + ux * Math.max(len, need), r[1] + uy * Math.max(len, need)];
       g = [g[0] + (sag[0] - g[0]) * w, g[1] + (sag[1] - g[1]) * w];
     }
+    g = onSide(d, g, time);
     return [clamp(g[0], F.x[0] + 0.5, F.x[1] - 0.5), clamp(g[1], F.y[0] + 0.5, F.y[1] - 0.5)];
+  }
+  // football: nobody crosses the line before the snap is made, and the rusher holds his depth (7 yd in NFL FLAG)
+  // until a short count after the QB has the ball (sport.rush = { depth, delay } in beats)
+  const RUSH = sport.rush, losY = play.los != null ? play.los : sport.los;
+  const snapK = RUSH ? beats.findIndex(b => b.actions.some(a => a.kind === 'snap')) : -1;
+  const rushOpen = snapK >= 0 ? snapK + SPANS.pass[1] + (RUSH.delay || 0) : -1;
+  const rusher = d => play.players[d].role === 'R' || (job[d] && job[d].type === 'rush') || beats.some(b => b.actions.some(a => a.who === play.players[d].id && a.kind === 'rush'));
+  function onSide(d, g, time) {
+    if (rushOpen < 0 || time >= rushOpen || play.players[d].side !== 'D' || losY == null) return g;
+    return [g[0], Math.min(g[1], losY - (rusher(d) ? RUSH.depth : 1))];
   }
   const auto = beats.map(b => play.players.map((p, i) => guards(i) && !b.actions.some(a => a.who === p.id && K[a.kind].type === 'move')));
   const origin = play.players.map(p => [p.x, p.y]);

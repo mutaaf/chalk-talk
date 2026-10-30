@@ -32,3 +32,22 @@ for (const sport of [flag5, flag7]) {
 assert.equal(coverageNamed(flag7, 'cover two'), 'cover2');
 assert.equal(coverageNamed(flag5, 'Cover 4'), 'cover3');   // 5v5 has no quarters: nearest is thirds
 console.log('ok: route tree × coverages × reads on 5v5 and 7v7');
+
+// nobody on defense crosses the line before the snap is made, and the rusher holds his depth until the count
+{
+  const { sports: all } = await import('../src/sports/index.js');
+  const { normalize: norm, compile: comp } = await import('../src/engine/sim.js');
+  let checked = 0;
+  for (const sp of all()) if (sp.rush) for (const raw of sp.plays) for (const defense of [false, true]) {
+    const n = norm(raw, sp), sim = comp(n.play, sp, { defense }), L = n.play.los, k = n.play.beats.findIndex(b => b.actions.some(a => a.kind === 'snap'));
+    if (k < 0) continue;
+    for (let t = 0; t < k + 0.94; t += 0.05) sim.players.forEach((p, j) => {
+      if (p.side !== 'D') return;
+      const y = sim.posAt(t)[j][1];
+      if (y > L - 0.99) throw new Error(`${sp.id}/${raw.key}: ${p.id} is over the line before the snap (${(y - L).toFixed(1)} yd)`);
+      if (p.role === 'R' && y > L - sp.rush.depth + 0.01) throw new Error(`${sp.id}/${raw.key}: the rusher left his ${sp.rush.depth} yd before the count`);
+    });
+    checked++;
+  }
+  console.log(`ok: ${checked} football plays keep the defense onside until the snap and the rusher at ${all().find(s => s.rush).rush.depth} yd`);
+}
