@@ -907,7 +907,10 @@ export const CSS = `
 .ct-livefoot span { min-width: 54px; color: rgba(238, 244, 255, .6); font-variant-numeric: tabular-nums; }
 .ct .ct-livefoot button { height: 44px; padding: 0 22px; border-radius: 22px; background: #fff; color: #04070c; font-weight: 700; font-size: 15px; }
 .ct .ct-livefoot button.ghost { background: none; color: #fff; border: 1px solid rgba(238, 244, 255, .35) !important; }
-.ct.ct-liveon .ct-tabbar, .ct.ct-liveon .ct-dock { z-index: 15; }
+.ct.ct-liveon .ct-tabbar { z-index: 17; }
+.ct.ct-liveon .ct-dock { z-index: 15; pointer-events: none; }
+.ct.ct-liveon .ct-dock .ct-mic, .ct.ct-liveon .ct-dock .ct-transport { pointer-events: auto; }
+.ct .ct-live { z-index: 16; }
 .ct.ct-liveon .ct-dock .ct-said, .ct.ct-liveon .ct-dock .ct-transport, .ct.ct-liveon .ct-dock .ct-caption { visibility: hidden; }
 /* recent plays, one tap away */
 .ct-recent { display: grid; gap: 4px; margin: 0 0 8px; }

@@ -32,6 +32,7 @@ export function recorder(onText, onState, transcribe) {
     rec.onstop = async () => {
       stream.getTracks().forEach(t => t.stop()); rec = null; if (meter) { meter.close(); meter = null; }
       const blob = new Blob(chunks, { type: chunks[0] ? chunks[0].type : 'audio/webm' });
+      if (drop) { drop = false; onState('idle', ''); return; }   // cancelled: nothing is sent or drawn
       if (blob.size < 2000) { onState('idle', ''); return; }
       onState('hearing', 'Writing down what you said…');
       try { const t = (await transcribe(blob)).trim(); onState('idle', t); if (t) onText(t); }
@@ -40,15 +41,17 @@ export function recorder(onText, onState, transcribe) {
     rec.start(); onState('listening', '');
     setTimeout(() => { if (rec && rec.state === 'recording') rec.stop(); }, 45000);   // a long play, at most
   }
+  let drop = false;
   function stop() { want = false; if (rec && rec.state === 'recording') rec.stop(); }
-  return { start, stop, level: () => (meter ? meter.level() : 0), get on() { return want; } };
+  function cancel() { drop = true; want = false; if (rec && rec.state === 'recording') rec.stop(); else onState('idle', ''); }
+  return { start, stop, cancel, level: () => (meter ? meter.level() : 0), get on() { return want; } };
 }
 const standaloneIOS = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent || '') && (navigator.standalone || (typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches));
 
 export function listener(onText, onState, transcribe, vocab) {
   const R = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const rec2 = transcribe ? recorder(t => { audioSession('play'); onText(t); }, (st, t) => { if (st !== 'listening' && st !== 'hearing') audioSession('play'); onState(st, t); }, transcribe) : null;
-  if (!R || standaloneIOS()) return rec2 && { start() { audioSession('record'); rec2.start(); }, stop: () => rec2.stop(), level: () => rec2.level(), get on() { return rec2.on; } };
+  if (!R || standaloneIOS()) return rec2 && { start() { audioSession('record'); rec2.start(); }, stop: () => rec2.stop(), cancel: () => rec2.cancel(), level: () => rec2.level(), get on() { return rec2.on; } };
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let meter = null, mstream = null;
   const openMeter = () => { if (ios || !navigator.mediaDevices) return; navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } }).then(st => { if (!want) { st.getTracks().forEach(t => t.stop()); return; } mstream = st; meter = meterFor(st); }).catch(() => {}); };
@@ -81,12 +84,14 @@ export function listener(onText, onState, transcribe, vocab) {
       }
       onState('error', MSG[e.error] || (e.error === 'aborted' ? '' : 'The microphone stopped (' + e.error + '). Tap it to try again.'));
     };
-    rec.onend = () => { rec = null; closeMeter(); audioSession('play'); const t = finalText.trim(); onState('idle', t); if (t) onText(t); want = false; };
+    rec.onend = () => { rec = null; closeMeter(); audioSession('play'); const t = dropped ? '' : finalText.trim(); dropped = false; onState('idle', t); if (t) onText(t); want = false; };
     try { rec.start(); onState('starting', ''); }
     catch (e) { rec = null; if (rec2) { useRecorder = true; rec2.start(); } else onState('error', 'The microphone couldn’t start. Type the play instead.'); }
   }
+  let dropped = false;
   function stop() { want = false; if (useRecorder && rec2) { rec2.stop(); return; } if (rec) try { rec.stop(); } catch (e) {} }
-  return { start, stop, level: () => (useRecorder && rec2 ? rec2.level() : meter ? meter.level() : 0), get on() { return useRecorder && rec2 ? rec2.on : want; } };
+  function cancel() { want = false; if (useRecorder && rec2) { rec2.cancel(); return; } if (rec) { dropped = true; try { rec.abort(); } catch (e) {} } else onState('idle', ''); }
+  return { start, stop, cancel, level: () => (useRecorder && rec2 ? rec2.level() : meter ? meter.level() : 0), get on() { return useRecorder && rec2 ? rec2.on : want; } };
 }
 
 // ---- the broadcaster ----

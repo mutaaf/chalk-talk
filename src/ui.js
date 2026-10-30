@@ -1758,7 +1758,7 @@ export function mount(root, options) {
     };
   })();
   R.liveStop.onclick = () => { if (ear && ear.on) ear.stop(); };
-  R.liveCancel.onclick = () => { if (ear && ear.on) { ear.stop(); } if (state.busy) state.busy.abort(); live.hide(); };
+  R.liveCancel.onclick = () => { if (ear) (ear.cancel || ear.stop)(); if (state.busy) state.busy.abort(); live.hide(); R.heard.textContent = ''; };
 
 
   // ---- coach style: the lens the AI draws and explains plays through (basketball) ----

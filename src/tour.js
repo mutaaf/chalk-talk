@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.19.1';
+export const VERSION = '0.19.2';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.19.2', date: '2026-10-30', title: 'Done means done', items: [
+    { title: 'Done and Cancel work', call: 'While you talk, Done draws what you said and Cancel throws it away. Nothing gets drawn after a Cancel.', show: 'mic' }
+  ] },
   { version: '0.19.1', date: '2026-10-30', title: 'A legal rush', items: [
     { title: 'The rusher waits for the snap', call: 'In flag football nobody on defense crosses the line before the snap, and the rusher holds his 7 yards until a short count after the QB has the ball.', show: null }
   ] },
