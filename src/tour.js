@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.11.0';
+export const VERSION = '0.11.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.11.1', date: '2026-10-30', title: 'Edit on the whiteboard', items: [
+    { title: 'Whiteboard only stays put', call: 'Pause, tap a player, label or sketch: the board stays in whiteboard-only mode until you leave it.', show: null }
+  ] },
   { version: '0.11.0', date: '2026-10-30', title: 'Your plays, kept', items: [
     { title: 'My plays', call: 'Every play the AI draws for you is saved with the words you used. Search it, star it, rename it, run it again. Ask for one again and it\'s instant, with no AI used.', show: 'lib' },
     { title: 'Chalk Talk AI', call: 'Get Chalk Talk AI through CourtIQ at a $4.99 launch price, or use the AI that comes with any CourtIQ plan. Connect it here from AI settings.', show: 'keyBtn' },

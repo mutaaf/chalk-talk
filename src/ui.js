@@ -1570,7 +1570,8 @@ export function mount(root, options) {
     if (c === 'plays') return playsSheet();
     act(c); renderRail();
   });
-  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && root.classList.contains('ct-board')) boardOnly(false); });
+  // whiteboard only ends when the coach says so (Exit, Esc, W), never because the browser left full screen:
+  // on iPad, editing a label or sketching can drop full screen, and the board must stay as it was
 
 
   // ---- light and dark: dark by default (the light glows), light for a bright sideline, or follow the device ----
