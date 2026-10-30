@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.9.0';
+export const VERSION = '0.10.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,12 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.10.0', date: '2026-10-30', title: 'Just the board', items: [
+    { title: 'Whiteboard only', call: 'Full screen, every panel away, a slim rail of icons: talk, sketch, defense, plays, step through. Press W, or find it in More.', show: 'boardBtn' },
+    { title: 'Sound on iPhone and iPad', call: 'Chimes and the voice now play on iPhone and iPad, even with the silent switch on. Tap the board once and it\'s on.', show: null },
+    { title: 'One tap to plays and the guide', call: 'On a phone or tablet, Plays, Guide and Film room each sit in the tab bar; sketch is the pencil up top.', show: null },
+    { title: 'A sharper laser', call: 'In presenter mode the laser follows the pointer exactly, fades fast, and the play title takes up less of the screen.', show: 'presentBtn' }
+  ] },
   { version: '0.9.0', date: '2026-10-30', title: 'Settings the way your phone does them', items: [
     { title: 'Switches, not buttons', call: 'On a phone or tablet, More now has real switches for defense, the analyst, routes and coverage, the view lock, light mode and sound. They flip right there.', show: null },
     { title: 'Film room in the tab bar', call: 'One tap from anywhere on a phone or tablet.', show: null },
@@ -70,7 +76,7 @@ export const RELEASES = [
 
 export const SHORTCUTS = [
   ['Space (hold)', 'Talk'], ['← →', 'Step back / forward'], ['P', 'Play or pause'], ['S', 'Sketch'], ['D', 'Defense'],
-  ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['G', 'Guide'], ['R', 'Film room'], ['I', 'IQ game'], ['F', 'Presenter mode'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
+  ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['G', 'Guide'], ['R', 'Film room'], ['I', 'IQ game'], ['F', 'Presenter mode'], ['W', 'Whiteboard only'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
 ];
 
 const SEEN = 'chalktalk.seen';

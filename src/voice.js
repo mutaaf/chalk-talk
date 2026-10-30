@@ -1,3 +1,5 @@
+import { player } from './sound.js';
+
 // Ears and a voice. Speech in through the browser's recogniser; speech out as a play-by-play
 // broadcaster: OpenAI's TTS or ElevenLabs with your own key (an OpenAI play key doubles as
 // the voice key), else the most natural voice the device has. A small local grammar makes
@@ -115,7 +117,8 @@ export function say(text, playKey, opts) {
   if (p) {
     fetchLine(text, p).then(url => {
       if (my !== seq) return;
-      audio = new Audio(url); audio.play().catch(() => {});
+      audio = player || new Audio();   // the shared element a tap unlocked (iOS blocks a fresh one here)
+      audio.src = url; audio.play().catch(() => { onError && onError('Tap the board once to turn on sound.'); local(localText); });
     }).catch(e => { if (my === seq) { onError && onError(e.message); local(localText); } });
     return;
   }

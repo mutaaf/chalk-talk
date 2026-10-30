@@ -43,6 +43,7 @@ const TEMPLATE = `
   <button class="ct-pill ct-iqpill" data-r="iqBtn" title="The game: read real plays, build your IQ, level up (I)">${icon('trophy')}<span data-r="iqLabel">IQ</span></button>
   <button class="ct-pill" data-r="statsBtn" title="Stats: the play's numbers, and AI tokens, time and cost">${icon('chart')}<span>Stats</span></button>
   <button class="ct-pill" data-r="presentBtn" title="Presenter mode for a TV: AirPlay, Cast or any mirroring (F)">${icon('cast')}<span>Present</span></button>
+  <button class="ct-pill" data-r="boardBtn" title="Whiteboard only: full screen, panels away, icons only (W)">${icon('expand')}<span>Board only</span></button>
   <button class="ct-pill" data-r="themeBtn" title="Light, dark, or follow the device">${icon('moon')}<span>Theme</span></button>
   <button class="ct-pill" data-r="infoBtn">${icon('info')}<span>About</span></button>
   <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="The voice: an analyst who explains the read, or play-by-play">${icon('mute')}<span>Narrate</span></button>
@@ -99,9 +100,22 @@ const TEMPLATE = `
   </div>
 </div>
 <button type="button" class="ct-playchip" data-r="playChip" aria-label="About this play"><small data-r="chipK"></small><b data-r="chipT"></b>${icon('info')}</button>
+<button type="button" class="ct-fab" data-r="tbSketch" aria-label="Sketch a play">${icon('sketch')}</button>
+<nav class="ct-rail" aria-label="Whiteboard controls">
+  <button type="button" data-rl="mic" data-r="rlMic" aria-label="Talk">${MIC}</button>
+  <button type="button" data-rl="sketch" data-r="rlSketch" aria-label="Sketch">${icon('sketch')}</button>
+  <button type="button" data-rl="defense" data-r="rlDef" aria-label="Defense on or off">${icon('shield')}</button>
+  <button type="button" data-rl="plays" aria-label="Plays">${icon('book')}</button>
+  <i></i>
+  <button type="button" data-rl="back" aria-label="Previous step">${icon('prev')}</button>
+  <button type="button" data-rl="toggle" data-r="rlPlay" aria-label="Play or pause">${icon('pause')}</button>
+  <button type="button" data-rl="next" aria-label="Next step">${icon('next')}</button>
+  <i></i>
+  <button type="button" data-rl="exit" aria-label="Leave whiteboard only">${icon('shrink')}</button>
+</nav>
 <nav class="ct-tabbar" aria-label="Board">
   <button type="button" data-tb="plays">${icon('book')}<span>Plays</span></button>
-  <button type="button" data-tb="sketch" data-r="tbSketch">${icon('sketch')}<span>Sketch</span></button>
+  <button type="button" data-tb="guide">${icon('book')}<span>Guide</span></button>
   <button type="button" data-tb="mic" class="ct-tbmic" data-r="tbMic" aria-label="Talk: tap, say the play, tap again">${MIC}</button>
   <button type="button" data-tb="film">${icon('film')}<span>Film room</span></button>
   <button type="button" data-tb="more">${icon('grid')}<span>More</span><i class="ct-dot" data-r="tbDot" hidden></i></button>
@@ -236,7 +250,7 @@ export function mount(root, options) {
     if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speakBeat(info.say, k); }
     else { R.caption.innerHTML = `<span class="ct-n">✓</span>${state.play.reads.length ? 'Options on this play' : 'That\'s the play.'}`; R.caption.classList.add('end'); }
     state.readsOn = !info;
-    renderDots(); renderReads(); renderThoughts(k); renderPresent();
+    renderDots(); renderReads(); renderThoughts(k); renderPresent(); if (root.classList.contains('ct-board')) renderRail();
   }
   // what players are thinking this beat: AI players' reads, and the autonomous ones' decisions
   function renderThoughts(k) {
@@ -327,7 +341,7 @@ export function mount(root, options) {
       return { p, shape, glyph, eye, text, hot, g };
     });
     const stroke = el('path', 'stroke', svg);
-    const target = el('circle', 'iqtarget', svg), tapX = el('path', 'iqtap', svg), ghost = el('path', 'ghost', svg), finger = el('circle', 'finger', svg), laser = el('path', 'laser', svg);
+    const target = el('circle', 'iqtarget', svg), tapX = el('path', 'iqtap', svg), ghost = el('path', 'ghost', svg), finger = el('circle', 'finger', svg), laser = el('path', 'laser', svg), laserDot = el('circle', 'laserdot', svg);
     const nm = names.all();
     R.labels.innerHTML = sim.players.map(p => {
       const name = state.showNames && nm[p.id], txt = name || (state.sport.id === 'basketball' ? p.role : '') || '';
@@ -336,7 +350,7 @@ export function mount(root, options) {
     const kids = Array.from(R.labels.children);
     // guarded: who has a defender to beat (in football, every receiver reads the coverage)
     ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),
-      routes, marks, ball, shadow, stroke, target, tapX, ghost, finger, laser, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+      routes, marks, ball, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
     R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
@@ -435,9 +449,15 @@ export function mount(root, options) {
       const u = (performance.now() / 1600) % 1, n = pts.length - 1, j = Math.min(n - 1, Math.floor(u * n)), w = u * n - j, a = pts[j], b2 = pts[j + 1] || a;
       ink.finger.setAttribute('cx', a.x + (b2.x - a.x) * w); ink.finger.setAttribute('cy', a.y + (b2.y - a.y) * w); ink.finger.setAttribute('r', 11);
     } else { ink.ghost.setAttribute('d', ''); ink.finger.setAttribute('r', 0); }
+    // the laser: a smoothed trail through every raw pointer sample that fades in a third of a second,
+    // and a dot exactly under the pointer
     const L = laserPts, now = performance.now();
-    while (L.length && now - L[0][2] > 700) L.shift();
-    ink.laser.setAttribute('d', L.length > 1 ? 'M' + L.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join('L') : '');
+    while (L.length && now - L[0][2] > 340) L.shift();
+    let d = '';
+    if (L.length > 1) { d = 'M' + L[0][0].toFixed(1) + ' ' + L[0][1].toFixed(1); for (let i = 1; i < L.length - 1; i++) { const mx = (L[i][0] + L[i + 1][0]) / 2, my = (L[i][1] + L[i + 1][1]) / 2; d += `Q${L[i][0].toFixed(1)} ${L[i][1].toFixed(1)} ${mx.toFixed(1)} ${my.toFixed(1)}`; } const z = L[L.length - 1]; d += `L${z[0].toFixed(1)} ${z[1].toFixed(1)}`; }
+    ink.laser.setAttribute('d', d);
+    const lp = state.laser && state.laserAt;
+    if (lp) { ink.laserDot.setAttribute('cx', lp[0]); ink.laserDot.setAttribute('cy', lp[1]); ink.laserDot.setAttribute('r', state.lasing ? 6 : 5); } else ink.laserDot.setAttribute('r', 0);
   }
   const laserPts = [];
 
@@ -560,7 +580,7 @@ export function mount(root, options) {
     if (c === 'faster') sim.speed(+(sim.speed() * 1.5).toFixed(2));
     if (c === 'defense-on' || c === 'defense-off' || c === 'defense') {
       state.defense = c === 'defense' ? !state.defense : c === 'defense-on'; track('defense', { on: state.defense ? 1 : 0 });
-      renderDefense();
+      renderDefense(); if (R.rlDef) R.rlDef.classList.toggle('on', state.defense);
       load(state.raw, { key: state.libKey, quiet: true, keepAI: true });
       toast(state.defense ? 'Defense on: each X guards its man on its own.' : 'Defense off.');
       return;
@@ -1158,7 +1178,7 @@ export function mount(root, options) {
 
   // ---- ears ----
   const ear = listener(t => heard(t), (st, text) => {
-    R.mic.dataset.state = st; R.tbMic.dataset.state = st;
+    R.mic.dataset.state = st; R.tbMic.dataset.state = st; R.rlMic.dataset.state = st;
     if (st === 'hearing') R.heard.textContent = text;
     if (st === 'listening') { hush(); R.heard.textContent = 'Listening…'; R.heard.classList.remove('fix'); chime('ask'); }
     if (st === 'error' && text) toast(text);
@@ -1177,7 +1197,7 @@ export function mount(root, options) {
     if (e.key === 'Escape') {
       if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel:not(.out)')) { closePanel(); return; }
       if (state.coach) { endCoach(false); return; } if (state.quiz) { iq.stop(); return; } if (state.focus) { R.focusChip.click(); return; }
-      if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) finishSketch();
+      if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) { finishSketch(); return; } if (root.classList.contains('ct-board')) boardOnly(false);
     }
     const tc = root.querySelector('.ct-panel:not(.out).ct-tourcard');
     if (tc && tc._step && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); spotlight(tc._step.steps, tc._step.i + (e.key === 'ArrowRight' ? 1 : -1), tc._step.eyebrow); return; }
@@ -1195,6 +1215,7 @@ export function mount(root, options) {
     if (k2 === 'r') openFilmRoom();
     if (k2 === 'i') iq.open();
     if (k2 === 'f') present();
+    if (k2 === 'w') boardOnly();
     if (k2 === 's') act('sketch');
     if (k2 === 'd') act('defense');
     if (k2 === 'l') toggleLock();
@@ -1283,7 +1304,7 @@ export function mount(root, options) {
       toast('Presenter mode. Mirror this screen with AirPlay or Cast; ← → step, P plays, Esc exits.');
       poke(); renderPresent();
     } else {
-      state.laser = false; R.pLaser.classList.remove('on');
+      state.laser = false; root.classList.remove('ct-laser'); R.pLaser.classList.remove('on');
       try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
       try { wake && wake.release(); } catch (e) {} wake = null;
     }
@@ -1296,14 +1317,20 @@ export function mount(root, options) {
   R.pbar.addEventListener('click', e => {
     const b = e.target.closest('[data-p]'); if (!b) return; const c = b.dataset.p;
     if (c === 'exit') return present(false);
-    if (c === 'laser') { state.laser = !state.laser; b.classList.toggle('on', state.laser); b.setAttribute('aria-pressed', state.laser); toast(state.laser ? 'Laser: drag on the board to point.' : 'Laser off.'); return; }
+    if (c === 'laser') { state.laser = !state.laser; root.classList.toggle('ct-laser', state.laser); b.classList.toggle('on', state.laser); b.setAttribute('aria-pressed', state.laser); toast(state.laser ? 'Laser: drag on the board to point.' : 'Laser off.'); return; }
     if (c === 'voice') { if (!state.narrate) { state.narrate = true; state.style = 'analyst'; } else if (state.style === 'analyst') state.style = 'pbp'; else { state.narrate = false; hush(); } saveStyle(); renderNarrate(); renderPresent(); if (state.narrate && state.style === 'analyst') boothAI(); return; }
     if (c === 'lib') { openPanel(b, 'Plays', `<div class="ct-menu ct-plays">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}"><span>${esc(p.title)}</span><small>${esc(p.concept)}</small></button>`).join('')}</div>`, pb => { pb.onclick = e2 => { const x = e2.target.closest('[data-k]'); if (x) { closePanel(); teach(x.dataset.k); } }; }); return; }
     act(c); renderPresent();
   });
   // the laser: drag on the board and a glowing trail follows, then fades
-  stage.addEventListener('pointerdown', e => { if (state.laser && root.classList.contains('ct-present-on')) { e.stopPropagation(); e.preventDefault(); state.lasing = true; } }, true);
-  stage.addEventListener('pointermove', e => { if (state.lasing) { const h = R.ink.getBoundingClientRect(); laserPts.push([e.clientX - h.left, e.clientY - h.top, performance.now()]); } }, true);
+  stage.addEventListener('pointerdown', e => { if (state.laser && root.classList.contains('ct-present-on')) { e.stopPropagation(); e.preventDefault(); state.lasing = true; const h = R.ink.getBoundingClientRect(); state.laserAt = [e.clientX - h.left, e.clientY - h.top]; laserPts.push([state.laserAt[0], state.laserAt[1], performance.now()]); } }, true);
+  stage.addEventListener('pointermove', e => {
+    if (!state.laser || !root.classList.contains('ct-present-on')) return;
+    const h = R.ink.getBoundingClientRect(), evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e], now = performance.now();
+    const last = evs[evs.length - 1] || e; state.laserAt = [last.clientX - h.left, last.clientY - h.top];
+    if (state.lasing) evs.forEach(c => laserPts.push([c.clientX - h.left, c.clientY - h.top, now]));
+  }, true);
+  stage.addEventListener('pointerleave', () => { state.laserAt = null; });
   addEventListener('pointerup', () => { state.lasing = false; });
 
   // narration: off, the analyst (explains the read), or play-by-play
@@ -1407,6 +1434,7 @@ export function mount(root, options) {
       ['voice', 'speaker', 'Analyst voice', 'Explains the read as the play runs', state.narrate],
       fb ? ['fb', 'draw', 'Routes & coverage', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')] : null,
       names.any() ? ['names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      ['board', 'expand', 'Whiteboard only', 'Full screen, panels away, icons only', root.classList.contains('ct-board')],
       ['lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked],
       ['light', 'sun', 'Light mode', 'For a bright sideline', root.classList.contains('ct-light')],
       ['sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
@@ -1424,6 +1452,7 @@ export function mount(root, options) {
           if (k === 'fb') root.classList.toggle('ct-fbopen');
           if (k === 'names') R.namesBtn.click();
           if (k === 'lock') toggleLock();
+          if (k === 'board') { closePanel(); boardOnly(); return; }
           if (k === 'light') setTheme(root.classList.contains('ct-light') ? 'dark' : 'light');
           if (k === 'sound') { setSound(!soundOn()); if (soundOn()) chime('yes'); }
           if (k === 'share') setSharing(!sharing());
@@ -1438,9 +1467,33 @@ export function mount(root, options) {
   }
   root.querySelector('.ct-tabbar').addEventListener('click', e => {
     const b = e.target.closest('[data-tb]'); if (!b) return;
-    ({ plays: playsSheet, sketch: () => act('sketch'), mic: () => R.mic.click(), film: () => openFilmRoom(), more: controlCenter })[b.dataset.tb]();
+    ({ plays: playsSheet, guide: () => guide(), mic: () => R.mic.click(), film: () => openFilmRoom(), more: controlCenter })[b.dataset.tb]();
   });
   R.playChip.onclick = () => root.classList.toggle('ct-info');
+  R.tbSketch.onclick = () => act('sketch');
+
+  // ---- whiteboard only: full screen, every panel collapsed, a slim rail of icons ----
+  async function boardOnly(on) {
+    on = on == null ? !root.classList.contains('ct-board') : on;
+    if (on && root.classList.contains('ct-present-on')) present(false);
+    root.classList.toggle('ct-board', on); R.boardBtn.classList.toggle('on', on); closePanel(); root.classList.remove('ct-info');
+    if (on) { track('board_only'); try { if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {} }
+    else { try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {} }
+    renderRail(); setTimeout(applyView, 120);
+  }
+  function renderRail() {
+    R.rlDef.classList.toggle('on', state.defense); R.rlSketch.classList.toggle('on', !!state.sketch);
+    if (state.sim) R.rlPlay.innerHTML = icon(state.sim.playing() ? 'pause' : 'play');
+  }
+  R.boardBtn.onclick = () => boardOnly();
+  root.querySelector('.ct-rail').addEventListener('click', e => {
+    const b = e.target.closest('[data-rl]'); if (!b) return; const c = b.dataset.rl;
+    if (c === 'exit') return boardOnly(false);
+    if (c === 'mic') return R.mic.click();
+    if (c === 'plays') return playsSheet();
+    act(c); renderRail();
+  });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && root.classList.contains('ct-board')) boardOnly(false); });
 
 
   // ---- light and dark: dark by default (the light glows), light for a bright sideline, or follow the device ----
@@ -1477,8 +1530,8 @@ export function mount(root, options) {
     const v = R.voiceInput.value.trim(), k = voiceKind(v);
     badge(R.voiceBadge, k === 'openai' ? 'OpenAI voice' : k === 'elevenlabs' ? 'ElevenLabs' : '');
     const reuse = keyKind(R.keyInput.value.trim()) === 'openai';
-    R.voiceFine.textContent = k ? 'A play-by-play broadcaster calls every step.' : reuse ? 'Your OpenAI play key already gives you the broadcaster voice.'
-      : 'Without one, steps are read by this device\'s most natural voice' + (localVoiceName() ? ' (' + localVoiceName() + ')' : '') + '. With an OpenAI or ElevenLabs key, a play-by-play broadcaster calls them.';
+    R.voiceFine.textContent = k ? 'A broadcast analyst explains every step.' : reuse ? 'Your OpenAI play key already gives you the broadcaster voice.'
+      : 'Without one, steps are read by this device\'s most natural voice' + (localVoiceName() ? ' (' + localVoiceName() + ')' : '') + '. With an OpenAI or ElevenLabs key, a broadcast analyst explains them.';
   };
   R.keyBtn.onclick = () => openKey();
   R.keyPro.onclick = () => { R.keyDlg.close(); upgradeAI(); };
@@ -1527,7 +1580,7 @@ export function mount(root, options) {
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku);
-      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
+      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
     }
   };
 }
