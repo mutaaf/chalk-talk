@@ -10,7 +10,7 @@ import { playShape, view, particleBudget } from './engine/field.js';
 import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
 import { listener, say, hush, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
-import { drawPlay, smartPlayers, setApi, key, keyKind, NAMES } from './ai.js';
+import { drawPlay, smartPlayers, filmRoom, setApi, key, keyKind, NAMES } from './ai.js';
 import { CSS } from './style.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -52,6 +52,8 @@ const TEMPLATE = `
   <ul class="ct-cues" data-r="cues"></ul>
   <h2 data-r="readsHead">Options</h2>
   <ul class="ct-reads" data-r="reads"></ul>
+  <button class="ct-filmbtn" data-r="filmBtn" title="Each position's own AI brain watches the play">🎬 Film room</button>
+  <ul class="ct-film" data-r="film"></ul>
 </aside>
 <div class="ct-legend" data-r="legend"></div>
 <div class="ct-fb" data-r="fb" hidden>
@@ -160,6 +162,7 @@ export function mount(root, options) {
     if (!o.quiet && state.narrate) prefetch([o.say].concat(play.beats.map(b => b.say)).map(spoken), key.get());
     if (o.say && !o.quiet) speak(spoken(o.say));
     if (!o.keepAI) R.aiCard.hidden = true;
+    if (!o.keepFilm) R.film.innerHTML = '';
     opts.onLoad && opts.onLoad(sim.play, sport);
     return true;
   }
@@ -274,7 +277,9 @@ export function mount(root, options) {
       return `<div class="ct-lbl ${p.side}${name ? ' name' : ''}${txt || p.smart ? '' : ' empty'}" data-id="${p.id}">${p.smart ? '<i class="ct-brain" title="Played by the AI"></i>' : ''}${esc(txt)}</div>`;
     }).join('') + sim.players.map(p => `<div class="ct-think ${p.side}"></div>`).join('');
     const kids = Array.from(R.labels.children);
-    ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),   // in football every receiver is reading the coverage routes, marks, ball, shadow, stroke, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+    // guarded: who has a defender to beat (in football, every receiver reads the coverage)
+    ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),
+      routes, marks, ball, shadow, stroke, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
     R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
@@ -555,6 +560,22 @@ export function mount(root, options) {
     }
     return false;
   }
+
+  // ---- the film room: every position's brain watches the play ----
+  R.filmBtn.onclick = () => film();
+  async function film() {
+    const play = strip(state.play), sport = state.sport;
+    const ids = state.play.players.filter((p, i) => p.side === 'O' || sim0().match[i] >= 0 || sim0().job[i]).map(p => p.id).slice(0, 10);   // every O, and every X with a job
+    R.film.innerHTML = ids.map(id => `<li class="wait"><b class="ct-m ${id[0]}">${esc(nameOf(id))}</b><span>watching…</span></li>`).join('');
+    R.filmBtn.disabled = true;
+    try {
+      const notes = await filmRoom(play, ids, { sport });
+      if (sport !== state.sport) return;
+      R.film.innerHTML = notes.map(n => `<li><b class="ct-m ${n.id[0]}">${esc(nameOf(n.id))}</b><div><i>${esc(n.brain)}</i>${esc(n.read)}<small>⚠ ${esc(n.risk)} · <em>${esc(n.tip)}</em></small></div></li>`).join('') || '<li>No brains answered. Try again.</li>';
+    } catch (e) { R.film.innerHTML = ''; toast(e.message); }
+    finally { R.filmBtn.disabled = false; }
+  }
+  const sim0 = () => state.sim;
 
   // ---- the coach talks ----
   async function heard(text, o) {

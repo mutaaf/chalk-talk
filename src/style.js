@@ -157,6 +157,16 @@ export const CSS = `
 .ct-ai .ct-row button { height: 32px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line); font-size: 13px; }
 .ct-ai .ct-row button.go { background: var(--o); border-color: var(--o); color: var(--night); font-weight: 700; }
 
+.ct-filmbtn { margin-top: 16px; width: 100%; height: 34px; border-radius: 10px; border: 1px solid rgba(180, 140, 255, .55) !important; background: rgba(180, 140, 255, .12) !important; font-size: 13px; font-weight: 700; }
+.ct-filmbtn:disabled { opacity: .5; }
+.ct-film { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px; }
+.ct-film li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4; color: rgba(238, 244, 255, .9); }
+.ct-film li.wait span { color: var(--mute); animation: ct-blink .9s infinite alternate; }
+.ct-film li > b { flex: none; min-width: 22px; }
+.ct-film i { display: block; font-style: normal; font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: #b48cff; }
+.ct-film small { display: block; color: var(--mute); margin-top: 2px; }
+.ct-film em { font-family: var(--marker); font-style: normal; color: var(--o); }
+
 /* caption, transport, mic */
 .ct-dock { position: absolute; left: 50%; bottom: 18px; translate: -50% 0; width: min(760px, calc(100% - 32px)); z-index: 4; display: grid; gap: 10px; justify-items: center; }
 .ct-caption { min-height: 56px; width: 100%; font-size: clamp(16px, 2.3cqw, 22px); line-height: 1.35; text-align: center; padding: 10px 18px; border-radius: 14px; background: linear-gradient(180deg, transparent, rgba(4, 7, 12, .72)); text-wrap: balance; }
