@@ -191,6 +191,32 @@ export const CSS = `
 .ct[data-tool=move].ct-sketch .ct-ink { cursor: grab; } .ct[data-tool=erase].ct-sketch .ct-ink { cursor: not-allowed; } .ct[data-tool=ball].ct-sketch .ct-ink { cursor: pointer; }
 .ct-filmbtn { display: flex; align-items: center; justify-content: center; gap: 8px; }
 
+.ct-help { width: 34px; justify-content: center; padding: 0 !important; font-weight: 700; font-size: 15px !important; position: relative; }
+.ct-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--o); box-shadow: 0 0 8px var(--o); }
+.ct-spot { position: absolute; z-index: 15; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(2, 4, 8, .62), 0 0 0 2px var(--o), 0 0 24px rgba(255, 142, 58, .55); pointer-events: none; transition: all .35s cubic-bezier(.2, .8, .2, 1); }
+.ct-spot.round { border-radius: 50%; }
+.ct-panel.ct-tourcard { width: 340px; z-index: 21; border-color: rgba(255, 142, 58, .6); }
+.ct-call { margin: 0; font-size: 15px; line-height: 1.5; color: var(--paper); }
+.ct-tourrow { display: flex; align-items: center; gap: 8px; }
+.ct-tourrow .ct-count { flex: 1; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--o); font-family: var(--display); font-weight: 700; }
+.ct-tourrow button { height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid var(--line) !important; font-size: 13px; }
+.ct-tourrow button.go { border-color: var(--o) !important; }
+.ct-menu { display: grid; gap: 4px; }
+.ct-menu button { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px; border-radius: 9px; font-size: 14px; text-align: left; }
+.ct-menu button:hover { background: var(--ice-dim); }
+.ct-menu button span { flex: 1; }
+.ct-new { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; background: var(--o); color: var(--night); }
+.ct-rel h5 { margin: 4px 0 8px; font-family: var(--display); font-size: 18px; font-weight: 900; text-transform: uppercase; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ct-rel h5 small { font-family: var(--body); font-weight: 400; font-size: 11px; color: var(--mute); text-transform: none; }
+.ct-rel ul { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 8px; }
+.ct-rel li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-size: 13px; line-height: 1.45; }
+.ct-rel li b { color: var(--paper); } .ct-rel li span { grid-column: 1; color: rgba(238, 244, 255, .8); }
+.ct-rel li button { grid-column: 2; grid-row: 1 / span 2; align-self: center; height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(255, 142, 58, .5) !important; color: var(--o); font-size: 12px; }
+.ct-keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+.ct-keys dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--o); }
+.ct-keys dd { margin: 0; color: rgba(238, 244, 255, .85); }
+.ct-tip { position: absolute; z-index: 30; max-width: 260px; padding: 6px 10px; border-radius: 8px; background: var(--paper); color: var(--night); font-size: 12.5px; line-height: 1.35; box-shadow: 0 6px 20px rgba(0, 0, 0, .35); pointer-events: none; }
+
 /* sport switch */
 .ct-sports { display: flex; gap: 4px; padding: 3px; border-radius: 20px; background: var(--glass); border: 1px solid var(--line); }
 .ct-sports[hidden] { display: none; }

@@ -14,6 +14,7 @@ import { drawPlay, smartPlayers, filmRoom, setApi, transcribe, key, keyKind, NAM
 import { CSS } from './style.js';
 import { readStroke } from './engine/sketch.js';
 import { icon } from './icons.js';
+import { VERSION, TOUR, RELEASES, SHORTCUTS, seen, hasNews } from './tour.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -31,6 +32,7 @@ const TEMPLATE = `
   <button class="ct-pill" data-r="infoBtn">${icon('info')}<span>About</span></button>
   <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="Narrate each step">${icon('mute')}<span>Narrate</span></button>
   <button class="ct-pill ct-keypill" data-r="keyBtn" title="AI settings and your own keys">${icon('sparkle')}<span>AI</span></button>
+  <button class="ct-pill ct-help" data-r="helpBtn" title="Tour, what's new and shortcuts" aria-label="Help">?<i class="ct-dot" data-r="newsDot" hidden></i></button>
 </header>
 <div class="ct-sketchbar" data-r="sketchbar">
   <div class="ct-tools" data-r="tools">
@@ -82,6 +84,8 @@ const TEMPLATE = `
   </div>
 </div>
 <div class="ct-toast" data-r="toast" role="status"></div>
+<div class="ct-spot" data-r="spot" hidden></div>
+<div class="ct-tip" data-r="tip" role="tooltip" hidden></div>
 <dialog class="ct-dlg" data-r="keyDlg">
   <form data-r="keyForm" method="dialog">
     <header class="ct-dlghead"><h3>AI settings</h3><button type="button" class="ct-x" data-r="keyX" aria-label="Close">${icon('close')}</button></header>
@@ -390,7 +394,7 @@ export function mount(root, options) {
     const first = el2.querySelector('.ct-pbody input, .ct-pbody button'); if (first && !sheet) first.focus();
     return el2;
   }
-  function closePanel() { root.querySelectorAll('.ct-panel').forEach(p => { p._off && p._off(); p.remove(); }); }
+  function closePanel() { root.querySelectorAll('.ct-panel').forEach(p => { p._off && p._off(); p.remove(); }); if (R.spot && !root.querySelector('.ct-panel.ct-tourcard')) R.spot.hidden = true; }
   const markAnchor = i => { const m = ink.marks[i]; return { x: +m.hot.getAttribute('cx'), y: +m.hot.getAttribute('cy') + (+m.hot.getAttribute('r') || 10) }; };
 
   // ---- labels: tap a player (or say "label 5 the big") to tag a role ----
@@ -598,6 +602,82 @@ export function mount(root, options) {
     finally { R.filmBtn.disabled = false; }
   }
   const sim0 = () => state.sim;
+
+  // ---- the explainer: a broadcast-style tour, what's new, shortcuts, and real tooltips ----
+  const targetOf = at => at === 'ink' ? { x: root.clientWidth / 2, y: root.clientHeight * 0.45 } : (R[at] && !R[at].hidden && R[at].offsetParent !== null ? R[at] : null);
+  function spotlight(steps, i, eyebrow) {
+    closePanel();
+    const st = steps[i]; if (!st) { endTour(); return; }
+    const t = st.at ? targetOf(st.at) : null;
+    if (st.at && !t) { spotlight(steps, i + 1, eyebrow); return; }   // a feature this sport doesn't show: skip it
+    const host = root.getBoundingClientRect();
+    const place = () => {   // the ring around the feature (after the card opens, which would clear it)
+      if (t && t.getBoundingClientRect) {
+        const r = t.getBoundingClientRect(), pad = 6;
+        Object.assign(R.spot.style, { left: (r.left - host.left - pad) + 'px', top: (r.top - host.top - pad) + 'px', width: (r.width + pad * 2) + 'px', height: (r.height + pad * 2) + 'px' });
+        R.spot.hidden = false; R.spot.classList.remove('round');
+      } else if (t) {
+        Object.assign(R.spot.style, { left: (t.x - 130) + 'px', top: (t.y - 90) + 'px', width: '260px', height: '180px' }); R.spot.hidden = false; R.spot.classList.add('round');
+      } else R.spot.hidden = true;
+    };
+    const last = i === steps.length - 1;
+    const body = `<p class="ct-call">${esc(st.call)}</p>
+      <div class="ct-tourrow"><span class="ct-count">${esc(eyebrow ? eyebrow(i) : (i + 1) + ' of ' + steps.length)}</span>
+      ${i ? '<button type="button" data-b="back">Back</button>' : ''}<button type="button" class="go" data-b="next">${last ? 'Done' : 'Next'}</button></div>`;
+    const anchor = t ? (t.getBoundingClientRect ? t : { x: t.x, y: t.y + 90 }) : { x: host.width / 2, y: host.height * 0.35 };
+    openPanel(anchor, st.title, body, pb => {
+      pb.onclick = e => { const b = e.target.closest('[data-b]'); if (!b) return; spotlight(steps, i + (b.dataset.b === 'next' ? 1 : -1), eyebrow); };
+    }, 'ct-tourcard');
+    const card = root.querySelector('.ct-panel.ct-tourcard'); if (card) { card._step = { steps, i, eyebrow }; card.querySelector('.ct-x').onclick = endTour; }
+    place();
+    if (state.narrate) say(st.call, key.get());
+  }
+  function endTour() { R.spot.hidden = true; closePanel(); hush(); seen.set('tour', VERSION); seen.set('version', VERSION); R.newsDot.hidden = true; }
+  const startTour = () => spotlight(TOUR, 0);
+  function whatsNew() {
+    seen.set('version', VERSION); R.newsDot.hidden = true;
+    const body = RELEASES.map((r, ri) => `<section class="ct-rel"><h5>${esc(r.title)}<small>v${esc(r.version)} · ${esc(r.date)}</small></h5>
+      <ul>${r.items.map((it, ii) => `<li><b>${esc(it.title)}</b><span>${esc(it.call)}</span>${it.show && targetOf(it.show) ? `<button type="button" data-show="${ri}:${ii}">Show me</button>` : ''}</li>`).join('')}</ul></section>`).join('');
+    openPanel(R.helpBtn, "What's new", body, pb => {
+      pb.onclick = e => {
+        const b = e.target.closest('[data-show]'); if (!b) return;
+        const [ri, ii] = b.dataset.show.split(':').map(Number), it = RELEASES[ri].items[ii];
+        spotlight([{ at: it.show, title: it.title, call: it.call }], 0, () => 'New in v' + RELEASES[ri].version);
+      };
+    }, 'ct-wide');
+    if (state.narrate) say('Here\'s what\'s new. ' + RELEASES[0].title + '.', key.get());
+  }
+  function shortcuts() {
+    openPanel(R.helpBtn, 'Keyboard shortcuts', `<dl class="ct-keys">${SHORTCUTS.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`, null, 'ct-wide');
+  }
+  R.helpBtn.onclick = () => {
+    if (root.querySelector('.ct-panel.ct-helpm')) { closePanel(); return; }
+    openPanel(R.helpBtn, 'Help', `<div class="ct-menu"><button type="button" data-h="tour">${icon('sparkle')}<span>Take the tour</span></button>
+      <button type="button" data-h="news">${icon('film')}<span>What's new in v${VERSION}</span>${hasNews() ? '<i class="ct-new">New</i>' : ''}</button>
+      <button type="button" data-h="keys">${icon('key')}<span>Keyboard shortcuts</span></button></div>`, pb => {
+      pb.onclick = e => { const b = e.target.closest('[data-h]'); if (!b) return; ({ tour: startTour, news: whatsNew, keys: shortcuts })[b.dataset.h](); };
+    }, 'ct-helpm');
+  };
+  addEventListener('resize', () => { const c = root.querySelector('.ct-panel.ct-tourcard'); if (c && c._step) spotlight(c._step.steps, c._step.i, c._step.eyebrow); });
+
+  // tooltips: the board's own, styled and instant on hover or focus (long-press on touch)
+  function tipify(scope) { scope.querySelectorAll('[title]').forEach(el2 => { if (el2.closest('.ct-dlg')) return; el2.dataset.tip = el2.getAttribute('title'); el2.removeAttribute('title'); if (!el2.getAttribute('aria-label') && !el2.textContent.trim()) el2.setAttribute('aria-label', el2.dataset.tip); }); }
+  let tipT = 0, pressT = 0;
+  function showTip(el2) {
+    const text = el2.dataset.tip; if (!text) return;
+    R.tip.textContent = text; R.tip.hidden = false;
+    const host = root.getBoundingClientRect(), r = el2.getBoundingClientRect(), w = R.tip.offsetWidth, h = R.tip.offsetHeight;
+    let x = r.left + r.width / 2 - host.left - w / 2, y = r.bottom - host.top + 8;
+    if (y + h > host.height - 8) y = r.top - host.top - h - 8;
+    R.tip.style.left = Math.max(8, Math.min(host.width - w - 8, x)) + 'px'; R.tip.style.top = Math.max(8, y) + 'px';
+  }
+  const hideTip = () => { clearTimeout(tipT); R.tip.hidden = true; };
+  root.addEventListener('pointerover', e => { const el2 = e.target.closest('[data-tip]'); if (!el2 || e.pointerType === 'touch') return; clearTimeout(tipT); tipT = setTimeout(() => showTip(el2), 350); });
+  root.addEventListener('pointerout', e => { if (e.target.closest('[data-tip]')) hideTip(); });
+  root.addEventListener('focusin', e => { const el2 = e.target.closest('[data-tip]'); if (el2 && el2.matches(':focus-visible')) showTip(el2); });
+  root.addEventListener('focusout', hideTip);
+  root.addEventListener('pointerdown', e => { hideTip(); const el2 = e.target.closest('[data-tip]'); if (el2 && e.pointerType === 'touch') pressT = setTimeout(() => showTip(el2), 500); });
+  root.addEventListener('pointerup', () => clearTimeout(pressT));
 
   // ---- the coach talks ----
   async function heard(text, o) {
@@ -940,7 +1020,10 @@ export function mount(root, options) {
     if (e.code === 'Space' && !e.repeat && ear) { e.preventDefault(); spaceDown = true; ear.start(); }
     if (e.key === 'ArrowRight') act('next');
     if (e.key === 'ArrowLeft') act('back');
-    if (e.key === 'Escape') { if (root.querySelector('.ct-panel')) { closePanel(); return; } if (state.sketch) finishSketch(); }
+    if (e.key === 'Escape') { if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel')) { closePanel(); return; } if (state.sketch) finishSketch(); }
+    const tc = root.querySelector('.ct-panel.ct-tourcard');
+    if (tc && tc._step && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); spotlight(tc._step.steps, tc._step.i + (e.key === 'ArrowRight' ? 1 : -1), tc._step.eyebrow); return; }
+    if (e.key === '?') { R.helpBtn.click(); return; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && state.sketch) { e.preventDefault(); R.undo.click(); return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k2 = e.key.toLowerCase();
@@ -998,9 +1081,14 @@ export function mount(root, options) {
   renderSports(); renderLibrary(); renderLegend(); renderHints();
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });
+  tipify(root);
+  if (opts.tour !== false) {
+    if (!seen.get().tour) setTimeout(() => { if (!dead) startTour(); }, 1600);
+    else if (hasNews()) { R.newsDot.hidden = false; setTimeout(() => { if (!dead) toast(`New in v${VERSION}: ${RELEASES[0].title}. Tap ? to see it.`); }, 1800); }
+  }
 
   return {
-    load: raw => load(raw), teach, heard, act, setSport: id => setSport(sportFor(id)),
+    load: raw => load(raw), teach, heard, act, setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); if (ear) ear.stop(); if (state.busy) state.busy.abort();
