@@ -161,8 +161,8 @@ const TEMPLATE = `
     <header class="ct-dlghead"><h3>AI settings</h3><button type="button" class="ct-x" data-r="keyX" aria-label="Close">${icon('close')}</button></header>
     <p data-r="keyWhy"></p>
     <label>Play key <span class="ct-badge" data-r="keyBadge"></span></label>
-    <input data-r="keyInput" type="password" placeholder="paste it here: sk-ant-… or sk-…" autocomplete="off" spellcheck="false">
-    <p class="ct-fine">Without a key, plays are drawn by the free open-source AI (a daily limit applies). With your own key they use Claude or OpenAI. Get one from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Claude</a> or <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a>; we can tell which. It stays in this browser and goes only to them.</p>
+    <input data-r="keyInput" type="password" placeholder="paste it here: sk-ant-…, sk-… or AIza…" autocomplete="off" spellcheck="false">
+    <p class="ct-fine">Without a key, plays are drawn by the free AI (a daily limit applies). With your own key they use Claude, OpenAI or Gemini. Get one from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Claude</a>, <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI</a> or <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Gemini</a>; we can tell which. It stays in this browser and goes only to them.</p>
     <label>Broadcaster voice key <span class="ct-badge" data-r="voiceBadge"></span></label>
     <input data-r="voiceInput" type="password" placeholder="optional: OpenAI sk-… or ElevenLabs sk_…" autocomplete="off" spellcheck="false">
     <p class="ct-fine" data-r="voiceFine"></p>

@@ -26,9 +26,9 @@ export function openFilm(ctx, startId) {
   // no AI: say so plainly and offer the ways to connect it (your own key, or the host's subscription)
   const connect = () => down && !Object.keys(notes).length ? `<div class="ct-fconnect">${icon('brain')}<div><b>${esc(down)}</b>
       <p>You're seeing the engine's instant read. Connect AI and every position gets its own brain: what it sees, the risk, and the cue for a kid in that spot.</p>
-      <div class="ct-fcbtns"><button type="button" class="go" data-b="key">${icon('key')}<span>Connect your Claude or OpenAI key</span></button>
+      <div class="ct-fcbtns"><button type="button" class="go" data-b="key">${icon('key')}<span>Connect your Claude, OpenAI or Gemini key</span></button>
       ${ctx.upgrade ? `<button type="button" class="pro" data-b="pro">${icon('sparkle')}<span>${esc(ctx.upgrade.label || 'Get unlimited AI')}</span></button>` : ''}</div>
-      ${ctx.upgrade && ctx.upgrade.note ? `<small>${esc(ctx.upgrade.note)}</small>` : '<small>Your key stays in this browser and goes only to Claude or OpenAI.</small>'}</div></div>` : '';
+      ${ctx.upgrade && ctx.upgrade.note ? `<small>${esc(ctx.upgrade.note)}</small>` : '<small>Your key stays in this browser and goes only to Claude, OpenAI or Gemini.</small>'}</div></div>` : '';
   const local = id => {
     const p = play.players.find(q => q.id === id), pos = positionOf(S, play, p), st = storyOf(play, id), i = sim.idx[id];
     const catches = []; play.beats.forEach((b, k) => b.actions.forEach(a => { if (a.target === id && S.kinds[a.kind].type === 'pass' && a.kind !== 'snap') catches.push({ k, space: sim.space(k + 0.94, i) }); }));

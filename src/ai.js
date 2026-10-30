@@ -1,13 +1,13 @@
 // The coach talks, the AI draws: a spoken play → a play as JSON (X's and O's).
-// Bring your own key, Claude or OpenAI (we can tell which). It stays in this browser and
+// Bring your own key, Claude, OpenAI or Gemini (we can tell which). It stays in this browser and
 // goes only to that provider; nothing passes through us. The answer is checked by
 // normalize(), and if it doesn't hold together the problems go back for one repair.
 
 import { normalize, rosterIds } from './engine/sim.js';
 
 const KEY = 'chalktalk.key';
-export function keyKind(k) { k = (k || '').trim().replace(/^bearer\s+/i, ''); return /^sk-ant-/.test(k) ? 'claude' : /^sk-[A-Za-z0-9_-]{10,}/.test(k) ? 'openai' : ''; }
-export const NAMES = { claude: 'Claude', openai: 'OpenAI' };
+export function keyKind(k) { k = (k || '').trim().replace(/^bearer\s+/i, ''); return /^sk-ant-/.test(k) ? 'claude' : /^sk-[A-Za-z0-9_-]{10,}/.test(k) ? 'openai' : /^AIza[0-9A-Za-z_-]{30,}$/.test(k) ? 'gemini' : ''; }
+export const NAMES = { claude: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
 export const key = {
   get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } },
   set(v) { v = (v || '').trim().replace(/^bearer\s+/i, ''); try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {} },
@@ -73,7 +73,7 @@ Use modern coaching language the way today's coaches say it, and explain any jar
 }
 
 function fail(status, msg) {
-  const e = new Error(status === 401 || status === 403 ? 'That key didn’t work. Copy it again from the Claude or OpenAI page and paste it in.'
+  const e = new Error(status === 401 || status === 403 ? 'That key didn’t work. Copy it again from the Claude, OpenAI or Gemini page and paste it in.'
     : status === 429 ? 'Your AI account is out of credit or busy right now. Add credit, or wait a minute and try again.'
     : status >= 500 ? 'The AI service is having a moment. Try again in a minute.'
     : msg || 'The AI didn’t answer (' + status + ').');
@@ -86,6 +86,8 @@ import { aiCache, hash } from './history.js';
 // USD per million tokens: [input, output, cache read, cache write]. Estimates; the provider's bill is the truth.
 export const PRICES = {
   'claude-sonnet-5-5': [2, 10, 0.2, 2.5], 'claude-haiku-5-5': [0.1, 0.5, 0.01, 0.125],
+  'gemini-pro-latest': [1.25, 10, 0.31, 1.25], 'gemini-flash-latest': [0.3, 2.5, 0.075, 0.3], 'gemini-flash-lite-latest': [0.1, 0.4, 0.025, 0.1],
+  'gemini-2.5-pro': [1.25, 10, 0.31, 1.25], 'gemini-2.5-flash': [0.3, 2.5, 0.075, 0.3], 'gemini-2.5-flash-lite': [0.1, 0.4, 0.025, 0.1],
   'gpt-5': [1.25, 10, 0.125, 1.25], 'gpt-5-mini': [0.25, 2, 0.025, 0.25], 'gpt-4.1': [2, 8, 0.5, 2], 'gpt-4.1-mini': [0.4, 1.6, 0.1, 0.4], 'gpt-4o': [2.5, 10, 1.25, 2.5], 'gpt-4o-mini': [0.15, 0.6, 0.075, 0.15]
 };
 export const costOf = (model, u) => { const p = PRICES[model]; if (!p) return 0; return ((u.in || 0) * p[0] + (u.out || 0) * p[1] + (u.cacheRead || 0) * p[2] + (u.cacheWrite || 0) * p[3]) / 1e6; };
@@ -125,7 +127,7 @@ export const apiBase = () => API;
 export const ownApi = () => OWN;
 const freeOn = (base, task, body, signal) => free(task, body, signal, base);
 async function free(task, body, signal, over) {
-  const nokey = () => Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
+  const nokey = () => Object.assign(new Error('Add your Claude, OpenAI or Gemini key to draw plays from your own words.'), { code: 'nokey' });
   let r; const t0 = performance.now();
   const base = over || API;
   try { r = await fetch(base + '/' + task, { method: 'POST', signal, headers: Object.assign({ 'content-type': 'application/json' }, AUTH && base !== OWN ? { authorization: 'Bearer ' + AUTH } : {}), body: JSON.stringify(body) }); }
@@ -139,7 +141,7 @@ async function free(task, body, signal, over) {
   if (r.status === 402 && j.fallback && base !== OWN) { plan.last = { plan: j.plan, left: 0 }; plan.onFallback && plan.onFallback(j.error); return freeOn(OWN, task, body, signal); }
   if (r.status === 401 && AUTH && base !== OWN) { plan.onUnlinked && plan.onUnlinked(); return freeOn(OWN, task, body, signal); }
   if (r.status === 402) throw Object.assign(new Error(j.error || 'Your plan doesn’t include Chalk Talk AI yet.'), { status: 402, code: 'upgrade' });
-  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? (base === OWN ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'You’ve used a lot of AI today. Try again in a bit.') : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? (base === OWN ? 'The free AI is resting for today. Add your own Claude, OpenAI or Gemini key to keep going.' : j.error || 'You’ve used a lot of AI today. Try again in a bit.') : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
   return j;
 }
 
@@ -176,6 +178,33 @@ async function ask(k, sys, messages, signal, schema, lite, task) {
     };
     return call(true);
   }
+  if (kind === 'gemini') {
+    // Google AI Studio keys work straight from the browser. The "-latest" aliases follow Google's current models;
+    // each list ends on a pinned model in case an alias goes away. Structured output via responseJsonSchema; if a
+    // model refuses the schema, the schema goes into the instructions instead and the answer is validated as usual.
+    const models = MODEL_OVERRIDE && /^gemini/.test(MODEL_OVERRIDE) ? [MODEL_OVERRIDE] : lite ? ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-2.5-flash-lite'] : ['gemini-flash-latest', 'gemini-pro-latest', 'gemini-2.5-flash'];
+    const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: String(m.content) }] }));
+    for (let i = 0; i < models.length; i++) {
+      for (const withSchema of [true, false]) {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${models[i]}:generateContent`, { method: 'POST', signal,
+          headers: { 'content-type': 'application/json', 'x-goog-api-key': k },
+          body: JSON.stringify({ systemInstruction: { parts: [{ text: withSchema ? sys : sys + '\n\nReply with ONE JSON object matching this JSON Schema, and nothing else:\n' + JSON.stringify(schema) }] }, contents,
+            generationConfig: Object.assign({ responseMimeType: 'application/json' }, withSchema ? { responseJsonSchema: schema } : {}) }) });
+        const j = await r.json().catch(() => ({})), msg = (j.error && j.error.message) || '';
+        if (!r.ok) {
+          if (withSchema && r.status === 400 && /schema|json/i.test(msg)) continue;   // try once without the schema field
+          if (i + 1 < models.length && (r.status === 404 || /not found|not supported|model/i.test(msg)) && r.status !== 401 && r.status !== 403 && r.status !== 429) break;   // next model
+          if (/credit|billing|quota|prepay/i.test(msg)) throw Object.assign(new Error('Your Gemini account is out of credit. Add billing or credit in Google AI Studio, then try again.'), { status: 402 });
+          throw fail(r.status === 400 && /api key/i.test(msg) ? 401 : r.status, msg);
+        }
+        const u = j.usageMetadata || {}, cached = u.cachedContentTokenCount || 0;
+        meter.add({ task: task || 'play', provider: 'gemini', model: models[i], ok: true, ms: Math.round(performance.now() - t0), in: (u.promptTokenCount || 0) - cached, out: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0), cacheRead: cached });
+        const c = (j.candidates || [])[0];
+        if (!c || c.finishReason === 'SAFETY' || c.finishReason === 'PROHIBITED_CONTENT') throw new Error('It wouldn’t draw that one. Try describing it another way.');
+        return ((c.content && c.content.parts) || []).filter(x => x.text && !x.thought).map(x => x.text).join('');
+      }
+    }
+  }
   if (kind === 'openai') {
     const models = lite ? ['gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini'] : ['gpt-5', 'gpt-4.1', 'gpt-4o'];
     for (let i = 0; i < models.length; i++) {
@@ -190,7 +219,7 @@ async function ask(k, sys, messages, signal, schema, lite, task) {
       return (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
     }
   }
-  throw Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
+  throw Object.assign(new Error('Add your Claude, OpenAI or Gemini key to draw plays from your own words.'), { code: 'nokey' });
 }
 
 // ---- requests, built the same way in the browser and in the worker ----
@@ -283,7 +312,7 @@ async function solve(req, askFn) {
 export { solve };
 
 // text the coach said (+ the play on the board, for edits) → a play the board can draw.
-// With a key: straight to Claude or OpenAI. Without: the free open-model API.
+// With a key: straight to Claude, OpenAI or Gemini. Without: the free open-model API.
 export async function drawPlay(text, current, opts) {
   opts = opts || {};
   const k = opts.key || key.get(), sport = opts.sport;

@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.22.0';
+export const VERSION = '0.22.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -17,11 +17,14 @@ export const TOUR = [
   { at: 'iqBtn', title: 'The IQ game', call: 'Hand it to a player. The board freezes at the moment of truth, they make the read, and a tutor talks them through it at their age. Level up, and find out whose game yours looks like.' },
   { at: 'narrate', title: 'The analyst', call: 'Turn on the voice and an analyst breaks down the read: the coverage, the defender who gets moved, why the ball goes where it goes.' },
   { at: 'viewBtn', title: 'Your angle', call: 'Drag to orbit, pinch to zoom, then lock the view right where you like it.' },
-  { at: 'keyBtn', title: 'The AI', call: 'It works out of the box on free open-source models. Add your own Claude or OpenAI key for the best answers and the broadcaster voice.' }
+  { at: 'keyBtn', title: 'The AI', call: 'It works out of the box on free open-source models. Add your own Claude, OpenAI or Gemini key for the best answers and the broadcaster voice.' }
 ];
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.22.1', date: '2026-10-30', title: 'Gemini works too', items: [
+    { title: 'Bring a Gemini key', call: 'Paste a Google AI Studio key (it starts with AIza) and Chalk Talk draws with Gemini: the same structured plays, checks and repair round as Claude and OpenAI. The key stays in your browser and goes only to Google.', show: 'keyBtn' }
+  ] },
   { version: '0.22.0', date: '2026-10-30', title: 'Soccer kicks off', items: [
     { title: 'Soccer 7v7 and 9v9', call: 'Youth soccer joins: 7v7 with the build-out line and 9v9, numbered the way coaches draw it (1 keeper, 2 and 3 backs, the 8, the 9, 7 and 11 wide), with researched plays from the wall pass and the overlap to the third-man run, switches, counters, low corners, and pressing lessons.', show: 'sports' },
     { title: 'PitchIQ, the guide and coach styles', call: 'Every position in depth, a PitchIQ game for your players, and coaching lenses inspired by the modern game. Say it, sketch it, print it as a playbook.', show: 'guideBtn' }
