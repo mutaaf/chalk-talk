@@ -94,3 +94,16 @@ assert.ok(cors('http://localhost:8795')['access-control-allow-origin']);
 assert.equal((await worker.fetch(req('/nope', {}), env('{}'))).status, 404);
 assert.equal((await worker.fetch(req('/play', { sport: 'basketball', text: 'x' }), { DB: fakeDB() })).status, 503);
 console.log('ok: worker routes, validation, CORS, caps and limits');
+// the IQ tutor: lite model, validated, and token headers for the coach's stats
+{
+  const rt = await worker.fetch(req('/tutor', { sport: 'basketball', band: 'young', mode: 'answer', q: { type: 'pass', answer: 'O3' }, given: 'O4', right: false }), env(JSON.stringify({ say: 'Look for the open friend.', tip: 'Eyes up' })));
+  assert.equal(rt.status, 200); assert.equal((await rt.json()).tip, 'Eyes up'); assert.ok(rt.headers.get('x-ct-in') != null);
+  assert.equal((await worker.fetch(req('/tutor', { sport: 'basketball', mode: 'nap', q: {} }), env('{}'))).status, 400);
+  console.log('ok: tutor endpoint');
+}
+{
+  const ra = await worker.fetch(req('/analyst', { sport: 'flag5', play: canned, facts: ['a', 'b'] }), env(JSON.stringify({ lines: ['Watch the safety.', 'He comes off it.'] })));
+  assert.equal(ra.status, 200); assert.equal((await ra.json()).lines.length, 2);
+  assert.equal((await worker.fetch(req('/analyst', { sport: 'flag5', play: canned, facts: [] }), env('{}'))).status, 400);
+  console.log('ok: analyst endpoint');
+}

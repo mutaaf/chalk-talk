@@ -5,6 +5,7 @@ import { arc, toward, clamp } from '../engine/geom.js';
 import { PLAYS, ALIASES } from './basketball-plays.js';
 import { MODERN, MODERN_ALIASES } from './basketball-modern.js';
 import glossary from './basketball-glossary.js';
+import { POSITIONS, IQ } from './basketball-positions.js';
 
 const BASKET = [0, 5.25, 10];
 
@@ -43,11 +44,17 @@ function lines() {
 
 // where a defender stands: between their player and the rim; tight on the ball, a step off one
 // pass away, sagging into the lane on the help side ("see ball, see your player")
-function guard({ o, ball, onBall }) {
+// help: the low man rotates to stop a ball that gets into the paint (and leaves his man: the kick-out)
+// one pass away on the ball side: deny, a hand and a foot in the passing lane
+function guard({ o, ball, onBall, help }) {
   const dist = Math.hypot(BASKET[0] - o[0], BASKET[1] - o[1]);
+  if (help && !onBall) return toward(toward(ball, BASKET, 3), o, 2.5);
   let off, shade = 0;
   if (onBall) off = Math.min(3.2, dist * 0.3);
-  else if (Math.sign(o[0]) === Math.sign(ball[0]) || Math.abs(o[0]) < 7) off = clamp(dist * 0.28, 2.5, 5.5);
+  else if (Math.sign(o[0]) === Math.sign(ball[0]) || Math.abs(o[0]) < 7) {
+    off = clamp(dist * 0.28, 2.5, 5.5);
+    if (Math.hypot(o[0] - ball[0], o[1] - ball[1]) < 22 && dist > 15) shade = 0.12;   // deny the next pass
+  }
   else { off = clamp(dist * 0.45, 5, 10); shade = 0.22; }
   const g = toward(o, BASKET, off);
   return [g[0] + (ball[0] - g[0]) * shade, g[1] + (ball[1] - g[1]) * shade * 0.4];
@@ -74,7 +81,7 @@ export default {
   roster: { perSide: 5, label: '5 on 5' },
   field: { x: [-25, 25], y: [0, 47], goal: BASKET, lines },
   view: { scale: 1 / 26, center: 23.5, tilt: 0.98, lift: -0.02 },
-  mark: 1.7, screenGap: 3, open: 4.5, react: 0.3,
+  mark: 1.7, screenGap: 3, open: 4.5, react: 0.3, help: { at: 13 },
   ball: { r: 0.75, held: 3.6, bounce: true, offset: [1, -0.6], maxArc: 4, stretch: 1 },
   spots: SPOTS, kinds: KINDS, guard, los: null,
   autonomy: { crowd: 9, drive: 11, pressed: 0, findSpace: false, kind: 'move', spots: () => AUTO_SPOTS,
@@ -98,6 +105,7 @@ export default {
       4: { key: 'four', name: 'Power forward brain', instincts: 'Pop for the open shot or short roll, seal your defender inside, set screens with angles that free the shooter, dive to the dunker spot when the big helps.' },
       5: { key: 'big', name: 'Center brain', instincts: 'Set wide, still screens at the right angle, roll hard with a hand up, slip when they switch or hedge hard, seal deep, rebound everything.' }
     }[p.id[1]] || { key: 'player', name: 'Player brain', instincts: 'Space, cut, fill, help.' }),
+  positions: POSITIONS, iq: IQ,
   plays: PLAYS.concat(MODERN), aliases: Object.assign({}, ALIASES, MODERN_ALIASES), glossary,
   starter: ['top', 'right wing', 'left wing', 'right corner', 'left corner'],
   ai: {

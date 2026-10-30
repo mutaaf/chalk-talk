@@ -8,6 +8,7 @@
 import { toward, clamp } from '../engine/geom.js';
 import { FLAG5_PLAYS, FLAG5_ALIASES, FLAG7_PLAYS, FLAG7_ALIASES } from './flag-plays.js';
 import glossary from './flag-glossary.js';
+import { forField, IQ } from './flag-positions.js';
 
 const move = (desc, extra) => Object.assign({ type: 'move', desc }, extra);
 const KINDS = {
@@ -27,12 +28,18 @@ const KINDS = {
 };
 
 // man coverage: a cushion off the receiver toward the end zone, shaded inside; on the ball, go get it
-function guard({ o, ball, onBall, sport, start }) {
+// at the snap every defender is on its own side of the line: the QB's and a back's defender line up as the
+// rusher or a linebacker, never in the offense's backfield
+function guard({ o, ball, onBall, sport, start, los, carrier }) {
   const goal = sport.field.goal;
+  // after the catch everyone rallies: an angle to a spot ahead of the ball carrier, not where he is now
+  if (!onBall && !start && carrier && los != null && carrier[1] < los - 1) { const ahead = toward(carrier, [carrier[0] * 0.8, goal[1]], 3); return toward(o, ahead, Math.hypot(ahead[0] - o[0], ahead[1] - o[1]) * 0.7); }
+  if (start && los != null && o[1] > los + 2) return Math.abs(o[0]) < 1.5 ? [2.5, los - 7] : [o[0] * 0.6, los - 5];   // the rusher starts 7 yd off, shaded to the throwing side
   if (onBall && !start) return toward(o, [o[0], goal[1]], 1);
+  if (los != null && o[1] > los + 1 && (!onBall || sport.noRush)) return [o[0] * 0.6, los - 4];   // a back still in the backfield (or a 7v7 QB: no rush): wait at the line
   const cushion = start ? 5 : 2;
   const g = toward(o, [o[0] * 0.85, goal[1]], cushion);
-  return [g[0] + (ball[0] - g[0]) * 0.04, g[1]];
+  return [g[0] + (ball[0] - g[0]) * 0.04, start && los != null ? Math.min(g[1], los - 1.5) : g[1]];
 }
 
 function fieldLines(W, depth, opts) {
@@ -49,6 +56,7 @@ function fieldLines(W, depth, opts) {
     for (let k = -h + 2; k < h; k += 3) L.push({ p: [[k, 9.5, 0], [k + 3, 0.5, 0]].map(p => [clamp(p[0], -h, h), p[1], 0]), w: 0.14, warm: true });   // end zone hatching
     for (const [x, y] of [[-h, 10], [h, 10], [-h, 0], [h, 0]]) L.push({ p: [[x, y, 0], [x, y, 0.6]], w: 3, hot: true });   // pylons
     if (los != null) L.push({ p: [[-h, los, 0.02], [h, los, 0.02]], w: 1.3, hot: true });   // line of scrimmage
+    if (los != null && los - 10 > 10.5) L.push({ p: [[-h, los - 10, 0.02], [h, los - 10, 0.02]], w: 1.1, warm: true });   // line to gain
     return L;
   };
 }
@@ -121,6 +129,8 @@ const BRAINS = {
 const base = (o) => ({
   brains: p => BRAINS[p.role] || (p.side === 'D' ? BRAINS.LB : BRAINS.Y),
   notation, autoRoles,
+  // nobody guards the QB in 7v7 (no rush), or when the play already has its rusher
+  unguarded: (p, play) => p.role === 'QB' && (o.noRush || play.players.some(q => q.side === 'D' && q.role === 'R')),
   autonomy: { afterSnap: 'snap', crowd: 3.5, drive: 0, pressed: 1.6, findSpace: true, kind: 'move', spots: openSpots,
     skip: p => p.role === 'QB' || p.role === 'C' || p.role === 'RB',
     why: { fill: 'spreads out from a teammate', drive: 'clears out', space: 'works open, away from the defender' } },
@@ -132,7 +142,7 @@ const base = (o) => ({
 });
 
 export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, noRun: [15, 30] }), {
-  id: 'flag5', name: 'Flag Football 5v5', short: 'Flag 5v5', roster: { perSide: 5, label: '5 on 5' },
+  id: 'flag5', positions: forField(30, 30, 'flag5'), iq: IQ, name: 'Flag Football 5v5', short: 'Flag 5v5', roster: { perSide: 5, label: '5 on 5' },
   plays: FLAG5_PLAYS, aliases: FLAG5_ALIASES, glossary,
   starter: ['qb', 'center', 'left wide', 'right wide', 'right slot'],
   ai: {
@@ -143,8 +153,8 @@ export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, no
   }
 });
 
-export const flag7 = Object.assign(base({ W: 40, depth: 50, los: 35, hashes: [-6, 6] }), {
-  id: 'flag7', name: 'Flag Football 7v7', short: 'Flag 7v7', roster: { perSide: 7, label: '7 on 7' },
+export const flag7 = Object.assign(base({ W: 40, depth: 50, los: 35, hashes: [-6, 6], noRush: true }), {
+  id: 'flag7', noRush: true, positions: forField(40, 35, 'flag7'), iq: IQ, name: 'Flag Football 7v7', short: 'Flag 7v7', roster: { perSide: 7, label: '7 on 7' },
   plays: FLAG7_PLAYS, aliases: FLAG7_ALIASES, glossary,
   starter: ['qb', 'center', 'left wide', 'right wide', 'left slot', 'right slot', 'running back'],
   ai: {

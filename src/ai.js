@@ -80,6 +80,28 @@ function fail(status, msg) {
   e.status = status; return e;
 }
 
+// ---- the meter: every AI call's model, tokens, time and estimated cost, kept on this device only ----
+// USD per million tokens: [input, output, cache read, cache write]. Estimates; the provider's bill is the truth.
+export const PRICES = {
+  'claude-sonnet-5-5': [2, 10, 0.2, 2.5], 'claude-haiku-5-5': [0.1, 0.5, 0.01, 0.125],
+  'gpt-5': [1.25, 10, 0.125, 1.25], 'gpt-5-mini': [0.25, 2, 0.025, 0.25], 'gpt-4.1': [2, 8, 0.5, 2], 'gpt-4.1-mini': [0.4, 1.6, 0.1, 0.4], 'gpt-4o': [2.5, 10, 1.25, 2.5], 'gpt-4o-mini': [0.15, 0.6, 0.075, 0.15]
+};
+export const costOf = (model, u) => { const p = PRICES[model]; if (!p) return 0; return ((u.in || 0) * p[0] + (u.out || 0) * p[1] + (u.cacheRead || 0) * p[2] + (u.cacheWrite || 0) * p[3]) / 1e6; };
+const METER = 'chalktalk.usage';
+const listeners = [];
+export const meter = {
+  all() { try { return JSON.parse(localStorage.getItem(METER) || '[]'); } catch (e) { return []; } },
+  add(row) {
+    row = Object.assign({ at: Date.now() }, row);
+    if (row.cost == null) row.cost = costOf(row.model, row);
+    const a = meter.all(); a.push(row);
+    try { localStorage.setItem(METER, JSON.stringify(a.slice(-600))); } catch (e) {}
+    listeners.forEach(f => { try { f(row); } catch (e) {} });
+  },
+  clear() { try { localStorage.removeItem(METER); } catch (e) {} },
+  on(fn) { listeners.push(fn); return () => listeners.splice(listeners.indexOf(fn), 1); }
+};
+
 // Where keyless coaches get AI: open models on Workers AI behind our API (src/worker). Hosts can point
 // it elsewhere with mount({ api }). Requests carry X's and O's only, never names.
 let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0\.0\.1$/.test(location.hostname) ? '/chalktalk/api' : 'https://digitalcraftai.com/api/chalktalk';
@@ -87,26 +109,30 @@ export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
 export const apiBase = () => API;
 async function free(task, body, signal) {
   const nokey = () => Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
-  let r;
+  let r; const t0 = performance.now();
   try { r = await fetch(API + '/' + task, { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
   catch (e) { if (e.name === 'AbortError') throw e; throw nokey(); }   // offline, or no free AI here: ask for a key instead
   if (r.status === 404 || r.status === 405) throw nokey();
   const j = await r.json().catch(() => ({}));
+  const hd = n => +(r.headers.get(n) || 0);
+  meter.add({ task, provider: 'free', model: r.headers.get('x-ct-model') || 'open model', ok: r.ok, ms: hd('x-ct-ms') || Math.round(performance.now() - t0), in: hd('x-ct-in'), out: hd('x-ct-out'), neurons: hd('x-ct-neurons'), cost: 0 });
   if (!r.ok) throw Object.assign(new Error(r.status === 429 ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
   return j;
 }
 
 // speech → text on the free API (an open Whisper model); used where the browser can't do it
-export async function transcribe(blob) {
-  const r = await fetch(API + '/hear', { method: 'POST', headers: { 'content-type': blob.type || 'audio/webm' }, body: blob });
+export async function transcribe(blob, sport) {
+  const t0 = performance.now();
+  const r = await fetch(API + '/hear' + (sport ? '?sport=' + encodeURIComponent(sport) : ''), { method: 'POST', headers: { 'content-type': blob.type || 'audio/webm' }, body: blob });
   const j = await r.json().catch(() => ({}));
+  meter.add({ task: 'hear', provider: 'free', model: 'whisper-large-v3-turbo', ok: r.ok, ms: Math.round(performance.now() - t0), cost: 0 });
   if (!r.ok) throw new Error(r.status === 429 ? 'Voice is resting for today. Type it instead.' : j.error || 'Couldn’t hear that. Try again, or type it.');
   return j.text || '';
 }
 
-// one call to the provider the key belongs to; resolves with the reply's text
-// one call to the provider the key belongs to; resolves with the reply's text
-async function ask(k, sys, messages, signal, schema, lite) {
+// one call to the provider the key belongs to; resolves with the reply's text (and meters it)
+async function ask(k, sys, messages, signal, schema, lite, task) {
+  const t0 = performance.now();
   const kind = keyKind(k);
   if (kind === 'claude') {
     const call = async fallback => {
@@ -119,6 +145,8 @@ async function ask(k, sys, messages, signal, schema, lite) {
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: h, body: JSON.stringify(body), signal });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { if (fallback && r.status === 400 && /fallback/i.test((j.error && j.error.message) || '')) return call(false); throw fail(r.status, j.error && j.error.message); }
+      const u = j.usage || {};
+      meter.add({ task: task || 'play', provider: 'claude', model: j.model || body.model, ok: true, ms: Math.round(performance.now() - t0), in: u.input_tokens || 0, out: u.output_tokens || 0, cacheRead: u.cache_read_input_tokens || 0, cacheWrite: u.cache_creation_input_tokens || 0 });
       if (j.stop_reason === 'refusal') throw new Error('It wouldn’t draw that one. Try describing it another way.');
       return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
     };
@@ -133,6 +161,8 @@ async function ask(k, sys, messages, signal, schema, lite) {
           messages: [{ role: 'system', content: sys }].concat(messages) }) });
       const j = await r.json().catch(() => ({})), msg = (j.error && j.error.message) || '';
       if (!r.ok) { if (i + 1 < models.length && (r.status === 404 || /model/i.test(msg)) && r.status !== 401 && r.status !== 429) continue; throw fail(r.status, msg); }
+      const u = j.usage || {}, cached = (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0;
+      meter.add({ task: task || 'play', provider: 'openai', model: models[i], ok: true, ms: Math.round(performance.now() - t0), in: (u.prompt_tokens || 0) - cached, out: u.completion_tokens || 0, cacheRead: cached });
       return (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
     }
   }
@@ -231,13 +261,13 @@ export async function drawPlay(text, current, opts) {
   opts = opts || {};
   const k = opts.key || key.get(), sport = opts.sport;
   if (!keyKind(k)) return free('play', { sport: sport.id, text, current, sketch: !!opts.sketch }, opts.signal);
-  return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema));
+  return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, false, opts.sketch ? 'sketch' : 'play'));
 }
 // smart players: each position gets its own brain (a persona on a lite model), all thinking in
 // parallel; their moves are merged one by one and any that break the play are dropped
 async function brain(sport, play, id, mode, opts) {
   const k = opts.key || key.get();
-  if (keyKind(k)) { const req = brainRequest({ sport, play, id, mode }); return solve(req, (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true)); }
+  if (keyKind(k)) { const req = brainRequest({ sport, play, id, mode }); return solve(req, (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true, mode === 'film' ? 'film' : 'brain')); }
   return free('brain', { sport: sport.id, play, id, mode }, opts.signal);
 }
 export async function smartPlayers(play, ids, opts) {
@@ -259,4 +289,39 @@ export async function filmRoom(play, ids, opts) {
   const sport = opts.sport;
   const answers = await Promise.allSettled(ids.map(id => brain(sport, play, id, 'film', opts)));
   return answers.map((a, i) => a.status === 'fulfilled' && a.value && a.value.read ? Object.assign({ id: ids[i], brain: brainFor(sport, play, ids[i]).name }, a.value) : null).filter(Boolean);
+}
+
+// ---- the IQ tutor: a lite model coaching one player, pitched at their age. It gets the question, the
+// play's X's and O's and what was tapped; never a name.
+const TUTOR = { type: 'object', additionalProperties: false, required: ['say', 'tip'], properties: {
+  say: { type: 'string', description: 'What to tell the player about this answer, warm and specific, in under 28 words, at their age.' },
+  tip: { type: 'string', description: 'One thing to look for next time, under 10 words, like a cue a coach shouts.' } } };
+const BANDS = { young: 'They are 6 to 11: short words, one idea, lots of encouragement, no jargon.', mid: 'They are 12 to 14: name the concept and the read, keep it quick.', older: 'They are 15 or older: use real coaching terms (leverage, help side, coverage shells).' };
+export function tutorRequest({ sport, band, mode, q, play, given, right, summary }) {
+  const sys = `You are an upbeat youth ${sport.name} coach tutoring a player in a game that builds ${sport.iq ? sport.iq.name : 'game IQ'}: reading plays, finding the open teammate, knowing where to be. ${BANDS[band] || BANDS.young} Speak to the player directly ("you"). Use the board's X's and O's and position names, never real names. Teach the right read: the ball goes to the open player. Never shame a wrong answer.`;
+  const content = mode === 'recap'
+    ? `Session recap: ${JSON.stringify(summary)}\nGive one sentence on what they read well and one cue to work on next.`
+    : `The play: ${JSON.stringify(play)}\nQuestion type: ${q.type} (${q.type === 'pass' ? 'who gets the ball next' : q.type === 'spot' ? 'where ' + q.who + ' goes next' : q.type === 'name' ? 'name the play' : 'name the coverage'}).\nRight answer: ${JSON.stringify(q.answer)}${q.also && q.also.length ? ' (also open: ' + q.also.join(', ') + ')' : ''}.\nThe player answered: ${JSON.stringify(given)}, which was ${right ? 'right' : 'not right'}.`;
+  return { sys, schema: TUTOR, messages: [{ role: 'user', content }], check: raw => ({ ok: !!(raw && raw.say), errors: raw && raw.say ? [] : ['no say'] }) };
+}
+export async function tutor(args, opts) {
+  opts = opts || {};
+  const k = opts.key || key.get();
+  if (keyKind(k)) return solve(tutorRequest(args), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true, 'tutor'));
+  return free('tutor', { sport: args.sport.id, band: args.band, mode: args.mode, q: args.q, play: args.play, given: args.given, right: !!args.right, summary: args.summary }, opts.signal);
+}
+
+// ---- the analyst: the engine's read of the play, rewritten as booth commentary, one line per beat ----
+const ANALYST = { type: 'object', additionalProperties: false, required: ['lines'], properties: {
+  lines: { type: 'array', items: { type: 'string', description: 'What the analyst says over this beat, under 34 words.' } } } };
+export function analystRequest({ sport, play, facts }) {
+  const sys = `You are the color analyst in the booth for a youth ${sport.name} broadcast, a former player who explains the game: not play-by-play. For each beat, explain the read: what the defense is in and what it's taking away, which defender gets moved or makes a mistake, where the ${sport.kinds.route ? 'quarterback\'s eyes go and why he comes off a read' : 'ball handler\'s eyes go'}, and why the ball goes where it does. Anticipate ("watch the safety here"), be conversational and specific, teach. Use the board's X's and O's and position letters, never real names. Keep the facts exactly as given; you only add the why and the colour.`;
+  const content = `The play: ${JSON.stringify(play)}\nWhat the engine sees, beat by beat (true; keep it):\n${facts.map((f, i) => (i + 1) + '. ' + f).join('\n')}\nReturn exactly ${facts.length} lines, one per beat.`;
+  return { sys, schema: ANALYST, messages: [{ role: 'user', content }], check: raw => ({ ok: !!(raw && Array.isArray(raw.lines) && raw.lines.length), errors: raw && Array.isArray(raw.lines) && raw.lines.length === facts.length ? [] : ['send exactly ' + facts.length + ' lines'] }) };
+}
+export async function analyst(args, opts) {
+  opts = opts || {};
+  const k = opts.key || key.get();
+  if (keyKind(k)) return solve(analystRequest(args), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true, 'analyst'));
+  return free('analyst', { sport: args.sport.id, play: args.play, facts: args.facts }, opts.signal);
 }

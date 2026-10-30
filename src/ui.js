@@ -15,6 +15,13 @@ import { CSS } from './style.js';
 import { readStroke } from './engine/sketch.js';
 import { icon } from './icons.js';
 import { VERSION, TOUR, RELEASES, SHORTCUTS, seen, hasNews } from './tour.js';
+import { openGuide } from './guide.js';
+import { createIQ } from './iqmode.js';
+import { openStats } from './stats.js';
+import { analyze } from './analyst.js';
+import { analyst } from './ai.js';
+import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary } from './learn.js';
+import { chime, soundOn, setSound } from './sound.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -28,9 +35,13 @@ const TEMPLATE = `
   <button class="ct-pill" data-r="viewBtn" title="Orbit, zoom and lock the view (L locks)">${icon('view')}<span>View</span></button>
   <button class="ct-pill" data-r="namesBtn" title="Show your players' names (saved on this device only)" hidden>${icon('names')}<span>Names</span></button>
   <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself (or just use a pencil), then let the AI take over (S)">${icon('sketch')}<span>Sketch</span></button>
-  <button class="ct-pill" data-r="defBtn" title="Add defenders who guard on their own (D)">${icon('shield')}<span>Defense</span></button>
+  <button class="ct-pill ct-switch" data-r="defBtn" role="switch" aria-checked="false" title="Defense on or off: X's that guard, help and react on their own (D)">${icon('shield')}<span>Defense</span><i class="ct-sw"></i></button>
+  <button class="ct-pill" data-r="guideBtn" title="Every position in depth, the play player by player, and sideline cards (G)">${icon('book')}<span>Guide</span></button>
+  <button class="ct-pill ct-iqpill" data-r="iqBtn" title="The game: read real plays, build your IQ, level up (I)">${icon('trophy')}<span data-r="iqLabel">IQ</span></button>
+  <button class="ct-pill" data-r="statsBtn" title="Stats: the play's numbers, and AI tokens, time and cost">${icon('chart')}<span>Stats</span></button>
+  <button class="ct-pill" data-r="presentBtn" title="Presenter mode for a TV: AirPlay, Cast or any mirroring (F)">${icon('cast')}<span>Present</span></button>
   <button class="ct-pill" data-r="infoBtn">${icon('info')}<span>About</span></button>
-  <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="Narrate each step">${icon('mute')}<span>Narrate</span></button>
+  <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="The voice: an analyst who explains the read, or play-by-play">${icon('mute')}<span>Narrate</span></button>
   <button class="ct-pill ct-keypill" data-r="keyBtn" title="AI settings and your own keys">${icon('sparkle')}<span>AI</span></button>
   <button class="ct-pill ct-help" data-r="helpBtn" title="Tour, what's new and shortcuts" aria-label="Help">?<i class="ct-dot" data-r="newsDot" hidden></i></button>
 </header>
@@ -83,7 +94,30 @@ const TEMPLATE = `
     </div>
   </div>
 </div>
+<button type="button" class="ct-playchip" data-r="playChip" aria-label="About this play"><small data-r="chipK"></small><b data-r="chipT"></b>${icon('info')}</button>
+<nav class="ct-tabbar" aria-label="Board">
+  <button type="button" data-tb="plays">${icon('book')}<span>Plays</span></button>
+  <button type="button" data-tb="sketch" data-r="tbSketch">${icon('sketch')}<span>Sketch</span></button>
+  <button type="button" data-tb="mic" class="ct-tbmic" data-r="tbMic" aria-label="Talk: tap, say the play, tap again">${MIC}</button>
+  <button type="button" data-tb="defense" class="ct-switch" data-r="tbDef" role="switch">${icon('shield')}<span>Defense</span></button>
+  <button type="button" data-tb="more">${icon('grid')}<span>More</span><i class="ct-dot" data-r="tbDot" hidden></i></button>
+</nav>
 <div class="ct-toast" data-r="toast" role="status"></div>
+<button type="button" class="ct-focus" data-r="focusChip" hidden></button>
+<div class="ct-coach" data-r="coach" hidden role="dialog" aria-label="Your first sketch"></div>
+<div class="ct-present" data-r="presentBar" hidden>
+  <div class="ct-l3" data-r="lower"><span class="ct-l3k" data-r="lowerK"></span><div><b data-r="lowerT"></b><p data-r="lowerS"></p></div></div>
+  <div class="ct-pbar" data-r="pbar">
+    <button type="button" data-p="back" aria-label="Previous step">${icon('prev')}</button><button type="button" data-p="toggle" aria-label="Play or pause" data-r="pPlay">${icon('pause')}</button><button type="button" data-p="next" aria-label="Next step">${icon('next')}</button>
+    <span class="ct-psep"></span>
+    <button type="button" data-p="defense" class="ct-switch" role="switch" data-r="pDef">${icon('shield')}<span>Defense</span><i class="ct-sw"></i></button>
+    <button type="button" data-p="laser" data-r="pLaser" aria-pressed="false">${icon('laser')}<span>Laser</span></button>
+    <button type="button" data-p="voice" data-r="pVoice">${icon('speaker')}<span>Analyst</span></button>
+    <button type="button" data-p="lib" aria-label="Plays">${icon('book')}<span>Plays</span></button>
+    <span class="ct-psep"></span>
+    <button type="button" data-p="exit">${icon('close')}<span>Exit</span></button>
+  </div>
+</div>
 <div class="ct-spot" data-r="spot" hidden></div>
 <div class="ct-tip" data-r="tip" role="tooltip" hidden></div>
 <dialog class="ct-dlg" data-r="keyDlg">
@@ -106,6 +140,9 @@ const HINTS = {
   flag7: ['Tap the mic (or hold space) and say a play: “Trips right, X runs a post, the slot runs a dig…”', '…or type it: show me four verticals']
 };
 
+// how big the field is drawn: the whole field fits with every player on screen, leaving room for the header and dock
+const fitR = (w, h) => (w < 700 ? Math.min(w * 0.5, h * 0.36) : w < 1100 ? Math.min(w * 0.44, h * 0.42) : Math.min(w * 0.4, h * 0.5));
+
 let styled = false;
 export function mount(root, options) {
   const opts = Object.assign({ sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
@@ -122,7 +159,10 @@ export function mount(root, options) {
   let field = null, raf = 0, dead = false, toShape = view(state.sport);
   const speak = (t, local) => { if (state.narrate) say(t, key.get(), { local }); };
   // the play read aloud: cloud voices only ever hear positions; the on-device voice may use names
-  const speakBeat = text => speak(spoken(text, false), state.showNames ? spoken(text, true) : null);
+  // the booth: the analyst explains the read (default), or straight play-by-play
+  try { state.style = localStorage.getItem('chalktalk.voiceStyle') || 'analyst'; } catch (e) { state.style = 'analyst'; }
+  const lineFor = (k, text) => state.style === 'analyst' && state.booth ? ((state.booth.ai && state.booth.ai[k]) || state.booth.lines[k] || text) : text;
+  const speakBeat = (text, k) => { const t = k == null ? text : lineFor(k, text); speak(spoken(t, false), state.showNames ? spoken(t, true) : null); };
   voiceErrors(m => toast(m));
 
   // ---- your players' names: on this device only, never sent anywhere ----
@@ -141,7 +181,7 @@ export function mount(root, options) {
       container: root.querySelector('.ct-stage'), shapes: [name], initial: name,
       count: particleBudget, cycle: 0, intro: 900, stars: 60, autonomy: 0.35, depth: 3.4, interactive: true, blank: true, seed: 7,
       palette: { preset: 'ice', accent: [255, 142, 58], signal: [255, 190, 120] }, maxDpr: 2, quality: 'auto',
-      radius: (w, h) => (w < 700 ? Math.min(w * 0.6, h * 0.42) : Math.min(w * 0.4, h * 0.5))
+      radius: fitR
     });
     state.loads = 0;
     applyView();
@@ -161,10 +201,12 @@ export function mount(root, options) {
     else { field.add([name]); field.setShape(name, { pin: 1e9 }); }
     state.loads++;
     state.play = sim.play; state.raw = raw; state.sim = sim; state.readsOn = false; state.libKey = o.key || null;
-    buildInk(); renderPlay(); renderDots(); renderFootball();
+    state.booth = { lines: analyze(sim, sport, posName), ai: null }; state.focus = null; state.reveal = null; R.focusChip.hidden = true;
+    buildInk(); renderPlay(); renderDots(); renderFootball(); renderPresent();
+    if (!o.quiet && state.narrate && state.style === 'analyst' && !state.quiz) boothAI();
     R.lib.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === o.key));
     if (o.at != null) { sim.seek(o.at); sim.playing(false); renderDots(); }
-    if (!o.quiet && state.narrate) prefetch([o.say].concat(play.beats.map(b => b.say)).map(spoken), key.get());
+    if (!o.quiet && state.narrate) prefetch([o.say].concat(play.beats.map((b, k) => lineFor(k, b.say))).map(t => spoken(t)), key.get());
     if (o.say && !o.quiet) speak(spoken(o.say));
     if (!o.keepAI) R.aiCard.hidden = true;
     if (!o.keepFilm) R.film.innerHTML = '';
@@ -184,10 +226,10 @@ export function mount(root, options) {
   function onBeat(k) {
     const sim = state.sim; if (!sim || state.sketch) return;
     const info = sim.beatInfo(k);
-    if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speakBeat(info.say); }
+    if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speakBeat(info.say, k); }
     else { R.caption.innerHTML = `<span class="ct-n">✓</span>${state.play.reads.length ? 'Options on this play' : 'That\'s the play.'}`; R.caption.classList.add('end'); }
     state.readsOn = !info;
-    renderDots(); renderReads(); renderThoughts(k);
+    renderDots(); renderReads(); renderThoughts(k); renderPresent();
   }
   // what players are thinking this beat: AI players' reads, and the autonomous ones' decisions
   function renderThoughts(k) {
@@ -229,6 +271,7 @@ export function mount(root, options) {
 
   function renderPlay() {
     const p = state.play;
+    R.chipK.textContent = p.concept || state.sport.short; R.chipT.textContent = p.title;
     R.title.textContent = p.title; R.concept.textContent = (p.concept || 'Your play') + ' · ' + state.sport.short;
     R.summary.innerHTML = mark(p.summary || '');
     R.cues.innerHTML = p.cues.map(c => `<li>${esc(c)}</li>`).join('');
@@ -248,7 +291,7 @@ export function mount(root, options) {
   }
   R.dots.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    state.sim.seek(+b.dataset.i); state.sim.playing(false); renderDots(); onBeat(+b.dataset.i); speakBeat(state.sim.beatInfo(+b.dataset.i).say);
+    state.sim.seek(+b.dataset.i); state.sim.playing(false); renderDots(); onBeat(+b.dataset.i); speakBeat(state.sim.beatInfo(+b.dataset.i).say, +b.dataset.i);
   });
 
   // ---- the ink: exact marks, routes and ball, re-projected every frame ----
@@ -271,11 +314,13 @@ export function mount(root, options) {
       text.textContent = nt.inside(p);
       hot.addEventListener('pointerdown', e => {
         if (state.sketch) return; e.stopPropagation();
+        if (state.quiz) { if (iq.wantsTap() && p.side === 'O') iq.answer(p.id); return; }
         if (state.routeMode && p.side === 'O' && p.id !== 'O1') pickRoute(p.id); else editRole(p.id);
       });
-      return { p, shape, glyph, eye, text, hot };
+      return { p, shape, glyph, eye, text, hot, g };
     });
     const stroke = el('path', 'stroke', svg);
+    const target = el('circle', 'iqtarget', svg), tapX = el('path', 'iqtap', svg), ghost = el('path', 'ghost', svg), finger = el('circle', 'finger', svg), laser = el('path', 'laser', svg);
     const nm = names.all();
     R.labels.innerHTML = sim.players.map(p => {
       const name = state.showNames && nm[p.id], txt = name || (state.sport.id === 'basketball' ? p.role : '') || '';
@@ -284,7 +329,7 @@ export function mount(root, options) {
     const kids = Array.from(R.labels.children);
     // guarded: who has a defender to beat (in football, every receiver reads the coverage)
     ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),
-      routes, marks, ball, shadow, stroke, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+      routes, marks, ball, shadow, stroke, target, tapX, ghost, finger, laser, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
     R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
@@ -313,7 +358,7 @@ export function mount(root, options) {
       else if (m.shape === 'square') { const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => proj(x + a * 0.85 * U, y + b * 0.85 * U, 0.15 * U)); d = 'M' + q.map(s => s.x.toFixed(1) + ' ' + s.y.toFixed(1)).join('L') + 'Z'; }
       else { for (let j = 0; j <= 20; j++) { const a = j / 20 * Math.PI * 2, s = proj(x + Math.cos(a) * U, y + Math.sin(a) * U, 0.15 * U); d += (j ? 'L' : 'M') + s.x.toFixed(1) + ' ' + s.y.toFixed(1); } d += 'Z'; }
       m.glyph.setAttribute('d', d); m.glyph.classList.toggle('hold', i === holder);
-      m.glyph.classList.toggle('open', ink.guarded[i] && i !== holder && sim.space(t, i) >= state.sport.open * 1.15);   // open = beat your defender
+      m.glyph.classList.toggle('open', !(state.quiz && !state.reveal) && ink.guarded[i] && i !== holder && sim.space(t, i) >= state.sport.open * 1.15);   // no hints while a question is up   // open = beat your defender
       const tx = m.shape === 'x' ? c.x + rpx * 0.95 : c.x, ty = m.shape === 'x' ? c.y + rpx * 0.75 : c.y;
       const fs = (m.text.textContent.length > 1 ? 0.95 : 1.25) * rpx;
       m.text.setAttribute('x', tx.toFixed(1)); m.text.setAttribute('y', ty.toFixed(1)); m.text.setAttribute('font-size', (m.shape === 'x' ? fs * 0.75 : fs).toFixed(1));
@@ -329,6 +374,7 @@ export function mount(root, options) {
       const r0 = pl.side === 'O' ? 1.05 : 1.0, e1 = proj(x + fx * U * r0, y + fy * U * r0, 0.15 * U), e2 = proj(x + fx * U * (r0 + 0.55), y + fy * U * (r0 + 0.55), 0.15 * U);
       m.eye.setAttribute('d', `M${e1.x.toFixed(1)} ${e1.y.toFixed(1)}L${e2.x.toFixed(1)} ${e2.y.toFixed(1)}`);
     });
+    drawExtras(P, U);
     const b = proj(Bp[0], Bp[1], Bp[2]), g = proj(Bp[0], Bp[1], 0), be = proj(Bp[0] + state.sport.ball.r, Bp[1], Bp[2]);
     const br = Math.max(3.5, Math.hypot(be.x - b.x, be.y - b.y));
     ink.ball.setAttribute('cx', b.x); ink.ball.setAttribute('cy', b.y); ink.ball.setAttribute('r', br);
@@ -361,9 +407,44 @@ export function mount(root, options) {
     });
   }
 
+  // focus ("watch only 5"), IQ reveals, the first-sketch ghost strokes and the presenter's laser
+  function drawExtras(P, U) {
+    const sim = state.sim, f = state.focus, rv = state.reveal;
+    R.ink.classList.toggle('focus', !!f);
+    ink.marks.forEach((m, i) => {
+      const id = sim.players[i].id;
+      m.g.classList.toggle('me', id === f);
+      m.glyph.classList.toggle('ans', !!(rv && rv.right && rv.right.indexOf(id) >= 0));
+      m.glyph.classList.toggle('miss', !!(rv && rv.wrong && rv.wrong.indexOf(id) >= 0));
+      m.glyph.classList.toggle('hint', !!(rv && rv.hint && rv.hint.indexOf(id) >= 0));
+    });
+    if (f) ink.routes.forEach((r, i) => r.classList.toggle('me', sim.players[sim.routes[i].p].id === f));
+    const at = (pt, el2, r) => { const c = proj(pt[0], pt[1], 0.05); el2.setAttribute('cx', c.x); el2.setAttribute('cy', c.y); el2.setAttribute('r', r); };
+    if (rv && rv.spot) { const e = proj(rv.spot[0] + rv.tol, rv.spot[1], 0), c = proj(rv.spot[0], rv.spot[1], 0); at(rv.spot, ink.target, Math.max(10, Math.abs(e.x - c.x))); } else ink.target.setAttribute('r', 0);
+    if (rv && rv.tap) { const c = proj(rv.tap[0], rv.tap[1], 0.05), k = 7; ink.tapX.setAttribute('d', `M${c.x - k} ${c.y - k}L${c.x + k} ${c.y + k}M${c.x - k} ${c.y + k}L${c.x + k} ${c.y - k}`); } else ink.tapX.setAttribute('d', '');
+    const gh = state.ghost;
+    if (gh) {
+      const pts = gh.pts.map(p => proj(p[0], p[1], 0.05)); ink.ghost.setAttribute('d', 'M' + pts.map(q => q.x.toFixed(1) + ' ' + q.y.toFixed(1)).join('L'));
+      const u = (performance.now() / 1600) % 1, n = pts.length - 1, j = Math.min(n - 1, Math.floor(u * n)), w = u * n - j, a = pts[j], b2 = pts[j + 1] || a;
+      ink.finger.setAttribute('cx', a.x + (b2.x - a.x) * w); ink.finger.setAttribute('cy', a.y + (b2.y - a.y) * w); ink.finger.setAttribute('r', 11);
+    } else { ink.ghost.setAttribute('d', ''); ink.finger.setAttribute('r', 0); }
+    const L = laserPts, now = performance.now();
+    while (L.length && now - L[0][2] > 700) L.shift();
+    ink.laser.setAttribute('d', L.length > 1 ? 'M' + L.map(q => q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join('L') : '');
+  }
+  const laserPts = [];
+
   (function loop(now) {
     if (dead) return;
-    if (state.sim && field && ink) { state.sim.tick(now); drawInk(); }
+    if (state.sim && field && ink) {
+      const t = state.sim.tick(now);
+      if (state.quiz) {
+        const q = state.quizStop;
+        if (iq.tick(t)) { state.sim.playing(false); renderDots(); }
+        else if (q != null && t >= q) { state.sim.seek(q); state.sim.playing(false); state.quizStop = null; renderDots(); }
+      }
+      drawInk();
+    }
     raf = requestAnimationFrame(loop);
   })(0);
 
@@ -377,6 +458,10 @@ export function mount(root, options) {
     el2.style.visibility = 'hidden'; root.appendChild(el2);
     const sheet = host.width < 640;
     if (sheet) el2.classList.add('sheet');
+    else if (/ct-xl/.test(cls || '') || (anchor.getClientRects && !anchor.getClientRects().length)) {   // the big ones (guide, IQ, stats) sit in the middle of the board
+      const w = el2.offsetWidth, h = Math.min(el2.offsetHeight, host.height - 32);
+      el2.style.left = Math.max(12, (host.width - w) / 2) + 'px'; el2.style.top = Math.max(16, (host.height - h) / 2) + 'px'; el2.style.maxHeight = (host.height - 32) + 'px';
+    }
     else {
       const a = anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left: host.left + anchor.x, right: host.left + anchor.x, top: host.top + anchor.y, bottom: host.top + anchor.y, width: 0 };
       const w = el2.offsetWidth, h = Math.min(el2.offsetHeight, host.height - 24), cx = a.left + a.width / 2 - host.left;
@@ -462,14 +547,14 @@ export function mount(root, options) {
     if (c === 'faster') sim.speed(+(sim.speed() * 1.5).toFixed(2));
     if (c === 'defense-on' || c === 'defense-off' || c === 'defense') {
       state.defense = c === 'defense' ? !state.defense : c === 'defense-on';
-      R.defBtn.classList.toggle('on', state.defense);
+      renderDefense();
       load(state.raw, { key: state.libKey, quiet: true, keepAI: true });
       toast(state.defense ? 'Defense on: each X guards its man on its own.' : 'Defense off.');
       return;
     }
     if (c === 'sketch') { toggleSketch(); return; }
     if (c === 'clear') { load(blank(), { quiet: true }); return; }
-    if (c === 'next' || c === 'back') { onBeat(sim.beatAt()); const b = sim.beatInfo(sim.beatAt()); if (b) speakBeat(b.say); }
+    if (c === 'next' || c === 'back') { onBeat(sim.beatAt()); const b = sim.beatInfo(sim.beatAt()); if (b) speakBeat(b.say, sim.beatAt()); }
     renderDots();
   }
   function blank() {
@@ -481,8 +566,8 @@ export function mount(root, options) {
   R.prev.onclick = () => act('back');
   R.next.onclick = () => act('next');
   R.speed.onclick = () => { const s = state.sim.speed(); state.sim.speed(s >= 2 ? 0.5 : s >= 1 ? 2 : 1); renderDots(); };
-  function renderNarrate() { R.narrate.classList.toggle('off', !state.narrate); R.narrate.classList.toggle('on', state.narrate); R.narrate.setAttribute('aria-pressed', state.narrate); R.narrate.innerHTML = icon(state.narrate ? 'speaker' : 'mute') + '<span>Narrate</span>'; }
-  R.narrate.onclick = () => { state.narrate = !state.narrate; if (!state.narrate) hush(); renderNarrate(); if (state.narrate) toast('Narration on.'); };
+  function renderNarrate() { R.narrate.classList.toggle('off', !state.narrate); R.narrate.classList.toggle('on', state.narrate); R.narrate.setAttribute('aria-pressed', state.narrate); R.narrate.innerHTML = icon(state.narrate ? 'speaker' : 'mute') + '<span>' + (state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Voice') + '</span>'; }
+  R.narrate.onclick = () => voiceMenu();
   renderNarrate();
   R.infoBtn.onclick = () => root.classList.toggle('ct-info');
   R.cardX.onclick = () => root.classList.remove('ct-info');
@@ -491,6 +576,7 @@ export function mount(root, options) {
 
   // ---- sports, library, legend ----
   function renderSports() {
+    if (R.iqLabel) R.iqLabel.textContent = state.sport.iq ? state.sport.iq.name : 'IQ';
     R.sports.hidden = allowed.length < 2;
     R.sports.innerHTML = allowed.map(s => `<button role="tab" class="ct-pill${s === state.sport ? ' on' : ''}" aria-selected="${s === state.sport}" data-id="${s.id}">${esc(s.short)}</button>`).join('');
   }
@@ -635,7 +721,7 @@ export function mount(root, options) {
   function endTour() { R.spot.hidden = true; closePanel(); hush(); seen.set('tour', VERSION); seen.set('version', VERSION); R.newsDot.hidden = true; }
   const startTour = () => spotlight(TOUR, 0);
   function whatsNew() {
-    seen.set('version', VERSION); R.newsDot.hidden = true;
+    seen.set('version', VERSION); R.newsDot.hidden = true; R.tbDot.hidden = true;
     const body = RELEASES.map((r, ri) => `<section class="ct-rel"><h5>${esc(r.title)}<small>v${esc(r.version)} · ${esc(r.date)}</small></h5>
       <ul>${r.items.map((it, ii) => `<li><b>${esc(it.title)}</b><span>${esc(it.call)}</span>${it.show && targetOf(it.show) ? `<button type="button" data-show="${ri}:${ii}">Show me</button>` : ''}</li>`).join('')}</ul></section>`).join('');
     openPanel(R.helpBtn, "What's new", body, pb => {
@@ -681,13 +767,19 @@ export function mount(root, options) {
 
   // ---- the coach talks ----
   async function heard(text, o) {
-    text = String(text || '').trim(); o = o || {};
+    o = o || {};
+    const t0 = performance.now(), said = String(text || '').trim();
+    text = o.sketch ? said : heal(said);   // fix what speech-to-text gets wrong about coaching talk
     if (!text && !o.sketch) return;
-    if (text) R.heard.textContent = '“' + text + '”';
+    if (text) { R.heard.textContent = '“' + text + '”'; R.heard.dataset.said = text; R.heard.classList.add('fix'); }
+    if (state.quiz) return;
     if (!o.sketch) {
       const u = understand(text, state.sport.aliases);
-      if (u.cmd) { act(u.cmd); return; }
-      if (u.concept) { teach(u.concept); return; }
+      const done = (path, extra) => { const ms = performance.now() - t0; logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.textContent = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms`; };
+      if (u.cmd) { act(u.cmd); done('command'); return; }
+      if (u.concept) { teach(u.concept); done('library'); return; }
+      const learned = recall(state.sport.id, text);   // a phrase this coach taught it before
+      if (learned && state.sport.plays.some(p => p.key === learned)) { teach(learned); done('learned'); return; }
       if (u.label) { if (byId(u.label.id)) setRole(u.label.id, u.label.role); else toast(`There's no ${u.label.id} on the board.`); return; }
       if (footballWords(text)) return;
     }
@@ -699,12 +791,21 @@ export function mount(root, options) {
     try {
       const raw = await drawPlay(text, state.play ? strip(state.play) : null, { signal: ctl.signal, glossary: opts.glossary || sport.glossary, sport, library: sport.plays, sketch: !!o.sketch });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
-      if (o.sketch) { offer(raw, o.mine); R.status.textContent = raw.reply || ''; film(); return; }
+      const ms = performance.now() - t0, secs = (ms / 1000).toFixed(1) + ' s';
+      if (o.sketch) { offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); film(); return; }
       load(raw, { say: raw.reply, keepAI: true });
       showAI(raw, null);
-      R.status.textContent = raw.reply || '';
+      R.status.textContent = (raw.reply || '') + ` · drawn in ${secs}`;
+      // learn: if the coach keeps what was drawn for this phrase, it becomes instant next time
+      const li = logVoice({ sport: sport.id, path: 'ai', ms, ok: true, text: text.slice(0, 200), recognized: raw.recognized || null });
+      const shown = state.raw;
+      clearTimeout(state.keepT);
+      state.keepT = setTimeout(() => {
+        const kept = state.raw === shown; markVoice(li, { kept });
+        if (kept && raw.recognized && sport.plays.some(p => p.key === raw.recognized)) learnPhrase(sport.id, text, raw.recognized);
+      }, 20000);
     } catch (e) {
-      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey') openKey(); R.status.textContent = ''; }
+      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey') openKey(); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); }
     } finally {
       clearInterval(pulse);
       if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); }
@@ -736,11 +837,12 @@ export function mount(root, options) {
   // ---- sketch: draw it rough, it plays at once, then the AI takes over ----
   function toggleSketch() {
     if (state.sketch) { finishSketch(); return; }
+    if (!state.coach && !seen.get().sketchIntro && opts.tour !== false) { sketchCoach(); return; }
     const base = state.play && state.sim ? strip(state.play) : blank();
     base.beats = []; base.title = 'My sketch'; base.concept = 'Sketch'; base.summary = 'Drawn by hand.'; base.reads = []; base.cues = [];
     if (state.sim) { const P = state.sim.posAt(0); base.players = state.play.players.map((p, i) => ({ id: p.id, side: p.side, role: p.role, at: { x: P[i][0], y: P[i][1] } })); }
     state.sketch = { raw: base, strokes: [], tool: 'draw', lastAt: 0 };
-    root.classList.add('ct-sketch'); R.sketchBtn.classList.add('on'); R.aiCard.hidden = true;
+    root.classList.add('ct-sketch'); R.sketchBtn.classList.add('on'); R.tbSketch.classList.add('on'); R.aiCard.hidden = true;
     setTool('draw'); R.together.checked = false;
     R.caption.innerHTML = 'Sketch: draw from a player. Zigzag = dribble, end on a teammate = pass, finish with a short T = screen. Strokes drawn quickly (or with “Same time”) happen together.';
     loadSketch();
@@ -752,8 +854,9 @@ export function mount(root, options) {
     renderDots(); renderSteps();
   }
   function finishSketch() {
+    if (state.coach) { state.coach = null; state.ghost = null; R.coach.hidden = true; seen.set('sketchIntro', VERSION); }
     const sk = state.sketch; state.sketch = null;
-    root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on');
+    root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on'); R.tbSketch.classList.remove('on');
     if (!sk.raw.beats.length) { R.caption.textContent = ''; return; }
     const mine = JSON.parse(JSON.stringify(sk.raw));
     load(mine, { quiet: true }); state.sim.seek(0); state.sim.playing(true);
@@ -894,7 +997,7 @@ export function mount(root, options) {
 
   // a rough stroke → an action, read the way a coach means it (engine/sketch.js)
   function commitStroke(d) {
-    const sk = state.sketch, sport = state.sport, r = interpret(d), a = r.action, who = state.play.players[d.i];
+    const t0 = performance.now(), sk = state.sketch, sport = state.sport, r = interpret(d), a = r.action, who = state.play.players[d.i], readMs = performance.now() - t0;
     snapshot();
     // football: the center has it before the snap; the first stroke snaps it to the QB
     if (sport.kinds.snap && sk.raw.beats.length === 0 && byId('O1') && byId('O2') && sk.raw.ball === 'O2') {
@@ -909,6 +1012,7 @@ export function mount(root, options) {
     else sk.raw.beats.push({ say: say + '.', actions: [a] });
     sk.lastAt = performance.now();
     loadSketch();
+    coachStroke(a, readMs);
     R.caption.innerHTML = `<span class="ct-n">${sk.raw.beats.length}</span>${mark(say)}${r.snapped ? ` <span class="ct-hint">(snapped to the ${esc(r.snapped)})</span>` : ''}`;
   }
   // no key needed: the library play whose actions look most like the sketch
@@ -932,7 +1036,7 @@ export function mount(root, options) {
     if (!field) return;
     const v = state.view;
     field.setPose(v.pose ? { yaw: v.pose.yaw, pitch: v.pose.pitch, roll: 0 } : null);
-    field.set({ interactive: !v.locked, radius: (w, h) => (w < 700 ? Math.min(w * 0.6, h * 0.42) : Math.min(w * 0.4, h * 0.5)) * v.zoom });
+    field.set({ interactive: !v.locked, radius: (w, h) => fitR(w, h) * v.zoom });
     R.viewBtn.classList.toggle('on', v.locked);
     R.viewBtn.innerHTML = icon(v.locked ? 'lock' : 'view') + '<span>View</span>';
   }
@@ -1003,13 +1107,29 @@ export function mount(root, options) {
   });
   R.ink.addEventListener('pointerleave', () => ink && ink.marks.forEach(m => m.glyph.classList.remove('hover')));
 
+  // tap what it heard to fix it: the fix is learned, and the play is redrawn from the corrected words
+  R.heard.addEventListener('click', () => {
+    const was = R.heard.dataset.said; if (!was || R.heard.querySelector('input')) return;
+    R.heard.innerHTML = `<input class="ct-fixin" value="${esc(was)}" aria-label="Fix what it heard" enterkeyhint="go">`;
+    const inp = R.heard.querySelector('input'); inp.focus(); inp.select();
+    const done = commit => {
+      const v = inp.value.trim(); R.heard.textContent = '“' + (commit && v ? v : was) + '”';
+      if (!commit || !v || v === was) return;
+      const learned = correct(was, v);
+      if (learned.length) toast(`Got it. Next time “${learned[0][0]}” means “${learned[0][1]}”.`);
+      heard(v);
+    };
+    inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    inp.onblur = () => done(false);
+  });
+
   // ---- ears ----
   const ear = listener(t => heard(t), (st, text) => {
-    R.mic.dataset.state = st;
+    R.mic.dataset.state = st; R.tbMic.dataset.state = st;
     if (st === 'hearing') R.heard.textContent = text;
-    if (st === 'listening') { hush(); R.heard.textContent = 'Listening…'; }
+    if (st === 'listening') { hush(); R.heard.textContent = 'Listening…'; R.heard.classList.remove('fix'); chime('ask'); }
     if (st === 'error' && text) toast(text);
-  }, transcribe);
+  }, blob => transcribe(blob, state.sport.id), () => vocabulary(state.sport));
   if (!ear) { R.mic.disabled = true; R.mic.title = 'This browser cannot hear you. Type instead.'; }
   R.mic.onclick = () => { if (!ear) return; ear.on ? ear.stop() : ear.start(); };
   let spaceDown = false;
@@ -1017,10 +1137,15 @@ export function mount(root, options) {
   const visible = () => root.isConnected && root.getBoundingClientRect().height > 0;
   const kd = e => {
     if (typing(e) || !visible() || R.keyDlg.open) return;
+    if (root.classList.contains('ct-present-on')) poke();
     if (e.code === 'Space' && !e.repeat && ear) { e.preventDefault(); spaceDown = true; ear.start(); }
     if (e.key === 'ArrowRight') act('next');
     if (e.key === 'ArrowLeft') act('back');
-    if (e.key === 'Escape') { if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel')) { closePanel(); return; } if (state.sketch) finishSketch(); }
+    if (e.key === 'Escape') {
+      if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel')) { closePanel(); return; }
+      if (state.coach) { endCoach(false); return; } if (state.quiz) { iq.stop(); return; } if (state.focus) { R.focusChip.click(); return; }
+      if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) finishSketch();
+    }
     const tc = root.querySelector('.ct-panel.ct-tourcard');
     if (tc && tc._step && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); spotlight(tc._step.steps, tc._step.i + (e.key === 'ArrowRight' ? 1 : -1), tc._step.eyebrow); return; }
     if (e.key === '?') { R.helpBtn.click(); return; }
@@ -1032,6 +1157,10 @@ export function mount(root, options) {
       if (tools[k2]) { setTool(tools[k2]); return; }
       if (k2 === 't') { R.together.checked = !R.together.checked; return; }
     }
+    if (state.quiz) return;
+    if (k2 === 'g') guide();
+    if (k2 === 'i') iq.open();
+    if (k2 === 'f') present();
     if (k2 === 's') act('sketch');
     if (k2 === 'd') act('defense');
     if (k2 === 'l') toggleLock();
@@ -1043,6 +1172,217 @@ export function mount(root, options) {
   const ku = e => { if (e.code === 'Space' && spaceDown) { spaceDown = false; ear && ear.stop(); } };
   addEventListener('keydown', kd); addEventListener('keyup', ku);
   R.ask.onsubmit = e => { e.preventDefault(); heard(R.askText.value); R.askText.value = ''; R.askText.blur(); };
+
+
+  // ---- the guide, CourtIQ / FieldIQ, stats ----
+  const panelAt = anchor => (title, body, onMount, cls) => openPanel(anchor, title, body, onMount, cls);
+  let band = 'young'; try { band = localStorage.getItem('chalktalk.band') || 'young'; } catch (e) {}
+  const guide = start => openGuide({ sport: state.sport, play: state.play, openPanel: panelAt(R.guideBtn), mark, band,
+    setBand: b => { band = b; try { localStorage.setItem('chalktalk.band', b); } catch (e) {} },
+    say: t => say(t, key.get()), watch }, start);
+  R.guideBtn.onclick = () => guide();
+  // watch one player: everyone else dims, their routes light up, and the play runs from their first move
+  function watch(id, beat) {
+    closePanel();
+    const sim = state.sim, k = beat != null ? beat : Math.max(0, sim.play.beats.findIndex(b => b.actions.some(a => a.who === id)));
+    state.focus = id; R.focusChip.hidden = false; R.focusChip.innerHTML = `${icon('view')}<span>Watching <b>${esc(nameOf(id))}</b></span>${icon('close')}`;
+    sim.seek(Math.max(0, k - 0.15)); sim.playing(true); renderDots();
+  }
+  R.focusChip.onclick = () => { state.focus = null; R.focusChip.hidden = true; };
+
+  const iq = createIQ({
+    root, team: opts.team, sport: () => state.sport, openPanel: panelAt(R.iqBtn), closePanel, toast, posName, strip,
+    speak: t => speak(spoken(t)),
+    enter() { closePanel(); hush(); state.quiz = { defense: state.defense, raw: state.raw, key: state.libKey }; root.classList.add('ct-quiz'); },
+    exit() {
+      const q = state.quiz; state.quiz = null; state.quizStop = null; state.reveal = null; root.classList.remove('ct-quiz');
+      if (q) { state.defense = q.defense; renderDefense(); load(q.raw, { key: q.key, quiet: true }); }
+    },
+    loadQuiz(raw, speed) { state.defense = true; renderDefense(); load(raw, { quiet: true }); state.reveal = null; state.quizStop = null; state.sim.speed(speed); state.sim.seek(0); state.sim.playing(true); renderDots(); },
+    reveal(q, given, g) {
+      state.reveal = { right: q.type === 'pass' ? [q.answer] : [], wrong: q.type === 'pass' && given && !g.right ? [given] : [], spot: q.type === 'spot' ? q.answer : null, tol: q.tol, tap: q.type === 'spot' ? given : null };
+      if (q.type === 'pass' || q.type === 'spot') { state.quizStop = q.beat + (q.type === 'pass' ? 1.2 : 0.99); state.sim.playing(true); }
+    },
+    hint(q) { if (q.type === 'pass') state.reveal = { hint: [q.answer].concat(q.also) }; else if (q.type === 'spot') state.reveal = { spot: q.answer, tol: q.tol * 1.6 }; }
+  });
+  R.iqBtn.onclick = () => iq.open();
+  R.ink.addEventListener('pointerdown', e => {   // IQ: tap the spot
+    if (!state.quiz || !iq.wantsSpot()) return;   // player taps go on to the player's own handler
+    e.stopPropagation(); e.preventDefault();
+    const host = R.ink.getBoundingClientRect(), pt = unproject(e.clientX - host.left, e.clientY - host.top);
+    iq.answer(pt);
+  }, true);
+  R.statsBtn.onclick = () => openStats({ sport: state.sport, sim: state.sim, openPanel: panelAt(R.statsBtn), posName, mark, toast });
+
+  // ---- the booth: the AI analyst rewrites the engine's read with colour (once per play, when narrating) ----
+  const boothCache = new Map();
+  function boothAI() {
+    const play = strip(state.play), id = JSON.stringify(play.beats.map(b => b.actions)) + state.defense, booth = state.booth;
+    if (boothCache.has(id)) { booth.ai = boothCache.get(id); return; }
+    analyst({ sport: state.sport, play, facts: booth.lines }).then(r => { if (r && Array.isArray(r.lines) && r.lines.length === booth.lines.length) { boothCache.set(id, r.lines); booth.ai = r.lines; if (state.narrate) prefetch(r.lines.map(t => spoken(t)), key.get()); } }).catch(() => {});
+  }
+
+  // ---- presenter mode: the board full screen for a TV (AirPlay, Cast, any mirroring) ----
+  let wake = null, idleT = 0;
+  function renderDefense() {
+    R.defBtn.classList.toggle('on', state.defense); R.defBtn.setAttribute('aria-checked', state.defense);
+    R.pDef.classList.toggle('on', state.defense); R.pDef.setAttribute('aria-checked', state.defense);
+    R.tbDef.classList.toggle('on', state.defense); R.tbDef.setAttribute('aria-checked', state.defense);
+  }
+  function renderPresent() {
+    if (!root.classList.contains('ct-present-on') || !state.play) return;
+    const k = state.sim.beatAt(), info = state.sim.beatInfo(k);
+    R.lowerK.textContent = state.play.concept || state.sport.short;
+    R.lowerT.textContent = state.play.title;
+    R.lowerS.innerHTML = info ? `<span class="ct-n">${k + 1}</span>` + mark(lineFor(k, info.say)) : 'That’s the play.';
+    R.pPlay.innerHTML = icon(state.sim.playing() ? 'pause' : 'play');
+    R.pVoice.querySelector('span').textContent = state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Voice off';
+    R.pVoice.classList.toggle('on', state.narrate);
+  }
+  async function present(on) {
+    on = on == null ? !root.classList.contains('ct-present-on') : on;
+    root.classList.toggle('ct-present-on', on); R.presentBar.hidden = !on; R.presentBtn.classList.toggle('on', on);
+    closePanel();
+    if (on) {
+      try { if (!document.fullscreenElement && root.requestFullscreen) await root.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+      try { wake = navigator.wakeLock ? await navigator.wakeLock.request('screen') : null; } catch (e) {}
+      toast('Presenter mode. Mirror this screen with AirPlay or Cast; ← → step, P plays, Esc exits.');
+      poke(); renderPresent();
+    } else {
+      state.laser = false; R.pLaser.classList.remove('on');
+      try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) {}
+      try { wake && wake.release(); } catch (e) {} wake = null;
+    }
+    setTimeout(() => { applyView(); }, 120);
+  }
+  const poke = () => { root.classList.remove('ct-idle'); clearTimeout(idleT); idleT = setTimeout(() => root.classList.contains('ct-present-on') && root.classList.add('ct-idle'), 3200); };
+  root.addEventListener('pointermove', () => { if (root.classList.contains('ct-present-on')) poke(); });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && root.classList.contains('ct-present-on')) present(false); });
+  R.presentBtn.onclick = () => present();
+  R.pbar.addEventListener('click', e => {
+    const b = e.target.closest('[data-p]'); if (!b) return; const c = b.dataset.p;
+    if (c === 'exit') return present(false);
+    if (c === 'laser') { state.laser = !state.laser; b.classList.toggle('on', state.laser); b.setAttribute('aria-pressed', state.laser); toast(state.laser ? 'Laser: drag on the board to point.' : 'Laser off.'); return; }
+    if (c === 'voice') { if (!state.narrate) { state.narrate = true; state.style = 'analyst'; } else if (state.style === 'analyst') state.style = 'pbp'; else { state.narrate = false; hush(); } saveStyle(); renderNarrate(); renderPresent(); if (state.narrate && state.style === 'analyst') boothAI(); return; }
+    if (c === 'lib') { openPanel(b, 'Plays', `<div class="ct-menu ct-plays">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}"><span>${esc(p.title)}</span><small>${esc(p.concept)}</small></button>`).join('')}</div>`, pb => { pb.onclick = e2 => { const x = e2.target.closest('[data-k]'); if (x) { closePanel(); teach(x.dataset.k); } }; }); return; }
+    act(c); renderPresent();
+  });
+  // the laser: drag on the board and a glowing trail follows, then fades
+  stage.addEventListener('pointerdown', e => { if (state.laser && root.classList.contains('ct-present-on')) { e.stopPropagation(); e.preventDefault(); state.lasing = true; } }, true);
+  stage.addEventListener('pointermove', e => { if (state.lasing) { const h = R.ink.getBoundingClientRect(); laserPts.push([e.clientX - h.left, e.clientY - h.top, performance.now()]); } }, true);
+  addEventListener('pointerup', () => { state.lasing = false; });
+
+  // narration: off, the analyst (explains the read), or play-by-play
+  const saveStyle = () => { try { localStorage.setItem('chalktalk.voiceStyle', state.style); } catch (e) {} };
+  function voiceMenu() {
+    openPanel(R.narrate, 'Voice', `<div class="ct-menu ct-voices">
+      <button type="button" data-v="off" class="${!state.narrate ? 'on' : ''}">${icon('mute')}<span>Off<small>Quiet board</small></span></button>
+      <button type="button" data-v="analyst" class="${state.narrate && state.style === 'analyst' ? 'on' : ''}">${icon('speaker')}<span>Analyst<small>Explains the read: the coverage, the defender who moves, why the ball goes there</small></span></button>
+      <button type="button" data-v="pbp" class="${state.narrate && state.style === 'pbp' ? 'on' : ''}">${icon('film')}<span>Play-by-play<small>Calls each step as it happens</small></span></button>
+      <label class="ct-check"><input type="checkbox" data-v="sound" ${soundOn() ? 'checked' : ''}> Sound effects</label></div>`, pb => {
+      pb.onclick = e => {
+        const b = e.target.closest('[data-v]'); if (!b) return; const v = b.dataset.v;
+        if (v === 'sound') { setSound(b.checked); return; }
+        state.narrate = v !== 'off'; if (v !== 'off') state.style = v; saveStyle(); if (!state.narrate) hush();
+        renderNarrate(); renderPresent(); closePanel();
+        if (state.narrate) { if (state.style === 'analyst') { boothAI(); if (!state.defense) toast('Analyst on. Turn on Defense to hear the reads against it.'); } const k = state.sim.beatAt(), b2 = state.sim.beatInfo(k); speakBeat(b2 ? b2.say : state.play.title, b2 ? k : null); }
+      };
+    });
+  }
+
+  // ---- first sketch: trace three ghost strokes, see each one read on the device instantly, then the AI takes over ----
+  const COACH = {
+    basketball: [
+      { who: 'O1', type: 'dribble', path: [[0, 27], [5, 25.5], [10, 23]], say: 'Trace the glowing line from 1 in a <b>zigzag</b>. Zigzag means dribble.' },
+      { who: 'O2', type: 'move', path: [[19, 19], [12, 12], [4, 6]], say: 'Now draw a straight line from 2 to the rim: a <b>cut</b>.' },
+      { who: 'O1', type: 'pass', path: [[10, 23], [4, 7]], say: 'Last one: draw from 1 and <b>end on 2</b>. That’s a pass.' }
+    ],
+    // football: relative to the player (dx, dy in yards; dy < 0 is downfield), so it fits 5v5 and 7v7
+    football: [
+      { role: 'Z', type: 'route', rel: [[0, 0], [0, -6], [-7, -10]], say: 'Trace the glowing line from Z: up 6 yards and break in. A <b>slant</b>.' },
+      { role: 'slot', type: 'route', rel: [[0, 0], [0, -4.5], [5, -4.5]], say: 'Now from the slot: up and out to the sideline. An <b>out</b>.' },
+      { role: 'QB', type: 'pass', to: 0, say: 'Now draw from the QB and <b>end on Z</b>. That’s the throw.' }
+    ]
+  };
+  function sketchCoach() {
+    const fb = !!state.sport.kinds.route, steps = COACH[fb ? 'football' : 'basketball'];
+    state.coach = { i: 0, steps, times: [] };
+    load(blank(), { quiet: true });
+    if (!state.sketch) toggleSketch(); else loadSketch();
+    // where a football step's ghost goes, from where the players really stand
+    const P0 = state.sim.posAt(0), at = q => P0[state.sim.idx[q.id]];
+    const find = role => role === 'slot' ? state.play.players.filter(q => q.role === 'H' || q.role === 'Y').sort((a, b) => b.x - a.x)[0] : state.play.players.find(q => q.role === role);
+    const pathOf = st => {
+      if (!fb) return st.path;
+      if (st.rel) { const q = find(st.role), o = q ? at(q) : [0, state.sport.los]; return st.rel.map(([dx, dy]) => [o[0] + dx, o[1] + dy]); }
+      const q = find(st.role), z = pathOf(steps[st.to]); return [q ? at(q) : [0, state.sport.los + 5], z[z.length - 1]];
+    };
+    const show = () => {
+      const c = state.coach; if (!c) return;
+      const st = c.steps[c.i];
+      if (!st) {
+        state.ghost = null;
+        R.coach.innerHTML = `<div class="ct-coachk">Your first play</div><p>That’s a play, drawn in seconds. Every stroke was read right here on the device in about <b>${Math.max(1, Math.round(c.times.reduce((a, b) => a + b, 0) / Math.max(1, c.times.length)))} ms</b>.</p><p>Now tap <b>Done</b>: the AI cleans it up, names the concept and suggests the next read.</p><div class="ct-coachrow"><button type="button" class="go" data-c="done">${icon('check')}<span>Done: let the AI take over</span></button></div>`;
+        return;
+      }
+      state.ghost = { pts: pathOf(st) };
+      R.coach.innerHTML = `<div class="ct-coachk">First sketch · ${c.i + 1} of ${c.steps.length}</div><p>${st.say}</p><div class="ct-coachrow"><span class="ct-coachdots">${c.steps.map((_, j) => `<i class="${j < c.i ? 'done' : j === c.i ? 'now' : ''}"></i>`).join('')}</span><span class="ct-coachms" data-r="cms"></span><button type="button" data-c="skip">Skip</button></div>`;
+    };
+    state.coach.show = show; R.coach.hidden = false; show();
+  }
+  function coachStroke(a, ms) {
+    const c = state.coach; if (!c) return;
+    const st = c.steps[c.i], K = state.sport.kinds[a.kind], type = a.kind === 'dribble' ? 'dribble' : K.type === 'pass' ? 'pass' : K.type === 'move' ? (a.kind === 'route' ? 'route' : 'move') : K.type;
+    const ok = st && (type === st.type || (st.type === 'move' && K.type === 'move' && a.kind !== 'dribble') || (st.type === 'route' && K.type === 'move'));
+    c.times.push(ms); chime(ok ? 'yes' : 'stroke');
+    const msEl = R.coach.querySelector('[data-r=cms]');
+    if (ok) { c.i++; c.show(); const m2 = R.coach.querySelector('[data-r=cms]'); if (m2) m2.textContent = `✓ read in ${Math.max(1, Math.round(ms))} ms`; }
+    else if (msEl) msEl.textContent = `That read as a ${a.kind}. Try the glowing line.`;
+  }
+  function endCoach(go) {
+    if (!state.coach) return;
+    state.coach = null; state.ghost = null; R.coach.hidden = true; seen.set('sketchIntro', VERSION);
+    if (go && state.sketch) finishSketch();
+  }
+  R.coach.addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (!b) return; endCoach(b.dataset.c === 'done'); });
+
+
+  // ---- phones and tablets: a tab bar (Plays, Sketch, the mic, Defense, More) and a control center ----
+  const isTouchLayout = () => getComputedStyle(root.querySelector('.ct-tabbar')).display !== 'none';
+  function playsSheet() {
+    const groups = {};
+    state.sport.plays.forEach(p => { (groups[p.concept] = groups[p.concept] || []).push(p); });
+    openPanel(R.playChip, state.sport.name + ' plays', `<div class="ct-playgrid">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}" class="${p.key === state.libKey ? 'on' : ''}"><small>${esc(p.concept)}</small><b>${esc(p.title)}</b></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => { const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
+    }, 'ct-xl');
+  }
+  function controlCenter() {
+    const fb = !!state.sport.kinds.route, V = state.view;
+    const tiles = [
+      ['guide', 'book', 'Guide', 'Positions in depth'],
+      ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
+      ['voice', state.narrate ? 'speaker' : 'mute', 'Voice', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
+      ['view', 'view', 'View', V.locked ? 'Locked' : 'Orbit, zoom, lock'],
+      ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
+      ['stats', 'chart', 'Stats', 'Play numbers, AI cost'],
+      fb ? ['fb', 'draw', 'Routes & coverage', root.classList.contains('ct-fbopen') ? 'Showing' : 'Route tree, Cover 2/3, QB eyes'] : null,
+      names.any() ? ['names', 'names', 'Names', state.showNames ? 'On' : 'Off'] : null,
+      ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : 'Free AI'],
+      ['help', 'info', 'Help', hasNews() ? 'What’s new' : 'Tour, shortcuts']
+    ].filter(Boolean);
+    openPanel(R.playChip, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}" class="${(k === 'voice' && state.narrate) || (k === 'fb' && root.classList.contains('ct-fbopen')) || (k === 'names' && state.showNames) ? 'on' : ''}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => {
+        const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
+        ({ guide: () => guide(), iq: () => iq.open(), voice: voiceMenu, view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+          fb: () => { root.classList.toggle('ct-fbopen'); }, names: () => R.namesBtn.click(), ai: () => openKey(), help: () => R.helpBtn.click() })[k]();
+      };
+    }, 'ct-xl ct-ccp');
+  }
+  root.querySelector('.ct-tabbar').addEventListener('click', e => {
+    const b = e.target.closest('[data-tb]'); if (!b) return;
+    ({ plays: playsSheet, sketch: () => act('sketch'), mic: () => R.mic.click(), defense: () => act('defense'), more: controlCenter })[b.dataset.tb]();
+  });
+  R.playChip.onclick = () => root.classList.toggle('ct-info');
 
   // ---- the keys ----
   function badge(el2, kind) { el2.textContent = kind ? '✓ ' + kind : ''; el2.className = 'ct-badge' + (kind ? ' ok' : ''); }
@@ -1078,22 +1418,23 @@ export function mount(root, options) {
   function toast(msg) { R.toast.textContent = msg; R.toast.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => R.toast.classList.remove('on'), 4200); }
 
   state.view = loadView();
+  renderDefense();
   renderSports(); renderLibrary(); renderLegend(); renderHints();
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });
   tipify(root);
   if (opts.tour !== false) {
     if (!seen.get().tour) setTimeout(() => { if (!dead) startTour(); }, 1600);
-    else if (hasNews()) { R.newsDot.hidden = false; setTimeout(() => { if (!dead) toast(`New in v${VERSION}: ${RELEASES[0].title}. Tap ? to see it.`); }, 1800); }
+    else if (hasNews()) { R.newsDot.hidden = false; R.tbDot.hidden = false; setTimeout(() => { if (!dead) toast(`New in v${VERSION}: ${RELEASES[0].title}. Tap ? to see it.`); }, 1800); }
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
-      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); if (ear) ear.stop(); if (state.busy) state.busy.abort();
+      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku);
-      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch');
+      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
     }
   };
 }

@@ -3,6 +3,8 @@
 //   POST /chalktalk/api/play   {sport, text, current, sketch}  → a play (same JSON as the BYOK path)
 //   POST /chalktalk/api/smart  {sport, play, ids}               → smart players' moves and thoughts
 //   POST /chalktalk/api/brain  {sport, play, id, mode}           → one position's brain (smart moves, or a film-room read), lite model
+//   POST /chalktalk/api/tutor  {sport, band, mode, q, play, given, right, summary} → the IQ tutor's line, lite model
+//   POST /chalktalk/api/analyst {sport, play, facts}          → booth commentary, one line per beat, lite model
 //   POST /chalktalk/api/hear   audio (webm/mp4/wav, ≤ 2 MB)     → {text}   (Whisper)
 //   POST /chalktalk/api/say    {text ≤ 300 chars}                → audio    (MeloTTS, cached)
 //   GET  /chalktalk/api/health                                   → {ok, models, today}
@@ -10,7 +12,7 @@
 // Requests carry X's and O's only (player names never leave the coach's device); nothing is stored
 // but hashed-IP counters.
 
-import { playRequest, smartRequest, brainRequest, solve } from '../ai.js';
+import { playRequest, smartRequest, brainRequest, tutorRequest, analystRequest, solve } from '../ai.js';
 import { getSport } from '../sports/index.js';
 
 export const MODELS = {
@@ -23,10 +25,10 @@ export const MODELS = {
 // Per hashed IP per UTC day, and for everyone together, so this stays inside the free Workers AI
 // allowance (10k neurons a day, shared with COLD GAS and Hearth).
 export const LIMITS = {
-  perIp: { play: 40, smart: 20, brain: 200, hear: 60, say: 150 },
+  perIp: { play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
   neuronsPerDay: 3500,
   // charged up front, then corrected to what the call really cost (tokens × price, below)
-  estNeurons: { play: 85, smart: 80, brain: 35, hear: 8, say: 4 },
+  estNeurons: { play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
   maxJson: 64 * 1024, maxAudio: 2 * 1024 * 1024, maxSay: 300
 };
 const SPORTS = ['basketball', 'flag5', 'flag7'];
@@ -43,6 +45,12 @@ const ORIGINS = [/^https:\/\/mutaafaziz\.com$/, /^https:\/\/(www\.)?digitalcraft
 export function cors(origin) {
   const ok = origin && ORIGINS.some(r => r.test(origin));
   return ok ? { 'access-control-allow-origin': origin, 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', vary: 'Origin' } : { vary: 'Origin' };
+}
+// Whisper hears coaching talk better when it's told the words to expect (play names, spots, O1–X7)
+function hearPrompt(id) {
+  const sp = SPORTS.indexOf(id) >= 0 ? getSport(id) : null; if (!sp) return 'A youth coach describing a play: O1 dribbles, O5 sets a ball screen, pick and roll, DHO.';
+  const ids = []; for (let i = 1; i <= sp.roster.perSide; i++) ids.push('O' + i);
+  return `A youth ${sp.name} coach describing a play: ${ids.join(', ')}, X1. ` + sp.plays.slice(0, 18).map(p => p.title).join(', ') + '. ' + Object.keys(sp.spots).slice(0, 14).join(', ') + '.';
 }
 const json = (body, status, h) => new Response(JSON.stringify(body), { status: status || 200, headers: Object.assign({ 'content-type': 'application/json', 'cache-control': 'no-store' }, h) });
 const day = () => new Date().toISOString().slice(0, 10);
@@ -122,29 +130,34 @@ export default {
       if (req.method !== 'POST') return json({ error: 'Not found.' }, 404, h);
       if (!env.AI) return json({ error: 'The free AI is offline.' }, 503, h);
 
-      if (path === '/play' || path === '/smart' || path === '/brain') {
+      if (path === '/play' || path === '/smart' || path === '/brain' || path === '/tutor' || path === '/analyst') {
         const body = await readJson(req), sport = sportOf(body.sport), task = path.slice(1);
         if (task === 'play' && !String(body.text || '').trim() && !body.sketch) return json({ error: 'Say or sketch a play first.' }, 400, h);
         if (task === 'smart' && (!body.play || !Array.isArray(body.ids) || !body.ids.length)) return json({ error: 'Pick a player to make smart.' }, 400, h);
         if (task === 'brain' && (!body.play || !/^[OX][1-9]$/.test(String(body.id || '')) || ['smart', 'film'].indexOf(body.mode) < 0)) return json({ error: 'Pick a player and a mode.' }, 400, h);
+        if (task === 'analyst' && (!body.play || !Array.isArray(body.facts) || !body.facts.length || body.facts.length > 12)) return json({ error: 'Nothing to analyse.' }, 400, h);
+        if (task === 'tutor' && (!body.q || ['answer', 'recap'].indexOf(body.mode) < 0)) return json({ error: 'Nothing to tutor.' }, 400, h);
         if (!(await allow(req, env, task))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
         const req2 = task === 'play' ? playRequest({ sport, text: String(body.text || '').slice(0, 2000), current: body.current || null, sketch: !!body.sketch })
           : task === 'brain' ? brainRequest({ sport, play: body.play, id: String(body.id), mode: body.mode })
+          : task === 'analyst' ? analystRequest({ sport, play: body.play, facts: body.facts.map(f => String(f).slice(0, 600)) })
+          : task === 'tutor' ? tutorRequest({ sport, band: ['young', 'mid', 'older'].indexOf(body.band) >= 0 ? body.band : 'young', mode: body.mode, q: body.q, play: body.play || null, given: body.given == null ? null : body.given, right: !!body.right, summary: body.summary || null })
           : smartRequest({ sport, play: body.play, ids: body.ids.map(String).filter(id => /^[OX][1-9]$/.test(id)).slice(0, 7) });
         // plays: Gemma first (fast, cheap), then Llama 3.3 70B gets one go. Brains: GLM 4.7 Flash,
         // then Gemma. Every call is charged what it really cost.
         const t0 = Date.now(), forced = env.BENCH && req.headers.get('x-ct-model');
-        const chain = forced ? [forced] : task === 'brain' ? [env.BRAIN_MODEL || MODELS.brain, MODELS.play] : [modelFor(env, req), MODELS.fallback];
+        const chain = forced ? [forced] : task === 'brain' || task === 'tutor' || task === 'analyst' ? [env.BRAIN_MODEL || MODELS.brain, MODELS.play] : [modelFor(env, req), MODELS.fallback];
         let raw = null, model = null, err = null, spent = 0;
+        const used = { in: 0, out: 0 };
         for (const m of chain) {
           const usage = { in: 0, out: 0 };
           try { raw = await solve(req2, asker(env, m, usage)); model = m; } catch (e) { err = e; }
-          spent += neuronsFor(m, usage.in, usage.out);
+          spent += neuronsFor(m, usage.in, usage.out); used.in += usage.in; used.out += usage.out;
           if (raw) break;
         }
         ctx && ctx.waitUntil ? ctx.waitUntil(settle(env, task, spent)) : await settle(env, task, spent);
         if (!raw) throw err;
-        return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'access-control-expose-headers': 'x-ct-model, x-ct-ms' }, h));
+        return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'x-ct-in': String(used.in), 'x-ct-out': String(used.out), 'access-control-expose-headers': 'x-ct-model, x-ct-ms, x-ct-neurons, x-ct-in, x-ct-out' }, h));
       }
 
       if (path === '/hear') {
@@ -157,7 +170,7 @@ export default {
         let b64 = '', bytes = new Uint8Array(buf);
         for (let i = 0; i < bytes.length; i += 0x8000) b64 += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
         ctx && ctx.waitUntil && ctx.waitUntil(settle(env, 'hear', Math.ceil(buf.byteLength / 32000 / 60 * 0.00051 / 0.011 * 1000) || 1));   // ≈ $0.00051 an audio minute
-        const out = await env.AI.run(MODELS.hear, { audio: btoa(b64), language: 'en', initial_prompt: 'Basketball and flag football plays: O1, X2, pick and roll, screen, slant, post, cover 2, half field.' });
+        const out = await env.AI.run(MODELS.hear, { audio: btoa(b64), language: 'en', initial_prompt: hearPrompt(url.searchParams.get('sport')), vad_filter: true });
         return json({ text: String((out && out.text) || '').trim() }, 200, h);
       }
 

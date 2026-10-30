@@ -98,7 +98,7 @@ export function normalize(raw, sport) {
 // add an X for every O that has none, a step toward the goal; they guard on their own
 export function withDefense(play, sport) {
   const have = {}; play.players.forEach(p => { have[p.id] = 1; });
-  const add = play.players.filter(p => p.side === 'O' && !have['X' + p.id.slice(1)]).map(p => {
+  const add = play.players.filter(p => p.side === 'O' && !have['X' + p.id.slice(1)] && !(sport.unguarded && sport.unguarded(p, play))).map(p => {
     const g = sport.guard({ o: [p.x, p.y], ball: [p.x, p.y], onBall: false, sport, los: play.los, start: true });
     return { id: 'X' + p.id.slice(1), side: 'D', role: '', x: g[0], y: g[1] };
   });
@@ -160,9 +160,26 @@ export function compile(play, sport, options) {
     else if (c && c.type === 'rush') {   // get to the ball, at a sprint from a start 7 yards off
       const tgt = toward(ball, [ball[0], ball[1] - 3], 1.2), o = origin[d], reach = Math.max(0, (time == null ? 9 : time) - 0.15) * 3.2;
       const dd = Math.hypot(tgt[0] - o[0], tgt[1] - o[1]); g = dd <= reach ? tgt : toward(o, tgt, reach);
-    } else g = sport.guard({ o: P[match[d]], ball, onBall: holder === match[d], sport, los: play.los });
+    } else g = sport.guard({ o: P[match[d]], ball, onBall: holder === match[d], sport, los: play.los, help: holder >= 0 && helperOf(P, holder, time) === d, carrier: holder >= 0 && holder !== qbIdx && settled(holder, time) ? P[holder] : null });
     return [clamp(g[0], F.x[0] + 0.5, F.x[1] - 0.5), clamp(g[1], F.y[0] + 0.5, F.y[1] - 0.5)];
   };
+  // the help: when the ball gets deep (sport.help.at from the goal), the man defender whose man is
+  // farthest from the ball (the weak-side "low man") rotates to stop it
+  const qbIdx = play.players.findIndex(p => p.role === 'QB');
+  const kOf = time => Math.max(0, Math.min(beats.length - 1, Math.floor(time == null ? 0 : time)));
+  const settled = (holder, time) => holders[kOf(time)] === holder;   // had it when the beat began (caught, not in the air)
+  function helperOf(P, holder, time) {
+    const H = sport.help; if (!H) return -1;
+    const k = kOf(time), drive = paths[k] && paths[k][holder] && K[paths[k][holder].kind] && K[paths[k][holder].kind].dribble;
+    if (!drive || holders[k] !== holder) return -1;   // only a real drive: the ball handler dribbling at the rim
+    const ball = P[holder]; if (Math.hypot(ball[0] - goal[0], ball[1] - goal[1]) > H.at) return -1;
+    let best = -1, bd = -1;
+    play.players.forEach((p, d) => {
+      if (p.side !== 'D' || match[d] < 0 || match[d] === holder || (job[d] && job[d].type !== 'man')) return;
+      const m = P[match[d]], v = Math.hypot(m[0] - ball[0], m[1] - ball[1]); if (v > bd) { bd = v; best = d; }
+    });
+    return best;
+  }
   // a zone defender sits at home and plays whoever comes into the zone: over the top if it's deep, underneath if not
   function zoneSpot(P, d, z, holder) {
     const h = F.x[1], los = play.los != null ? play.los : 0;
@@ -180,9 +197,19 @@ export function compile(play, sport, options) {
     return [clamp(spot[0], x0, x1), clamp(spot[1], y0, Math.max(y0, y1))];
   }
 
+  // hit them in stride: a receiver who cuts in one beat and catches in the next doesn't stop and wait.
+  // The cut spills into the catch beat: they accelerate through the first part of it, and run the rest
+  // at full speed right into the catch, with the ball thrown to where they will be.
+  const LEAD = 0.4, carry = beats.map(() => ({}));
+  const catchNext = (k, pi) => {
+    const nb = beats[k + 1]; if (!nb) return false;
+    const pass = nb.actions.find(a => K[a.kind].type === 'pass' && a.kind !== 'snap' && idx[a.target] === pi);
+    return !!pass && !nb.actions.some(a => idx[a.who] === pi && K[a.kind].type === 'move');
+  };
   beats.forEach((b, k) => {
     const S = starts[k], E = S.map(p => p.slice()), mv = new Array(np).fill(null);
     let ev = null, holder = holders[k];
+    Object.keys(carry[k]).forEach(pi => { mv[pi] = carry[k][pi]; E[pi] = carry[k][pi].end; });
         b.actions.forEach(a => {
       const pi = idx[a.who], spec = K[a.kind];
       if (spec.type === 'move') {
@@ -199,6 +226,12 @@ export function compile(play, sport, options) {
         const line = route(S[pi], way, to, !!spec.curve && way.length === 1, 28);
         mv[pi] = { m: measured(line.map(p => [p[0], p[1], 0])), kind: a.kind };
         E[pi] = to.slice();
+        if (!spec.style && !spec.seal && !spec.chase && !spec.dribble && catchNext(k, pi) && mv[pi].m.len > 3 * sport.mark) {
+          const cut = splitAt(line, LEAD);
+          mv[pi] = { m: measured(cut[0].map(p => [p[0], p[1], 0])), kind: a.kind, ease: 'in' };
+          carry[k + 1][pi] = { m: measured(cut[1].map(p => [p[0], p[1], 0])), kind: a.kind, ease: 'through', end: to.slice() };
+          E[pi] = cut[0][cut[0].length - 1].slice();
+        }
         routes.push(makeRoute(pi, k, a.kind, line));
       } else if (spec.type === 'pass' || spec.type === 'handoff') {
         ev = { kind: a.kind, type: spec.type, from: pi, to: idx[a.target], arc: spec.arc == null ? 1 : spec.arc }; holder = idx[a.target];
@@ -275,6 +308,16 @@ export function compile(play, sport, options) {
       notes.push({ beat: k, who: play.players[i].id, why });
     });
   }
+  function splitAt(line, frac) {   // a polyline cut at a fraction of its length
+    let L = 0; for (let i = 1; i < line.length; i++) L += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+    let want = L * frac;
+    for (let i = 1; i < line.length; i++) {
+      const d = Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+      if (d >= want) { const u = d ? want / d : 0, p = [line[i - 1][0] + (line[i][0] - line[i - 1][0]) * u, line[i - 1][1] + (line[i][1] - line[i - 1][1]) * u]; return [line.slice(0, i).concat([p]), [p].concat(line.slice(i))]; }
+      want -= d;
+    }
+    return [line, [line[line.length - 1]]];
+  }
   function bend(a, b) {   // a curl bends toward the goal
     const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     return toward(m, goal, Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.25);
@@ -282,7 +325,11 @@ export function compile(play, sport, options) {
   function posIn(k, f, pi) {
     const m = paths[k] && paths[k][pi];
     if (!m) return (starts[k] || starts[starts.length - 1])[pi].slice();
-    const o = [0, 0, 0]; walk(m.m, ease(f / SPANS.move[1]), o); return [o[0], o[1]];
+    const o = [0, 0, 0];
+    const u = m.ease === 'in' ? 1 - Math.cos(Math.min(1, f / SPANS.move[1]) * Math.PI / 2)   // speeding up into the next beat
+      : m.ease === 'through' ? Math.min(1, f / SPANS.pass[1])                                   // full speed, into the catch
+      : ease(f / SPANS.move[1]);
+    walk(m.m, u, o); return [o[0], o[1]];
   }
   function makeRoute(pi, k, kind, line) {
     const spec = K[kind], u = sport.mark;
@@ -314,7 +361,7 @@ export function compile(play, sport, options) {
   const span = beats.length + HOLD, B = sport.ball;
   const memo = { pt: NaN, P: null, bt: NaN, Bp: null, rt: NaN, R: null };
   const sim = {
-    sport, play, players: play.players, routes, beats: beats.length, idx, match, job, notes, beaten,
+    sport, play, players: play.players, routes, beats: beats.length, idx, match, job, notes, beaten, screened,
     // how open a player is right now: distance to the nearest defender
     space(time, i) { const P = sim.posAt(time); let best = Infinity; play.players.forEach((p, j) => { if (p.side === 'D') best = Math.min(best, Math.hypot(P[j][0] - P[i][0], P[j][1] - P[i][1])); }); return best; },
     time: () => t,
@@ -398,7 +445,7 @@ export function compile(play, sport, options) {
       const sp = SPANS[ev.type];
       if (f >= sp[0] && f < sp[1]) {
         const u = (f - sp[0]) / (sp[1] - sp[0]);
-        const a = ev.p0, b = ev.type === 'shot' ? goal : P[ev.to];
+        const a = ev.p0, b = ev.type === 'shot' ? goal : ev.type === 'handoff' ? P[ev.to] : ev.p1;   // thrown to where the receiver will be
         const h0 = B.held, h1 = ev.type === 'shot' ? goal[2] + B.r : B.held;
         const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const peak = ev.type === 'shot' ? goal[2] * 0.7 : ev.type === 'handoff' ? 0.15 * sport.mark : Math.min(B.maxArc, dist * 0.18) * ev.arc;

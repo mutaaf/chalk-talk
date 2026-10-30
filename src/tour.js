@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.5.0';
+export const VERSION = '0.6.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -12,12 +12,27 @@ export const TOUR = [
   { at: 'ink', title: 'Every player has a brain', call: 'Tap any player to label them, add a name that stays on this device, or let an AI brain play the position.' },
   { at: 'defBtn', title: 'Bring the defense', call: 'Turn on defense and every X guards its man. Watch who gets open: the green ring is your read.' },
   { at: 'filmBtn', title: 'Film room', call: 'Each position\'s brain watches the play and tells you what it sees, what could go wrong, and the cue to give a kid.' },
+  { at: 'guideBtn', title: 'The guide', call: 'Every position, in depth: the job, the read, how to coach it at every age, its move on a mini board. And sideline cards you can read from the bench.' },
+  { at: 'iqBtn', title: 'The IQ game', call: 'Hand it to a player. The board freezes at the moment of truth, they make the read, and a tutor talks them through it at their age. Level up, and find out whose game yours looks like.' },
+  { at: 'narrate', title: 'The analyst', call: 'Turn on the voice and an analyst breaks down the read: the coverage, the defender who gets moved, why the ball goes where it goes.' },
   { at: 'viewBtn', title: 'Your angle', call: 'Drag to orbit, pinch to zoom, then lock the view right where you like it.' },
   { at: 'keyBtn', title: 'The AI', call: 'It works out of the box on free open-source models. Add your own Claude or OpenAI key for the best answers and the broadcaster voice.' }
 ];
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.6.0', date: '2026-10-30', title: 'The film room comes to the sideline', items: [
+    { title: 'Positions, in depth', call: 'Tap any position for its job, its reads, do and don\'t, how to coach it at every age, a drill, and its signature move drawn on its own mini court. Plus game-day cue cards.', show: 'guideBtn' },
+    { title: 'CourtIQ and FieldIQ', call: 'A game for your players: real plays freeze at the decision, they tap the open man or the spot, and an AI tutor coaches them at their age. Levels from Rookie to MVP, and a likeness to a modern pro, or a hybrid of two.', show: 'iqBtn' },
+    { title: 'The analyst', call: 'The voice now explains the read like an analyst in the booth: the coverage, the defender who gets moved, where the quarterback\'s eyes go and why.', show: 'narrate' },
+    { title: 'Hit them in stride', call: 'Passes lead the receiver now. The ball goes where they\'re going, not where they stop.', show: null },
+    { title: 'Smarter defense', call: 'The low man rotates to stop a drive, the ball side denies, and in flag everyone rallies to the ball carrier. Defenders line up on their side of the ball.', show: 'defBtn' },
+    { title: 'It learns your words', call: 'Tap what it heard to fix a word and it remembers. Say a play your way, keep what it draws, and next time it\'s instant, right on the device.', show: 'mic' },
+    { title: 'Presenter mode', call: 'Put the board on a TV with AirPlay or Cast: full screen, a broadcast lower third, a laser pointer and the defense switch, with controls that fade away.', show: 'presentBtn' },
+    { title: 'Stats', call: 'The play\'s numbers (distance, touches, spacing, how open every catch is), plus every AI call\'s tokens, time and cost.', show: 'statsBtn' },
+    { title: 'Built for phones and tablets', call: 'A tab bar with the mic in the middle, and everything else one tap away in the control center.', show: null },
+    { title: 'Your first sketch', call: 'Trace three glowing strokes and watch each one read in milliseconds, then let the AI take over.', show: 'sketchBtn' }
+  ] },
   { version: '0.5.0', date: '2026-10-30', title: 'Brains on every position', items: [
     { title: 'Position brains', call: 'Each player can think for themselves now: a dedicated AI brain per position, all reading the play at once.', show: 'ink' },
     { title: 'Film room', call: 'Every position\'s brain breaks down the play: what they see, the risk, and the coaching cue.', show: 'filmBtn' },
@@ -35,7 +50,7 @@ export const RELEASES = [
 
 export const SHORTCUTS = [
   ['Space (hold)', 'Talk'], ['← →', 'Step back / forward'], ['P', 'Play or pause'], ['S', 'Sketch'], ['D', 'Defense'],
-  ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
+  ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['G', 'Guide'], ['I', 'IQ game'], ['F', 'Presenter mode'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
 ];
 
 const SEEN = 'chalktalk.seen';

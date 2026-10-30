@@ -32,14 +32,16 @@ export function recorder(onText, onState, transcribe) {
 }
 const standaloneIOS = () => typeof navigator !== 'undefined' && /iPhone|iPad|iPod/.test(navigator.userAgent || '') && (navigator.standalone || (typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches));
 
-export function listener(onText, onState, transcribe) {
+export function listener(onText, onState, transcribe, vocab) {
   const R = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
-  if (!R || standaloneIOS()) return transcribe ? recorder(onText, onState, transcribe) : null;
+  if (!R || standaloneIOS()) return transcribe ? recorder(onText, onState, transcribe) : null;   // transcribe is bound to the sport by the caller
   let rec = null, finalText = '', want = false;
   function start() {
     if (rec) return;
     want = true; finalText = '';
-    rec = new R(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true;
+    rec = new R(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 3;
+    // contextual biasing where the browser has it (Chrome): the sport's words, boosted
+    try { const PH = window.SpeechRecognitionPhrase; const v = vocab && vocab(); if (PH && v && 'phrases' in rec) rec.phrases = v.slice(0, 80).map(w => new PH(w, 4)); } catch (e) {}
     rec.onresult = e => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -62,9 +64,9 @@ export const voiceKey = {
   get() { try { return localStorage.getItem(VKEY) || ''; } catch (e) { return ''; } },
   set(v) { try { v ? localStorage.setItem(VKEY, v.trim()) : localStorage.removeItem(VKEY); } catch (e) {} }
 };
-const CALLER = 'Voice: a professional play-by-play sports broadcaster. Clear, confident and warm, with measured energy: ' +
-  'crisp delivery, natural pauses between actions, a slight lift on the key moment of the play. Never shouting, never ' +
-  'cartoonish, never robotic. Easy for young players to follow.';
+const CALLER = 'Voice: a former player turned color analyst in the broadcast booth, explaining the read to the audience. ' +
+  'Conversational, insightful and warm; relaxed confidence, like talking a friend through the play. Slow down and lean in on ' +
+  'the key ("watch the safety here"), a little excitement when the read pays off. Never shouting, never robotic. Easy for kids to follow.';
 
 const spoken = t => t.replace(/\bO(\d)\b/g, 'O $1').replace(/\bX(\d)\b/g, 'X $1').replace(/\bDHO\b/g, 'D H O');
 const cache = new Map();   // text → Promise<blob url>
@@ -173,9 +175,9 @@ export function understand(text, aliases) {
   if (words <= 5 && has(/ (hide|remove|turn off|take out|no) (the )?(defense|defence|d) /)) return { cmd: 'defense-off' };
   if (words <= 3 && has(/ (sketch|draw mode|let me draw|whiteboard) /)) return { cmd: 'sketch' };
   if (words <= 4) {
+    if (has(/ (again|replay|restart|from the top|one more time|run it back) /)) return { cmd: 'again' };
     if (has(/ (next|forward|next step|keep going) /)) return { cmd: 'next' };
     if (has(/ (back|previous|go back|last step) /)) return { cmd: 'back' };
-    if (has(/ (again|replay|restart|from the top|one more time|run it back) /)) return { cmd: 'again' };
     if (has(/ (pause|stop|freeze|hold it|wait) /)) return { cmd: 'pause' };
     if (has(/ (play|go|resume|run it) /)) return { cmd: 'play' };
     if (has(/ (slower|slow down|slow it down|slow motion) /)) return { cmd: 'slower' };
