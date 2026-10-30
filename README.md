@@ -39,6 +39,9 @@ add a key.
 
 ## Use it in an app
 
+Offer your own AI subscription: `mount(el, { upgrade: { label: 'Get unlimited AI', href: '/upgrade', note: 'No key needed' } })` (or `onClick` instead of `href`). It appears in the film room when the AI isn't connected, and in AI settings.
+
+
 ```js
 import { mount } from 'chalk-talk';            // npm i github:mutaaf/chalk-talk
 const board = mount(element, { sport: 'flag7', play: 'smash' });   // sport: basketball | flag5 | flag7 | "flag football"…

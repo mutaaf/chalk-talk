@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.7.0';
+export const VERSION = '0.7.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.7.1', date: '2026-10-30', title: 'Wake the brains', items: [
+    { title: 'Connect AI from the film room', call: 'No AI connected? The film room still breaks down every position from the engine, and one tap connects your key, or the subscription where your app offers one.', show: 'filmTop' }
+  ] },
   { version: '0.7.0', date: '2026-10-30', title: 'The film room, front and center', items: [
     { title: 'Film room', call: 'Up top now. Every player gets a card the moment it opens, and each one opens into a full breakdown: the move, what the brain sees, the risk, the cue, beat by beat, with Watch it.', show: 'filmTop' },
     { title: 'Light mode', call: 'For a bright sideline: ink on paper. Or let it follow your device.', show: 'themeBtn' },

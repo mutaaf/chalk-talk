@@ -22,7 +22,13 @@ export function openFilm(ctx, startId) {
   const ids = play.players.filter((p, i) => p.side === 'O' || sim.match[i] >= 0 || sim.job[i]).map(p => p.id).slice(0, 10);
   const key = JSON.stringify(ctx.raw.beats) + ':' + ids.join(',');
   const notes = cache.get(key) || {}; cache.set(key, notes);
-  const pending = new Set();
+  const pending = new Set(); let down = null;   // why the brains couldn't answer, if they couldn't
+  // no AI: say so plainly and offer the ways to connect it (your own key, or the host's subscription)
+  const connect = () => down && !Object.keys(notes).length ? `<div class="ct-fconnect">${icon('brain')}<div><b>${esc(down)}</b>
+      <p>You're seeing the engine's instant read. Connect AI and every position gets its own brain: what it sees, the risk, and the cue for a kid in that spot.</p>
+      <div class="ct-fcbtns"><button type="button" class="go" data-b="key">${icon('key')}<span>Connect your Claude or OpenAI key</span></button>
+      ${ctx.upgrade ? `<button type="button" class="pro" data-b="pro">${icon('sparkle')}<span>${esc(ctx.upgrade.label || 'Get unlimited AI')}</span></button>` : ''}</div>
+      ${ctx.upgrade && ctx.upgrade.note ? `<small>${esc(ctx.upgrade.note)}</small>` : '<small>Your key stays in this browser and goes only to Claude or OpenAI.</small>'}</div></div>` : '';
   const local = id => {
     const p = play.players.find(q => q.id === id), pos = positionOf(S, play, p), st = storyOf(play, id), i = sim.idx[id];
     const catches = []; play.beats.forEach((b, k) => b.actions.forEach(a => { if (a.target === id && S.kinds[a.kind].type === 'pass' && a.kind !== 'snap') catches.push({ k, space: sim.space(k + 0.94, i) }); }));
@@ -40,7 +46,7 @@ export function openFilm(ctx, startId) {
       ${L.catches.length ? `<span class="ct-fstat">${L.catches.map(c => `Catch, beat ${c.k + 1}: ${c.space >= 99 ? 'unguarded' : c.space.toFixed(1) + ' ' + S.unit + ' of space'}`).join(' · ')}</span>` : L.beaten ? '<span class="ct-fstat bad">Beaten on the play</span>' : ''}
     </button>`;
   };
-  const grid = () => `<p class="ct-glede"><b>${esc(play.title)}</b>. Every position's brain watches the play. Tap a player for the full breakdown.</p>
+  const grid = () => connect() + `<p class="ct-glede"><b>${esc(play.title)}</b>. Every position's brain watches the play. Tap a player for the full breakdown.</p>
     <div class="ct-fgrid">${ids.map(card).join('')}</div>`;
   const detail = id => {
     const p = play.players.find(q => q.id === id), L = local(id), ai = notes[id], brain = brainFor(S, play, id), pos = L.pos, n = ids.indexOf(id);
@@ -54,7 +60,7 @@ export function openFilm(ctx, startId) {
           <div class="ct-fbtns"><button type="button" class="ct-gwatch" data-b="watch" data-id="${esc(id)}">${icon('view')}<span>Watch ${esc(ctx.posName(id))}</span></button>
           <button type="button" class="ct-gsay" data-b="say" data-id="${esc(id)}" aria-label="Hear it">${icon('speaker')}</button></div></div></div>
       <div class="ct-fsee">
-        <section class="ct-fq"><h6>What I see</h6><p>${ai ? '“' + esc(ai.read) + '”' : pending.has(id) ? '<i class="ct-spin"></i> The brain is watching…' : ctx.mark(L.read)}</p></section>
+        ${connect()}<section class="ct-fq"><h6>What I see</h6><p>${ai ? '“' + esc(ai.read) + '”' : pending.has(id) ? '<i class="ct-spin"></i> The brain is watching…' : ctx.mark(L.read)}</p></section>
         <section class="ct-fq risk"><h6>What could go wrong</h6><p>${esc(ai ? ai.risk : L.risk)}</p></section>
         <section class="ct-fq cue"><h6>The cue</h6><p>${esc(ai ? ai.tip : L.tip)}</p></section>
       </div>
@@ -76,6 +82,8 @@ export function openFilm(ctx, startId) {
       if (!b && t.classList.contains('ct-fcard')) { view = t.dataset.id; redraw(); pb.scrollTop = 0; return; }
       if (b === 'back') { view = null; redraw(); return; }
       if (b === 'go') { view = t.dataset.id; redraw(); pb.scrollTop = 0; return; }
+      if (b === 'key') ctx.connectAI();
+      if (b === 'pro') ctx.upgradeAI();
       if (b === 'watch') ctx.watch(t.dataset.id);
       if (b === 'beat') ctx.watch(t.dataset.id, +t.dataset.k);
       if (b === 'say') { const ai = notes[t.dataset.id], L = local(t.dataset.id); ctx.say(ai ? `${ai.read} Watch out: ${ai.risk} The cue: ${ai.tip}` : `${L.read} The cue: ${L.tip}`); }
@@ -84,7 +92,8 @@ export function openFilm(ctx, startId) {
   // the brains, all at once; each card fills in as its brain answers
   ids.filter(id => !notes[id]).forEach(id => {
     pending.add(id);
-    filmFor(ctx.strip, id, { sport: S }).then(n => { if (n) notes[id] = n; }).catch(e => { ctx.onError && ctx.onError(e); })
+    filmFor(ctx.strip, id, { sport: S }).then(n => { if (n) notes[id] = n; })
+      .catch(e => { if (e.name === 'AbortError') return; down = e.code === 'nokey' ? 'Connect AI to wake the brains.' : e.status === 429 ? 'The free AI is resting for today.' : 'The brains are offline right now.'; })
       .finally(() => { pending.delete(id); redraw(true); });
   });
   redraw(true);

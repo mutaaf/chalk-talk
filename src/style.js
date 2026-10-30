@@ -662,6 +662,19 @@ export const CSS = `
 .ct-fbooth { display: block; margin: 0 0 6px 30px; color: var(--mute); font-size: 12.5px; font-style: italic; }
 @container (max-width: 760px) { .ct-fsee { grid-template-columns: 1fr; } }
 
+/* the subscription row in AI settings (when the host offers one) */
+.ct-keypro { display: flex; align-items: center; gap: 12px; width: 100%; margin: 4px 0 14px; padding: 12px 14px; border-radius: 14px; border: 0; cursor: pointer; text-align: left; background: linear-gradient(135deg, #ffc75a, #ff8e3a); color: #04070c; font: inherit; }
+.ct-keypro .ct-i { width: 22px; height: 22px; } .ct-keypro span { display: grid; } .ct-keypro small { font-size: 12.5px; opacity: .8; }
+/* film room without AI: connect it */
+.ct-fconnect { display: flex; gap: 14px; margin: 0 0 14px; padding: 16px; border-radius: 16px; background: radial-gradient(120% 140% at 0% 0%, rgba(160, 120, 255, .22), transparent 60%), rgba(140, 188, 255, .04); border: 1px solid rgba(160, 120, 255, .45); animation: ct-rise .3s both; }
+.ct-fconnect > .ct-i { width: 30px; height: 30px; color: #b89cff; flex: none; }
+.ct-fconnect b { font-size: 16px; } .ct-fconnect p { font-size: 14px; color: var(--mute); margin: 4px 0 10px !important; } .ct-fconnect small { color: var(--mute); font-size: 12px; }
+.ct-fcbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.ct .ct-fcbtns button { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 21px; font-weight: 700; font-size: 14px; }
+.ct .ct-fcbtns .go { background: linear-gradient(135deg, #7b5cff, #b04cff); color: #fff; }
+.ct .ct-fcbtns .pro { background: linear-gradient(135deg, #ffc75a, #ff8e3a); color: #04070c; }
+.ct-fcbtns .ct-i { width: 17px; height: 17px; }
+
 /* dismissing: panels fade and slide out; the big ones dim the board behind them */
 .ct-scrim { position: absolute; inset: 0; z-index: 15; background: rgba(2, 4, 8, .42); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .2s; }
 .ct-scrim.on { opacity: 1; pointer-events: auto; }

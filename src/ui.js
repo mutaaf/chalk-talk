@@ -134,6 +134,7 @@ const TEMPLATE = `
     <label>Broadcaster voice key <span class="ct-badge" data-r="voiceBadge"></span></label>
     <input data-r="voiceInput" type="password" placeholder="optional: OpenAI sk-… or ElevenLabs sk_…" autocomplete="off" spellcheck="false">
     <p class="ct-fine" data-r="voiceFine"></p>
+    <button type="button" class="ct-keypro" data-r="keyPro" hidden></button>
     <menu><button type="button" data-r="keyClear">Forget keys</button><button type="button" data-r="keyCancel">Cancel</button><button value="save">Save</button></menu>
   </form>
 </dialog>`;
@@ -149,7 +150,7 @@ const fitR = (w, h) => (w < 700 ? Math.min(w * 0.5, h * 0.36) : w < 1100 ? Math.
 
 let styled = false;
 export function mount(root, options) {
-  const opts = Object.assign({ sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
+  const opts = Object.assign({ upgrade: null, sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
   if (opts.api) setApi(opts.api);
   if (!styled && !document.querySelector('style[data-chalk-talk]')) { const s = document.createElement('style'); s.dataset.chalkTalk = ''; s.textContent = CSS; document.head.appendChild(s); styled = true; }
   root.classList.add('ct'); if (opts.fullscreen) root.classList.add('ct-full');
@@ -685,11 +686,15 @@ export function mount(root, options) {
 
   // ---- the film room: every position's brain watches the play ----
   // the film room: a card per player, a full breakdown per position (filmroom.js)
-  let filmErr = 0;
+  // the host's AI subscription, if it offers one: mount({ upgrade: { label, href, note } or { label, onClick } })
+  function upgradeAI() {
+    const u = opts.upgrade; if (!u) return;
+    if (u.onClick) u.onClick(); else if (u.href) location.assign(u.href);
+  }
   function openFilmRoom(id) {
     openFilm({ sport: state.sport, play: state.play, sim: state.sim, raw: state.raw, strip: strip(state.play), openPanel: panelAt(R.filmTop), posName, mark, watch, band,
       booth: state.booth ? (state.booth.ai || state.booth.lines) : null, say: t => say(spoken(t), key.get()),
-      onError: e => { if (Date.now() - filmErr > 5000) { filmErr = Date.now(); toast(e.message + ' The engine’s read is shown.'); } } }, id);
+      upgrade: opts.upgrade, connectAI: () => { closePanel(); openKey('Connect AI and every position gets its own brain in the film room.'); }, upgradeAI }, id);
   }
   R.filmBtn.onclick = () => openFilmRoom();
   R.filmTop.onclick = () => openFilmRoom();
@@ -1430,6 +1435,7 @@ export function mount(root, options) {
   function openKey(why) {
     R.keyWhy.textContent = why || 'Plays from your own words, the AI taking over your sketches and the broadcaster voice all use your own AI account.';
     R.keyInput.value = key.get(); R.voiceInput.value = voiceKey.get();
+    R.keyPro.hidden = !opts.upgrade; if (opts.upgrade) R.keyPro.innerHTML = `${icon('sparkle')}<span><b>${esc(opts.upgrade.label || 'Get unlimited AI')}</b><small>${esc(opts.upgrade.note || 'No key needed.')}</small></span>`;
     R.keyInput.oninput(); R.voiceInput.oninput();
     R.keyDlg.showModal();
   }
@@ -1442,6 +1448,7 @@ export function mount(root, options) {
       : 'Without one, steps are read by this device\'s most natural voice' + (localVoiceName() ? ' (' + localVoiceName() + ')' : '') + '. With an OpenAI or ElevenLabs key, a play-by-play broadcaster calls them.';
   };
   R.keyBtn.onclick = () => openKey();
+  R.keyPro.onclick = () => { R.keyDlg.close(); upgradeAI(); };
   R.keyCancel.onclick = () => R.keyDlg.close();
   R.keyX.onclick = () => R.keyDlg.close();
   R.keyDlg.addEventListener('click', e => { if (e.target === R.keyDlg) R.keyDlg.close(); });   // a tap on the backdrop closes it
