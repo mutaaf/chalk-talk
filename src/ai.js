@@ -80,6 +80,8 @@ function fail(status, msg) {
   e.status = status; return e;
 }
 
+import { aiCache, hash } from './history.js';
+
 // ---- the meter: every AI call's model, tokens, time and estimated cost, kept on this device only ----
 // USD per million tokens: [input, output, cache read, cache write]. Estimates; the provider's bill is the truth.
 export const PRICES = {
@@ -109,19 +111,31 @@ let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0
 // shared voice lexicon always stay on Chalk Talk's own API
 const OWN = API;
 export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
+// a CourtIQ link token (mutaafaziz.com coaches who connected their CourtIQ account): sent only to that host
+let AUTH = null;
+export const setAuth = t => { AUTH = t || null; };
+export const hostApi = () => (API === OWN ? null : API);
+// what the host said about the plan on its last answer: { plan, left } (USD left this month)
+export const plan = { last: null, onFallback: null, onUnlinked: null };
 export const apiBase = () => API;
 export const ownApi = () => OWN;
-async function free(task, body, signal) {
+const freeOn = (base, task, body, signal) => free(task, body, signal, base);
+async function free(task, body, signal, over) {
   const nokey = () => Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
   let r; const t0 = performance.now();
-  try { r = await fetch(API + '/' + task, { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
+  const base = over || API;
+  try { r = await fetch(base + '/' + task, { method: 'POST', signal, headers: Object.assign({ 'content-type': 'application/json' }, AUTH && base !== OWN ? { authorization: 'Bearer ' + AUTH } : {}), body: JSON.stringify(body) }); }
   catch (e) { if (e.name === 'AbortError') throw e; throw nokey(); }   // offline, or no free AI here: ask for a key instead
   if (r.status === 404 || r.status === 405) throw nokey();
   const j = await r.json().catch(() => ({}));
   const hd = n => +(r.headers.get(n) || 0);
-  meter.add({ task, provider: API === OWN ? 'free' : 'host', model: r.headers.get('x-ct-model') || 'open model', ok: r.ok, ms: hd('x-ct-ms') || Math.round(performance.now() - t0), in: hd('x-ct-in'), out: hd('x-ct-out'), neurons: hd('x-ct-neurons'), cost: 0 });
+  meter.add({ task, provider: base === OWN ? 'free' : 'host', model: r.headers.get('x-ct-model') || 'open model', ok: r.ok, ms: hd('x-ct-ms') || Math.round(performance.now() - t0), in: hd('x-ct-in'), out: hd('x-ct-out'), neurons: hd('x-ct-neurons'), cost: 0 });
+  if (base !== OWN && r.headers.get('x-ct-plan')) plan.last = { plan: r.headers.get('x-ct-plan'), left: +r.headers.get('x-ct-left') };
+  // this month's AI is used up: the same request goes to the free AI instead (nobody is stuck mid-practice)
+  if (r.status === 402 && j.fallback && base !== OWN) { plan.last = { plan: j.plan, left: 0 }; plan.onFallback && plan.onFallback(j.error); return freeOn(OWN, task, body, signal); }
+  if (r.status === 401 && AUTH && base !== OWN) { plan.onUnlinked && plan.onUnlinked(); return freeOn(OWN, task, body, signal); }
   if (r.status === 402) throw Object.assign(new Error(j.error || 'Your plan doesn’t include Chalk Talk AI yet.'), { status: 402, code: 'upgrade' });
-  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? (API === OWN ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'You’ve used a lot of AI today. Try again in a bit.') : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? (base === OWN ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'You’ve used a lot of AI today. Try again in a bit.') : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
   return j;
 }
 
@@ -271,6 +285,11 @@ export async function drawPlay(text, current, opts) {
 // smart players: each position gets its own brain (a persona on a lite model), all thinking in
 // parallel; their moves are merged one by one and any that break the play are dropped
 async function brain(sport, play, id, mode, opts) {
+  const ck = 'brain|' + sport.id + '|' + id + '|' + mode + '|' + hash(JSON.stringify(play)), hit = aiCache.get(ck);
+  if (hit) { meter.add({ task: mode === 'film' ? 'film' : 'brain', provider: 'cache', model: 'cached', ok: true, ms: 0, cost: 0 }); return hit; }
+  return brainLive(sport, play, id, mode, opts).then(r => { if (r) aiCache.set(ck, r); return r; });
+}
+async function brainLive(sport, play, id, mode, opts) {
   const k = opts.key || key.get();
   if (keyKind(k)) { const req = brainRequest({ sport, play, id, mode }); return solve(req, (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true, mode === 'film' ? 'film' : 'brain')); }
   return free('brain', { sport: sport.id, play, id, mode }, opts.signal);
@@ -326,6 +345,11 @@ export function analystRequest({ sport, play, facts }) {
 }
 export async function analyst(args, opts) {
   opts = opts || {};
+  const ck = 'analyst|' + args.sport.id + '|' + hash(JSON.stringify([args.play, args.facts])), hit = aiCache.get(ck);
+  if (hit) return hit;
+  return analystLive(args, opts).then(r => { if (r && r.lines) aiCache.set(ck, r); return r; });
+}
+async function analystLive(args, opts) {
   const k = opts.key || key.get();
   if (keyKind(k)) return solve(analystRequest(args), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true, 'analyst'));
   return free('analyst', { sport: args.sport.id, play: args.play, facts: args.facts }, opts.signal);

@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.10.1';
+export const VERSION = '0.11.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,13 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.11.0', date: '2026-10-30', title: 'Your plays, kept', items: [
+    { title: 'My plays', call: 'Every play the AI draws for you is saved with the words you used. Search it, star it, rename it, run it again. Ask for one again and it\'s instant, with no AI used.', show: 'lib' },
+    { title: 'Chalk Talk AI', call: 'Get Chalk Talk AI through CourtIQ at a $4.99 launch price, or use the AI that comes with any CourtIQ plan. Connect it here from AI settings.', show: 'keyBtn' },
+    { title: 'A calmer top bar', call: 'The everyday controls up top, everything else one tap away in More.', show: 'moreBtn' },
+    { title: 'Panels that tuck away', call: 'Collapse the plays list and the play card from their edges, or press [ and ].', show: null },
+    { title: 'Steadier court', call: 'The lines no longer bend under your pointer, the hoop is bigger, and a double-tap on the field resets the view.', show: null }
+  ] },
   { version: '0.10.1', date: '2026-10-30', title: 'Free stays free', items: [
     { title: 'A small ad in the playbook', call: 'On mutaafaziz.com, one labelled ad can sit at the foot of the Plays list. It keeps the board free. It never covers the court, and it never interrupts you while you talk or draw.', show: null }
   ] },
@@ -79,7 +86,7 @@ export const RELEASES = [
 
 export const SHORTCUTS = [
   ['Space (hold)', 'Talk'], ['← →', 'Step back / forward'], ['P', 'Play or pause'], ['S', 'Sketch'], ['D', 'Defense'],
-  ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['G', 'Guide'], ['R', 'Film room'], ['I', 'IQ game'], ['F', 'Presenter mode'], ['W', 'Whiteboard only'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
+  ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['G', 'Guide'], ['R', 'Film room'], ['I', 'IQ game'], ['F', 'Presenter mode'], ['W', 'Whiteboard only'], ['H', 'My plays'], ['M', 'More'], ['[ / ]', 'Collapse the side panels'], ['0', 'Reset the view'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
 ];
 
 const SEEN = 'chalktalk.seen';

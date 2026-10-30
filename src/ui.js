@@ -10,7 +10,7 @@ import { playShape, view, particleBudget } from './engine/field.js';
 import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
 import { listener, say, hush, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
-import { drawPlay, smartPlayers, filmRoom, setApi, ownApi, transcribe, key, keyKind, NAMES } from './ai.js';
+import { drawPlay, smartPlayers, filmRoom, setApi, setAuth, ownApi, plan as aiPlan, transcribe, key, keyKind, NAMES } from './ai.js';
 import { CSS } from './style.js';
 import { readStroke } from './engine/sketch.js';
 import { icon } from './icons.js';
@@ -24,6 +24,7 @@ import { analyst } from './ai.js';
 import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
 import { chime, soundOn, setSound } from './sound.js';
 import { startTracking, track } from './track.js';
+import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -47,6 +48,7 @@ const TEMPLATE = `
   <button class="ct-pill" data-r="themeBtn" title="Light, dark, or follow the device">${icon('moon')}<span>Theme</span></button>
   <button class="ct-pill" data-r="infoBtn">${icon('info')}<span>About</span></button>
   <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="The voice: an analyst who explains the read, or play-by-play">${icon('mute')}<span>Narrate</span></button>
+  <button class="ct-pill ct-morepill" data-r="moreBtn" title="Everything else: view, stats, presenter, whiteboard only, theme, voice (M)">${icon('grid')}<span>More</span></button>
   <button class="ct-pill ct-keypill" data-r="keyBtn" title="AI settings and your own keys">${icon('sparkle')}<span>AI</span></button>
   <button class="ct-pill ct-help" data-r="helpBtn" title="Tour, what's new and shortcuts" aria-label="Help">?<i class="ct-dot" data-r="newsDot" hidden></i></button>
 </header>
@@ -62,6 +64,8 @@ const TEMPLATE = `
 </div>
 <div class="ct-sklabel" data-r="sklabel"></div>
 <nav class="ct-lib" data-r="lib" aria-label="Concepts"></nav>
+<button type="button" class="ct-edge ct-edgel" data-r="libToggle" aria-label="Collapse the plays list ([)">‹</button>
+<button type="button" class="ct-edge ct-edger" data-r="cardToggle" aria-label="Collapse the play card (])">›</button>
 <aside class="ct-card" aria-live="polite"><button type="button" class="ct-x ct-cardx" data-r="cardX" aria-label="Close">${icon('close')}</button>
   <div class="ct-eyebrow" data-r="concept"></div>
   <h1 data-r="title"></h1>
@@ -150,6 +154,7 @@ const TEMPLATE = `
     <input data-r="voiceInput" type="password" placeholder="optional: OpenAI sk-… or ElevenLabs sk_…" autocomplete="off" spellcheck="false">
     <p class="ct-fine" data-r="voiceFine"></p>
     <label class="ct-share"><input type="checkbox" data-r="shareVoice"><span><b>Help the voice get better for every coach</b><small>Off unless you turn it on. Shares only the words of plays you keep and words you fix, with your players' names removed on this device first. Never audio, never names. A phrase reaches other coaches only after three of them confirm it.</small></span></label>
+    <div class="ct-ciq" data-r="ciq" hidden></div>
     <button type="button" class="ct-keypro" data-r="keyPro" hidden></button>
     <menu><button type="button" data-r="keyClear">Forget keys</button><button type="button" data-r="keyCancel">Cancel</button><button value="save">Save</button></menu>
   </form>
@@ -168,8 +173,23 @@ let styled = false;
 export function mount(root, options) {
   const opts = Object.assign({ upgrade: null, sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
   if (opts.api) setApi(opts.api);
+  // Chalk Talk AI is sold through CourtIQ. On the standalone board a coach can connect their CourtIQ account
+  // (a link token comes back in the URL fragment), and the upgrade goes to CourtIQ's Chalk Talk AI page.
+  const COURTIQ = opts.courtiq || 'https://youthsportsiq.com', LINK = 'chalktalk.link', standalone = !opts.api;
+  let link = null;
+  try {
+    const m = location.hash.match(/ct-link=([\w.-]+)/);
+    if (m && standalone) { localStorage.setItem(LINK, m[1]); history.replaceState(null, '', location.pathname + location.search); }
+    link = standalone ? localStorage.getItem(LINK) : null;
+  } catch (e) {}
+  if (link) { setApi(COURTIQ + '/api/labs/chalk-talk'); setAuth(link); }
+  if (standalone && !opts.upgrade) opts.upgrade = { label: 'Get Chalk Talk AI · $4.99/mo', href: COURTIQ + '/labs/chalk-talk/ai', note: 'Launch price (regularly $9.99), through CourtIQ. Have it, or any CourtIQ plan? Use “Connect CourtIQ” below.' };
   if (!styled && !document.querySelector('style[data-chalk-talk]')) { const s = document.createElement('style'); s.dataset.chalkTalk = ''; s.textContent = CSS; document.head.appendChild(s); styled = true; }
   root.classList.add('ct'); if (opts.fullscreen) root.classList.add('ct-full');
+  // touch-first (a phone, or an iPad without a trackpad): the tab bar and control center at any width
+  const touchMq = typeof matchMedia !== 'undefined' ? matchMedia('(hover: none) and (pointer: coarse)') : null;
+  const setTouch = () => root.classList.toggle('ct-touch', !!(touchMq && touchMq.matches));
+  setTouch(); if (touchMq && touchMq.addEventListener) touchMq.addEventListener('change', setTouch);
   root.innerHTML = TEMPLATE;
   if (!opts.title) root.querySelector('.ct-word').remove();
   const R = {}; root.querySelectorAll('[data-r]').forEach(el => { R[el.dataset.r] = el; });
@@ -200,7 +220,7 @@ export function mount(root, options) {
     if (field) field.destroy();
     field = AuroraField.create(canvas, {
       container: root.querySelector('.ct-stage'), shapes: [name], initial: name,
-      count: particleBudget, cycle: 0, intro: 900, stars: 60, autonomy: 0.35, depth: 3.4, interactive: true, blank: true, seed: 7,
+      count: particleBudget, cycle: 0, intro: 900, stars: 60, autonomy: 0.12, depth: 3.4, interactive: true, blank: true, seed: 7,
       palette: { preset: 'ice', accent: [255, 142, 58], signal: [255, 190, 120] }, maxDpr: 2, quality: 'auto',
       radius: fitR
     });
@@ -461,9 +481,10 @@ export function mount(root, options) {
   }
   const laserPts = [];
 
+  let loopErr = false;
   (function loop(now) {
     if (dead) return;
-    if (state.sim && field && ink) {
+    if (state.sim && field && ink) try {
       const t = state.sim.tick(now);
       if (state.quiz) {
         const q = state.quizStop;
@@ -471,7 +492,7 @@ export function mount(root, options) {
         else if (q != null && t >= q) { state.sim.seek(q); state.sim.playing(false); state.quizStop = null; renderDots(); }
       }
       drawInk();
-    }
+    } catch (err) { if (!loopErr) { loopErr = true; console.error('[chalk-talk] frame', err); } }   // one bad frame never stops the board
     raf = requestAnimationFrame(loop);
   })(0);
 
@@ -554,7 +575,7 @@ export function mount(root, options) {
   async function makeSmart(ids) {
     if (!ids.length) return;
     if (state.busy) state.busy.abort();
-    const ctl = state.busy = new AbortController(), sport = state.sport;
+    const ctl = state.busy = new AbortController(), sport = state.sport, board = boardKey();
     root.classList.add('ct-drawing'); R.status.textContent = `The AI is taking over ${ids.map(posName).join(', ')}…`;
     const pulse = setInterval(() => field && field.signal(), 500);
     try {
@@ -615,9 +636,9 @@ export function mount(root, options) {
   }
   R.sports.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSport(getSport(b.dataset.id)); });
   function renderLibrary() {
-    R.lib.innerHTML = state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
+    R.lib.innerHTML = `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
-  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (b) teach(b.dataset.key); });
+  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.mine) myPlays(); else teach(b.dataset.key); });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = state.sport.id !== 'basketball';
@@ -827,6 +848,9 @@ export function mount(root, options) {
       if (u.concept) { teach(u.concept); done('library'); return; }
       const learned = recall(state.sport.id, text);   // a phrase this coach taught it before
       if (learned && state.sport.plays.some(p => p.key === learned)) { teach(learned); done('learned'); return; }
+      // asked before (the same words on the same board, or a fresh request asked before): instant, no AI
+      const hit = history.find(state.sport.id, text, boardKey());
+      if (hit && hit.raw) { history.touch(hit.id); load(hit.raw, { say: hit.raw.reply, keepAI: true }); showAI(hit.raw, null); done('history'); R.status.textContent = 'From My plays · instant, no AI used'; return; }
       if (u.label) { if (byId(u.label.id)) setRole(u.label.id, u.label.role); else toast(`There's no ${u.label.id} on the board.`); return; }
       if (footballWords(text)) return;
     }
@@ -839,12 +863,13 @@ export function mount(root, options) {
       const raw = await drawPlay(text, state.play ? strip(state.play) : null, { signal: ctl.signal, glossary: opts.glossary || sport.glossary, sport, library: sport.plays, sketch: !!o.sketch });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
       const ms = performance.now() - t0, secs = (ms / 1000).toFixed(1) + ' s';
-      if (o.sketch) { offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); film(); return; }
+      if (o.sketch) { history.add({ sport: sport.id, said: 'Sketch: ' + (raw.title || 'my play'), board: hashOf(JSON.stringify(o.mine && o.mine.beats)), source: 'sketch', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); film(); return; }
       load(raw, { say: raw.reply, keepAI: true });
       showAI(raw, null);
       R.status.textContent = (raw.reply || '') + ` · drawn in ${secs}`;
       // learn: if the coach keeps what was drawn for this phrase, it becomes instant next time
       track('voice', { path: 'ai', ms: Math.round(ms), ok: 1 });
+      history.add({ sport: sport.id, said: text, board, source: o.source || 'text', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) });
       const li = logVoice({ sport: sport.id, path: 'ai', ms, ok: true, text: text.slice(0, 200), recognized: raw.recognized || null });
       const shown = state.raw;
       clearTimeout(state.keepT);
@@ -1082,7 +1107,22 @@ export function mount(root, options) {
   // ---- the view: orbit, zoom, presets, lock ----
   const viewKey = () => 'chalktalk.view.' + state.sport.id;
   const PRESETS = { coach: { yaw: 0, pitch: -0.04 }, top: { yaw: 0, pitch: 0.55 }, side: { yaw: -0.62, pitch: -0.12 } };
-  function loadView() { try { return JSON.parse(localStorage.getItem(viewKey()) || 'null') || { pose: null, zoom: 1, locked: false }; } catch (e) { return { pose: null, zoom: 1, locked: false }; } }
+  // a view is always the right way up: yaw within about 70° of the coach's side, pitch between a low sideline
+  // angle and top-down. Anything else (an old saved flip, a NaN) resets to the coach view.
+  function sanePose(p) {
+    if (!p || !isFinite(p.yaw) || !isFinite(p.pitch)) return null;
+    const TAU = Math.PI * 2, yaw = p.yaw - Math.round(p.yaw / TAU) * TAU;
+    return { yaw: Math.max(-1.25, Math.min(1.25, yaw)), pitch: Math.max(-0.3, Math.min(0.8, p.pitch)) };
+  }
+  function loadView() {
+    const fresh = { pose: null, zoom: 1, locked: false };
+    try {
+      const v = JSON.parse(localStorage.getItem(viewKey()) || 'null'); if (!v) return fresh;
+      const pose = sanePose(v.pose), bad = v.pose && (!pose || Math.abs(pose.yaw - v.pose.yaw) > 0.01 || Math.abs(pose.pitch - v.pose.pitch) > 0.01);
+      return bad ? fresh : { pose, zoom: isFinite(v.zoom) ? Math.max(0.6, Math.min(2.4, v.zoom)) : 1, locked: !!v.locked };
+    } catch (e) { return fresh; }
+  }
+  function resetView() { state.view = { pose: null, zoom: 1, locked: false }; saveView(); applyView(); toast('View reset.'); }
   function saveView() { try { localStorage.setItem(viewKey(), JSON.stringify(state.view)); } catch (e) {} }
   function applyView() {
     if (!field) return;
@@ -1097,6 +1137,7 @@ export function mount(root, options) {
     const v = state.view;
     const body = `<div class="ct-seg"><span>Angle</span><button data-p="coach">Coach</button><button data-p="top">Top-down</button><button data-p="side">Sideline</button></div>
       <div class="ct-seg"><span>Zoom</span><button data-z="-1" aria-label="Zoom out">−</button><button data-z="0">Fit</button><button data-z="1" aria-label="Zoom in">+</button></div>
+      <button class="ct-lock" data-reset>${icon('undo')}<span>Reset to the coach view</span></button>
       <button class="ct-lock${v.locked ? ' on' : ''}" data-lock>${icon(v.locked ? 'lock' : 'unlock')}<span>${v.locked ? 'Locked. Tap to unlock' : 'Lock this view'}</span></button>
       <p class="ct-fine">Drag the field to orbit, scroll or pinch to zoom, then lock it. Saved for each sport on this device.</p>`;
     openPanel(R.viewBtn, 'View', body, pb => {
@@ -1105,6 +1146,7 @@ export function mount(root, options) {
         if (b.dataset.p) state.view.pose = Object.assign({}, PRESETS[b.dataset.p]);
         if (b.dataset.z) state.view.zoom = b.dataset.z === '0' ? 1 : Math.max(0.6, Math.min(2.4, state.view.zoom * (b.dataset.z === '1' ? 1.15 : 1 / 1.15)));
         if (b.hasAttribute('data-lock')) { toggleLock(); closePanel(); R.viewBtn.click(); return; }
+        if (b.hasAttribute('data-reset')) { closePanel(); resetView(); return; }
         saveView(); applyView();
       };
     }, 'ct-viewp');
@@ -1116,9 +1158,22 @@ export function mount(root, options) {
   // after a drag, hold the field where it was left (no drifting back)
   function capturePose() {
     const v = field.view(), TAU = Math.PI * 2;
-    state.view.pose = { yaw: v.yaw - Math.round(v.yaw / TAU) * TAU, pitch: v.pitch + 0.06 };
+    state.view.pose = sanePose({ yaw: v.yaw - Math.round(v.yaw / TAU) * TAU, pitch: v.pitch + 0.06 });
   }
   const stage = root.querySelector('.ct-stage');
+  // the court stays still under the players: aurora-field pushes particles away from a hovering pointer,
+  // which bent the lines out from under the X's and O's. Only drags (orbit) and pens reach it.
+  root.addEventListener('pointermove', e => {
+    if (e.buttons || e.pointerType === 'pen' || state.laser || !stage.contains(e.target)) return;
+    if (e.target === canvas) e.stopPropagation();
+  }, true);
+  // while dragging, never let the orbit pass the safe range (it would show the field upside down)
+  stage.addEventListener('pointermove', e => {
+    if (!e.buttons || !field || state.view.locked || state.sketch || e.target !== canvas) return;
+    const v = field.view(), s2 = sanePose(v);
+    if (s2 && (Math.abs(s2.yaw - (v.yaw - Math.round(v.yaw / (Math.PI * 2)) * Math.PI * 2)) > 0.001 || Math.abs(s2.pitch - v.pitch) > 0.001)) field.setPose({ yaw: s2.yaw, pitch: s2.pitch, roll: 0 });
+  });
+  stage.addEventListener('dblclick', e => { if (e.target === canvas && !state.sketch) resetView(); });   // double-tap the field: back to the coach view
   stage.addEventListener('pointerup', e => { if (e.pointerType !== 'pen' && !state.view.locked && !state.sketch && e.target === canvas) { capturePose(); saveView(); applyView(); } });
   stage.addEventListener('wheel', e => {
     if (state.view.locked) return;
@@ -1177,7 +1232,7 @@ export function mount(root, options) {
   });
 
   // ---- ears ----
-  const ear = listener(t => heard(t), (st, text) => {
+  const ear = listener(t => heard(t, { source: 'voice' }), (st, text) => {
     R.mic.dataset.state = st; R.tbMic.dataset.state = st; R.rlMic.dataset.state = st;
     if (st === 'hearing') R.heard.textContent = text;
     if (st === 'listening') { hush(); R.heard.textContent = 'Listening…'; R.heard.classList.remove('fix'); chime('ask'); }
@@ -1216,6 +1271,11 @@ export function mount(root, options) {
     if (k2 === 'i') iq.open();
     if (k2 === 'f') present();
     if (k2 === 'w') boardOnly();
+    if (k2 === 'h') myPlays();
+    if (e.key === '[') flipSide('lib');
+    if (e.key === ']') flipSide('card');
+    if (k2 === 'm' && !state.sketch) R.moreBtn.click();
+    if (k2 === '0') resetView();
     if (k2 === 's') act('sketch');
     if (k2 === 'd') act('defense');
     if (k2 === 'l') toggleLock();
@@ -1226,7 +1286,7 @@ export function mount(root, options) {
   };
   const ku = e => { if (e.code === 'Space' && spaceDown) { spaceDown = false; ear && ear.stop(); } };
   addEventListener('keydown', kd); addEventListener('keyup', ku);
-  R.ask.onsubmit = e => { e.preventDefault(); heard(R.askText.value); R.askText.value = ''; R.askText.blur(); };
+  R.ask.onsubmit = e => { e.preventDefault(); heard(R.askText.value, { source: 'text' }); R.askText.value = ''; R.askText.blur(); };
 
 
   // ---- the guide, CourtIQ / FieldIQ, stats ----
@@ -1413,20 +1473,22 @@ export function mount(root, options) {
   function playsSheet() {
     const groups = {};
     state.sport.plays.forEach(p => { (groups[p.concept] = groups[p.concept] || []).push(p); });
-    openPanel(R.playChip, state.sport.name + ' plays', `<div class="ct-playgrid">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}" class="${p.key === state.libKey ? 'on' : ''}"><small>${esc(p.concept)}</small><b>${esc(p.title)}</b></button>`).join('')}</div>`, pb => {
-      pb.onclick = e => { const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
+    openPanel(R.playChip, state.sport.name + ' plays', `<button type="button" class="ct-minebar" data-mine="1">${icon('film')}<span><b>My plays</b><small>${history.all().filter(e => e.sport === state.sport.id).length} you’ve drawn · instant, no AI</small></span>›</button><div class="ct-playgrid">${state.sport.plays.map(p => `<button type="button" data-k="${esc(p.key)}" class="${p.key === state.libKey ? 'on' : ''}"><small>${esc(p.concept)}</small><b>${esc(p.title)}</b></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => { if (e.target.closest('[data-mine]')) { myPlays(); return; } const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
     }, 'ct-xl');
   }
   // the control center: destinations as tiles, and every on/off as a stock switch row that flips in place
   function controlCenter() {
     const fb = !!state.sport.kinds.route;
     const tiles = [
+      ['mine', 'film', 'My plays', 'Everything you’ve drawn'],
       ['guide', 'book', 'Guide', 'Positions in depth'],
       ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
       ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
       ['stats', 'chart', 'Stats', 'Play numbers, AI cost'],
       ['view', 'view', 'Angles', 'Coach, top-down, sideline'],
       ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : opts.api ? 'Included' : 'Free AI'],
+      ['voicestyle', 'speaker', 'Voice', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
       ['help', 'info', 'Help', hasNews() ? 'What’s new' : 'Tour, shortcuts']
     ];
     const switches = () => [
@@ -1441,7 +1503,7 @@ export function mount(root, options) {
       ['share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()]
     ].filter(Boolean);
     const rows = () => switches().map(([k, ic, t, sub, on]) => `<button type="button" class="ct-row" role="switch" aria-checked="${!!on}" data-sw="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(sub)}</small></span><i class="ct-ios${on ? ' on' : ''}"></i></button>`).join('');
-    openPanel(R.playChip, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>
+    openPanel(isTouchLayout() ? R.playChip : R.moreBtn, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>
       <div class="ct-rows" data-r="ccRows">${rows()}</div>`, pb => {
       pb.onclick = e => {
         const sw = e.target.closest('[data-sw]');
@@ -1460,8 +1522,8 @@ export function mount(root, options) {
           return;
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
-        ({ guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
-          ai: () => openKey(), help: () => R.helpBtn.click() })[k]();
+        ({ mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+          ai: () => openKey(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
   }
@@ -1470,6 +1532,21 @@ export function mount(root, options) {
     ({ plays: playsSheet, guide: () => guide(), mic: () => R.mic.click(), film: () => openFilmRoom(), more: controlCenter })[b.dataset.tb]();
   });
   R.playChip.onclick = () => root.classList.toggle('ct-info');
+
+  // ---- side panels collapse like an editor's: the plays list on the left, the play card on the right ----
+  let side = { lib: false, card: false };
+  try { side = Object.assign(side, JSON.parse(localStorage.getItem('chalktalk.panels') || '{}')); } catch (e) {}
+  function renderSides() {
+    root.classList.toggle('ct-libx', !!side.lib); root.classList.toggle('ct-cardx', !!side.card);
+    R.libToggle.textContent = side.lib ? '›' : '‹'; R.libToggle.setAttribute('aria-label', (side.lib ? 'Show' : 'Collapse') + ' the plays list ([)');
+    R.cardToggle.textContent = side.card ? '‹' : '›'; R.cardToggle.setAttribute('aria-label', (side.card ? 'Show' : 'Collapse') + ' the play card (])');
+    R.libToggle.dataset.tip = side.lib ? 'Plays' : 'Collapse'; R.cardToggle.dataset.tip = side.card ? 'Play card' : 'Collapse';
+  }
+  const flipSide = k => { side[k] = !side[k]; try { localStorage.setItem('chalktalk.panels', JSON.stringify(side)); } catch (e) {} renderSides(); };
+  R.libToggle.onclick = () => flipSide('lib');
+  R.cardToggle.onclick = () => flipSide('card');
+  renderSides();
+  R.moreBtn.onclick = () => { if (root.querySelector('.ct-panel:not(.out).ct-ccp')) closePanel(); else controlCenter(); };
   R.tbSketch.onclick = () => act('sketch');
 
   // ---- whiteboard only: full screen, every panel collapsed, a slim rail of icons ----
@@ -1515,12 +1592,73 @@ export function mount(root, options) {
   if (mq && mq.addEventListener) mq.addEventListener('change', applyTheme);
   applyTheme();
 
+
+  // ---- CourtIQ connection (standalone board): the plan, what's left this month, connect / disconnect ----
+  let fellBack = false;
+  aiPlan.onFallback = msg => { if (fellBack) return; fellBack = true; toast((msg || 'This month’s AI is used up.') + ' Using the free AI until the 1st.'); };
+  aiPlan.onUnlinked = () => { try { localStorage.removeItem(LINK); } catch (e) {} link = null; setAuth(null); setApi(ownApi()); toast('Your CourtIQ connection expired. Connect again in AI settings.'); };
+  function renderCourtIQ() {
+    if (!standalone) { R.ciq.hidden = true; return; }
+    R.ciq.hidden = false;
+    if (!link) {
+      R.ciq.innerHTML = `<div><b>Chalk Talk AI with CourtIQ</b><small>Have Chalk Talk AI or any CourtIQ plan? Connect it and this board uses it. No key needed.</small></div><button type="button" data-c="connect">Connect CourtIQ</button>`;
+      return;
+    }
+    const L = aiPlan.last;
+    R.ciq.innerHTML = `<div><b>Connected to CourtIQ</b><small data-r="ciqUse">${L ? (L.plan === 'ai_plan' ? 'Chalk Talk AI' : 'Included with your plan') + (L.left != null ? ` · $${(+L.left).toFixed(2)} of AI left this month` : '') : 'Checking your plan…'}</small></div><button type="button" data-c="unlink">Disconnect</button>`;
+    fetch(COURTIQ + '/api/labs/chalk-talk/usage', { headers: { authorization: 'Bearer ' + link } }).then(r => r.ok ? r.json() : null).then(u => {
+      const el = R.ciq.querySelector('[data-r=ciqUse]'); if (!el || !u) return;
+      el.textContent = !u.plan ? 'No Chalk Talk AI on this account yet.' : (u.plan === 'ai_plan' ? 'Chalk Talk AI' : 'Included with your CourtIQ plan') + ` · ${Math.max(0, Math.round(100 - (u.usedUSD / u.capUSD) * 100))}% left this month`;
+    }).catch(() => {});
+  }
+  R.ciq.addEventListener('click', e => {
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    if (b.dataset.c === 'connect') { track('courtiq_connect'); location.href = COURTIQ + '/labs/chalk-talk/connect?return=' + encodeURIComponent(location.origin + location.pathname); }
+    if (b.dataset.c === 'unlink') { try { localStorage.removeItem(LINK); } catch (e2) {} link = null; setAuth(null); setApi(ownApi()); renderCourtIQ(); toast('Disconnected from CourtIQ.'); }
+  });
+
+
+  // ---- My plays: every play the AI drew for this coach, on this device ----
+  const boardKey = () => state.play ? hashOf(JSON.stringify(strip(state.play))) : '-';
+  function myPlays(start) {
+    let q = '', f = start || 'all';
+    const SRC = { voice: 'Said', text: 'Typed', sketch: 'Sketched' };
+    const when = t => { const d = (Date.now() - t) / 864e5; return d < 1 ? new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : d < 7 ? new Date(t).toLocaleDateString([], { weekday: 'short' }) : new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' }); };
+    const list = () => {
+      const all = history.all().filter(e => e.sport === state.sport.id);
+      const rows = all.filter(e => (f === 'all' || (f === 'fav' ? e.fav : e.source === f)) && (!q || (e.name || e.title || '').toLowerCase().includes(q) || (e.said || '').toLowerCase().includes(q) || (e.concept || '').toLowerCase().includes(q)));
+      if (!all.length) return `<p class="ct-empty">Plays you say, type or sketch show up here, with the words that made them. Asking for one again is instant and uses no AI.</p>`;
+      return rows.length ? `<ul class="ct-hist">${rows.map(e => `<li data-id="${esc(e.id)}"><button type="button" class="ct-hplay" data-a="play"><small>${esc(e.concept || 'Your play')} · ${esc(SRC[e.source] || 'Typed')} · ${when(e.at)}${e.uses > 1 ? ' · used ' + e.uses + '×' : ''}</small><b>${esc(e.name || e.title || 'Untitled play')}</b>${e.said && e.source !== 'sketch' ? `<span>“${esc(e.said)}”</span>` : ''}</button>
+        <button type="button" data-a="fav" class="${e.fav ? 'on' : ''}" aria-label="${e.fav ? 'Unfavorite' : 'Favorite'}">${e.fav ? '★' : '☆'}</button><button type="button" data-a="name" aria-label="Rename">${icon('draw')}</button><button type="button" data-a="del" aria-label="Delete">${icon('close')}</button></li>`).join('')}</ul>` : '<p class="ct-empty">Nothing matches.</p>';
+    };
+    const body = `<div class="ct-histbar"><input type="search" data-r="hq" placeholder="Search your plays and the words you used" autocomplete="off"><div class="ct-seg">${[['all', 'All'], ['fav', '★'], ['voice', 'Said'], ['text', 'Typed'], ['sketch', 'Sketched']].map(([k, l]) => `<button type="button" data-f="${k}" class="${k === f ? 'on' : ''}">${l}</button>`).join('')}</div></div><div data-r="hlist">${list()}</div>`;
+    openPanel(R.playChip, 'My plays · ' + state.sport.short, body, pb => {
+      const L = pb.querySelector('[data-r=hlist]'), redraw = () => { L.innerHTML = list(); };
+      pb.querySelector('[data-r=hq]').oninput = e => { q = e.target.value.trim().toLowerCase(); redraw(); };
+      pb.onclick = e => {
+        const fb = e.target.closest('[data-f]'); if (fb) { f = fb.dataset.f; pb.querySelectorAll('[data-f]').forEach(b => b.classList.toggle('on', b === fb)); redraw(); return; }
+        const a = e.target.closest('[data-a]'), li = e.target.closest('[data-id]'); if (!a || !li) return;
+        const id = li.dataset.id, entry = history.all().find(x => x.id === id); if (!entry) return;
+        if (a.dataset.a === 'play') { closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null); R.status.textContent = 'From My plays · instant, no AI used'; return; }
+        if (a.dataset.a === 'fav') { history.update(id, { fav: !entry.fav }); redraw(); return; }
+        if (a.dataset.a === 'del') { history.remove(id); redraw(); return; }
+        if (a.dataset.a === 'name') {
+          const b = li.querySelector('.ct-hplay b'); b.innerHTML = `<input class="ct-fixin" value="${esc(entry.name || entry.title || '')}" aria-label="Name this play">`;
+          const inp = b.querySelector('input'); inp.focus(); inp.select();
+          const save = () => { const v = inp.value.trim().slice(0, 60); history.update(id, { name: v || null }); redraw(); };
+          inp.onkeydown = ev => { if (ev.key === 'Enter') save(); if (ev.key === 'Escape') { ev.stopPropagation(); redraw(); } }; inp.onblur = save; inp.onclick = ev => ev.stopPropagation();
+        }
+      };
+    }, 'ct-xl ct-histp');
+  }
+
   // ---- the keys ----
   function badge(el2, kind) { el2.textContent = kind ? '✓ ' + kind : ''; el2.className = 'ct-badge' + (kind ? ' ok' : ''); }
   function openKey(why) {
     R.keyWhy.textContent = why || 'Plays from your own words, the AI taking over your sketches and the broadcaster voice all use your own AI account.';
     R.keyInput.value = key.get(); R.voiceInput.value = voiceKey.get();
     R.shareVoice.checked = sharing();
+    renderCourtIQ();
     R.keyPro.hidden = !opts.upgrade; if (opts.upgrade) R.keyPro.innerHTML = `${icon('sparkle')}<span><b>${esc(opts.upgrade.label || 'Get unlimited AI')}</b><small>${esc(opts.upgrade.note || 'No key needed.')}</small></span>`;
     R.keyInput.oninput(); R.voiceInput.oninput();
     R.keyDlg.showModal();
@@ -1580,7 +1718,7 @@ export function mount(root, options) {
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku);
-      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
+      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
     }
   };
 }

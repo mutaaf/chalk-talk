@@ -35,10 +35,11 @@ function lines() {
   L.push({ p: arc(bx, by, 4, 0, Math.PI, 20), w: 0.5 });                                    // restricted area
   for (const s of [-1, 1]) for (const y of [7, 8, 11, 14]) L.push({ p: [[s * 8, y, 0], [s * 8.9, y, 0]], w: 0.5 });
   // the hoop, standing up off the floor: backboard, square, rim
-  L.push({ p: [[-3, 4, 9.5], [3, 4, 9.5], [3, 4, 13], [-3, 4, 13], [-3, 4, 9.5]], w: 1.4, warm: true });
-  L.push({ p: [[-1, 4, 10], [-1, 4, 11.5], [1, 4, 11.5], [1, 4, 10]], w: 0.6, warm: true });
-  L.push({ p: arc(bx, by, 0.75, 0, 2 * Math.PI, 18, 10), w: 2.2, hot: true });
-  L.push({ p: [[0, 4, 10], [0, 4.5, 10]], w: 0.6, warm: true });
+  // drawn about a third larger than life so they read on a phone
+  L.push({ p: [[-4, 4, 9.2], [4, 4, 9.2], [4, 4, 13.8], [-4, 4, 13.8], [-4, 4, 9.2]], w: 1.7, warm: true });
+  L.push({ p: [[-1.35, 4, 10], [-1.35, 4, 12], [1.35, 4, 12], [1.35, 4, 10]], w: 0.8, warm: true });
+  L.push({ p: arc(bx, by, 1.05, 0, 2 * Math.PI, 22, 10), w: 2.6, hot: true });
+  L.push({ p: [[0, 4, 10], [0, 4.2, 10]], w: 0.8, warm: true });
   return L;
 }
 

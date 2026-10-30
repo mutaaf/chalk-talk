@@ -1,4 +1,5 @@
 import { player } from './sound.js';
+import { hash } from './history.js';
 
 // Ears and a voice. Speech in through the browser's recogniser; speech out as a play-by-play
 // broadcaster: OpenAI's TTS or ElevenLabs with your own key (an OpenAI play key doubles as
@@ -93,11 +94,20 @@ async function synth(text, p) {
       body: JSON.stringify({ text: spoken(text), model_id: 'eleven_flash_v2_5', voice_settings: { stability: 0.55, similarity_boost: 0.8, style: 0.25, use_speaker_boost: true } }) });
   }
   if (!r.ok) throw Object.assign(new Error(r.status === 401 ? 'The voice key didn’t work.' : 'The broadcaster voice is unavailable (' + r.status + ').'), { status: r.status });
-  return URL.createObjectURL(await r.blob());
+  return r.blob();
+}
+// a line, synthesized once: kept in Cache Storage across sessions, so each line is only paid for once
+async function synthCached(text, p) {
+  const id = 'https://chalk-talk.local/voice/' + p.kind + '/' + hash(text);
+  let c = null;
+  try { c = await caches.open('chalktalk-voice'); const hit = await c.match(id); if (hit) return URL.createObjectURL(await hit.blob()); } catch (e) {}
+  const blob = await synth(text, p);
+  try { if (c) await c.put(id, new Response(blob, { headers: { 'content-type': blob.type || 'audio/mpeg' } })); } catch (e) {}
+  return URL.createObjectURL(blob);
 }
 function fetchLine(text, p) {
   const id = p.kind + '|' + text;
-  if (!cache.has(id)) cache.set(id, synth(text, p).catch(e => { cache.delete(id); throw e; }));
+  if (!cache.has(id)) cache.set(id, synthCached(text, p).catch(e => { cache.delete(id); throw e; }));
   return cache.get(id);
 }
 
