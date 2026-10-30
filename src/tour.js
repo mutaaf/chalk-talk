@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.22.1';
+export const VERSION = '0.23.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.23.0', date: '2026-10-30', title: 'Inside their heads', items: [
+    { title: 'Mind view', call: 'Press V (or More → Mind view) and every player gets a see-through chip: what they’re doing, how fast, how much space. Tap one to open their mind, live: their job, their man, their read, the QB’s progression, the ball on its way, the AI’s thought and their best reads, scored. Open up to three, or the table of everyone. Light enough to leave on.', show: 'moreBtn' }
+  ] },
   { version: '0.22.1', date: '2026-10-30', title: 'Gemini works too', items: [
     { title: 'Bring a Gemini key', call: 'Paste a Google AI Studio key (it starts with AIza) and Chalk Talk draws with Gemini: the same structured plays, checks and repair round as Claude and OpenAI. The key stays in your browser and goes only to Google.', show: 'keyBtn' }
   ] },
