@@ -88,6 +88,7 @@ export function normalize(raw, sport) {
     play: {
       sport: sport.id, title: String(raw.title || 'Untitled play').slice(0, 60), concept: String(raw.concept || '').slice(0, 40),
       summary: String(raw.summary || '').slice(0, 420), players, ball: ballId, beats, los, coverage: raw.coverage ? String(raw.coverage).slice(0, 12) : null,
+      lesson: raw.lesson === 'defense' ? 'defense' : null,   // a defense lesson may show the offense making the wrong read, on purpose
       reads: (Array.isArray(raw.reads) ? raw.reads : []).filter(r => r && ids[String(r.who).toUpperCase()]).slice(0, 5).map(r => ({ who: String(r.who).toUpperCase(), text: String(r.text || '').slice(0, 90) })),
       cues: (Array.isArray(raw.cues) ? raw.cues : []).slice(0, 5).map(c => String(c).slice(0, 40))
     }
@@ -124,6 +125,31 @@ export function compile(play, sport, options) {
     return idx['O' + p.id.slice(1)] != null ? idx['O' + p.id.slice(1)] : -1;
   });
   const guards = i => match[i] >= 0 || (job[i] && job[i].type !== 'man');
+  const screened = beats.map(() => ({})), beaten = beats.map(() => ({})), react = sport.react || 0.3;
+  // where the offense was a moment ago: defenders react to what they saw, not what's happening now
+  function lagged(time) {
+    const tt = Math.max(0, time - react), kk = Math.min(Math.floor(tt), beats.length), ff = tt - kk;
+    if (kk >= paths.length) return (starts[kk] || starts[starts.length - 1]).map(p => p.slice());
+    return play.players.map((_, pi) => posIn(kk, ff, pi));
+  }
+  // an auto defender's spot at beat k, fraction f: guard what they saw, stuck on a screen, or beaten
+  function defSpot(d, k, f, time, P) {
+    const Pl = lagged(time); Pl[d] = P[d];
+    const h0 = holders[k], h1 = holders[k + 1] != null ? holders[k + 1] : h0, shift = ease((f - 0.55) / 0.35);
+    const a = guard(Pl, d, h0, time), b2 = h1 === h0 ? a : guard(Pl, d, h1, time);
+    let g = [a[0] + (b2[0] - a[0]) * shift, a[1] + (b2[1] - a[1]) * shift];
+    const si = screened[k] && screened[k][d];
+    if (si != null) { const w = ease((f - 0.12) / 0.3), stuck = toward(P[si], g, 1.15 * sport.mark); g = [g[0] + (stuck[0] - g[0]) * w, g[1] + (stuck[1] - g[1]) * w]; }
+    if (beaten[k] && beaten[k][d]) {
+      // beaten: they trail, a step and a half off the receiver on the side they were (late on the cut,
+      // ball-watching, caught helping), which is how the pass gets open
+      const r = P[match[d]] || g, vx = g[0] - r[0], vy = g[1] - r[1], len = Math.hypot(vx, vy) || 1, need = (sport.open || 3) * 1.45, w = ease((f - 0.15) / 0.35);
+      const ux = len > 0.01 ? vx / len : 0, uy = len > 0.01 ? vy / len : 1;
+      const sag = [r[0] + ux * Math.max(len, need), r[1] + uy * Math.max(len, need)];
+      g = [g[0] + (sag[0] - g[0]) * w, g[1] + (sag[1] - g[1]) * w];
+    }
+    return [clamp(g[0], F.x[0] + 0.5, F.x[1] - 0.5), clamp(g[1], F.y[0] + 0.5, F.y[1] - 0.5)];
+  }
   const auto = beats.map(b => play.players.map((p, i) => guards(i) && !b.actions.some(a => a.who === p.id && K[a.kind].type === 'move')));
   const origin = play.players.map(p => [p.x, p.y]);
   const offense = play.players.map((p, i) => i).filter(i => play.players[i].side === 'O');
@@ -157,8 +183,7 @@ export function compile(play, sport, options) {
   beats.forEach((b, k) => {
     const S = starts[k], E = S.map(p => p.slice()), mv = new Array(np).fill(null);
     let ev = null, holder = holders[k];
-    if (k > 0) play.players.forEach((_, d) => { if (guards(d) && auto[k - 1][d]) S[d] = guard(S, d, holder, k); });
-    b.actions.forEach(a => {
+        b.actions.forEach(a => {
       const pi = idx[a.who], spec = K[a.kind];
       if (spec.type === 'move') {
         let to = a.to ? [a.to.x, a.to.y] : null;
@@ -182,8 +207,21 @@ export function compile(play, sport, options) {
       }
     });
     if (options.smart !== false) offBall(k, b, S, E, mv, holder);
-    play.players.forEach((_, d) => { if (guards(d) && auto[k][d]) E[d] = guard(E, d, holder, k + 1); });
+    // screens hold defenders: the defender of the player being screened for gets stuck on the screener
+    b.actions.forEach(a => { if (K[a.kind].style === 'screen' && a.target) play.players.forEach((_, d) => { if (match[d] === idx[a.target]) screened[k][d] = idx[a.who]; }); });
     paths.push(mv); starts.push(E); holders.push(holder); ballEv.push(ev);
+    const endPos = () => play.players.map((_, pi) => posIn(k, 1, pi));
+    play.players.forEach((_, d) => { if (guards(d) && auto[k][d]) E[d] = defSpot(d, k, 1, k + 1, endPos()); });
+    // the pass goes to the open player: if the receiver's own defender would be on them at the catch,
+    // that defender makes the mistake that opens the pass (ball-watching, helping on the drive)
+    if (ev && ev.type === 'pass') {
+      const fc = SPANS.pass[1], at = play.players.map((_, pi) => posIn(k, fc, pi));
+      play.players.forEach((_, d) => {
+        if (match[d] !== ev.to || !auto[k][d]) return;
+        const dp = defSpot(d, k, fc, k + fc, at), rp = at[ev.to];
+        if (Math.hypot(dp[0] - rp[0], dp[1] - rp[1]) < (sport.open || 3)) { beaten[k][d] = true; E[d] = defSpot(d, k, 1, k + 1, endPos()); }
+      });
+    }
   });
   // ball routes are drawn from where the ball really goes, so they need the movement first
   ballEv.forEach((ev, k) => {
@@ -276,7 +314,9 @@ export function compile(play, sport, options) {
   const span = beats.length + HOLD, B = sport.ball;
   const memo = { pt: NaN, P: null, bt: NaN, Bp: null, rt: NaN, R: null };
   const sim = {
-    sport, play, players: play.players, routes, beats: beats.length, idx, match, job, notes,
+    sport, play, players: play.players, routes, beats: beats.length, idx, match, job, notes, beaten,
+    // how open a player is right now: distance to the nearest defender
+    space(time, i) { const P = sim.posAt(time); let best = Infinity; play.players.forEach((p, j) => { if (p.side === 'D') best = Math.min(best, Math.hypot(P[j][0] - P[i][0], P[j][1] - P[i][1])); }); return best; },
     time: () => t,
     tick(now) {
       const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
@@ -298,13 +338,11 @@ export function compile(play, sport, options) {
       if (k >= beats.length) P = starts[beats.length];
       else {
         P = play.players.map((_, pi) => posIn(k, f, pi));
-        const h0 = holders[k], h1 = holders[k + 1], shift = ease((f - 0.55) / 0.35), into = ease(f / 0.3);
+        const into = ease(f / 0.45);
         play.players.forEach((_, d) => {
           if (!guards(d) || !auto[k][d]) return;
-          const a = guard(P, d, h0, time), b = h1 === h0 ? a : guard(P, d, h1, time);
-          const gx = a[0] + (b[0] - a[0]) * shift, gy = a[1] + (b[1] - a[1]) * shift, s0 = starts[k][d];
-          const lag = k === 0 || !auto[k - 1][d] ? into : 1;   // coming off a job (or the opening spot): ease into guarding
-          P[d] = [s0[0] + (gx - s0[0]) * lag, s0[1] + (gy - s0[1]) * lag];
+          const g = defSpot(d, k, f, time, P), s0 = starts[k][d];
+          P[d] = [s0[0] + (g[0] - s0[0]) * into, s0[1] + (g[1] - s0[1]) * into];   // from where they really were, never a jump
         });
       }
       memo.pt = time; memo.P = P; return P;

@@ -169,7 +169,7 @@ export const MODERN = [
         { kind: 'cut', who: 'O2', to: xy(-19, 17), via: xy(-9, 8) }, { kind: 'move', who: 'X2', to: xy(-7, 13) },
         { kind: 'dribble', who: 'O1', to: xy(-7, 27) }] },
       { say: 'O1 hits O2 on the wing. X2 runs out late.', actions: [
-        { kind: 'pass', who: 'O1', target: 'O2' }, { kind: 'closeout', who: 'X2', to: xy(-15.5, 15) }] },
+        { kind: 'pass', who: 'O1', target: 'O2' }, { kind: 'closeout', who: 'X2', to: xy(-14, 14) }] },
       { say: 'Feet set, shoot.', actions: [{ kind: 'shot', who: 'O2' }] }
     ],
     reads: [{ who: 'O2', text: 'X2 cheats left: go right off O3' }, { who: 'O5', text: 'Defense switches: slip to the rim' }]
@@ -259,7 +259,7 @@ export const MODERN = [
         { kind: 'pop', who: 'O4', to: xy(-12, 26.5) }, { kind: 'slide', who: 'X1', to: xy(-1, 28) },
         { kind: 'slide', who: 'X4', to: xy(-2, 26) }] },
       { say: 'O1 passes to O4. X4 is too late.', actions: [
-        { kind: 'pass', who: 'O1', target: 'O4' }, { kind: 'closeout', who: 'X4', to: xy(-9, 24.5) }] },
+        { kind: 'pass', who: 'O1', target: 'O4' }, { kind: 'closeout', who: 'X4', to: xy(-7.5, 24) }] },
       { say: 'Open shot.', actions: [{ kind: 'shot', who: 'O4' }] }
     ],
     reads: [{ who: 'O4', text: 'Both jump the ball: pop' }, { who: 'O4', text: 'X4 stays home: slip to the rim' }]

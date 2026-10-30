@@ -3,6 +3,7 @@
 // seen from a seat behind the play, with the goal at the far end.
 
 import { measured, walk } from './geom.js';
+import { life } from './sim.js';
 
 export function view(sport) {
   const v = sport.view, S = v.scale, C = v.center, cb = Math.cos(v.tilt), sb = Math.sin(v.tilt), lift = v.lift || 0;
@@ -93,11 +94,12 @@ export function playShape(sim, opts) {
       rmade += cnt;
     });
 
-    const out = [0, 0, 0], at = [0, 0, 0];
-    let cacheT = -1, P = null, Bp = null, RS = null;
+    const out = [0, 0, 0], at = [0, 0, 0], L = sim.players.map(() => [0, 0]), sides = sim.players.map(p => p.side);
+    let cacheT = -1, cacheS = -1, P = null, Bp = null, RS = null, H = -1;
     function frame() {
-      const t = sim.time();
-      if (t !== cacheT) { cacheT = t; P = sim.posAt(t); Bp = sim.ballAt(t); RS = sim.routeState(t); }
+      const t = sim.time(), sec = Math.round(performance.now() / 33) / 30;   // life moves on real time, even when paused
+      if (t !== cacheT) { cacheT = t; P = sim.posAt(t); Bp = sim.ballAt(t); RS = sim.routeState(t); H = sim.holderAt(t); }
+      if (sec !== cacheS) { cacheS = sec; for (let i = 0; i < L.length; i++) life(sport, sides[i], i, sec, L[i]); }
     }
     return {
       points: pts, tone, alpha, links, linkTone, lineArt: true, still: true, facing: true, kick: 0.05,
@@ -105,8 +107,8 @@ export function playShape(sim, opts) {
       flow(i) {
         const k = kind[i]; if (!k) return null;
         frame();
-        if (k === 1) { const p = P[grp[i]]; return toShape(p[0] + loc[i * 3], p[1] + loc[i * 3 + 1], loc[i * 3 + 2], out); }
-        if (k === 2) return toShape(Bp[0] + loc[i * 3], Bp[1] + loc[i * 3 + 1], Bp[2] + loc[i * 3 + 2], out);
+        if (k === 1) { const p = P[grp[i]], l = L[grp[i]]; return toShape(p[0] + l[0] + loc[i * 3], p[1] + l[1] + loc[i * 3 + 1], loc[i * 3 + 2], out); }
+        if (k === 2) { const l = H >= 0 ? L[H] : [0, 0]; return toShape(Bp[0] + l[0] + loc[i * 3], Bp[1] + l[1] + loc[i * 3 + 1], Bp[2] + loc[i * 3 + 2], out); }
         const rs = RS[grp[i]], s = sArr[i];
         if (!rs || rs.drawn <= 0 || s > rs.drawn) { const h = rs && rs.home ? rs.home : [0, 0, 0]; return toShape(h[0], h[1], h[2], out); }
         sim.routePoint(grp[i], s, at);

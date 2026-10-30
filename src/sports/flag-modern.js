@@ -216,7 +216,7 @@ export const FLAG5_DRAFT = [
       { who: 'O2', text: 'Rusher closes fast: dump it to the center' }]
   },
   {
-    key: 'man-rusher', title: 'Man + 1 Rusher', concept: 'Defense: man coverage',
+    key: 'man-rusher', lesson: 'defense', title: 'Man + 1 Rusher', concept: 'Defense: man coverage',
     summary: 'Defense. One rusher starts 7 yards back and goes at the snap with a hand up. Everyone else covers one receiver (man-to-man) and stays hip to hip with him. When the ball is thrown, go get the flag.',
     cues: ['Rusher: hand up, go at the snap', 'Hip to hip with your man', 'Ball thrown: grab the flag'],
     players: [QB5, C5, X5, Z5, P('O5', 'right slot', 'H'),
@@ -235,7 +235,7 @@ export const FLAG5_DRAFT = [
       { who: 'X2', text: 'Center stays in: help in the middle' }]
   },
   {
-    key: 'zone-1-3-1', title: '1-3-1 Zone', concept: 'Defense: zone with a rusher',
+    key: 'zone-1-3-1', lesson: 'defense', title: '1-3-1 Zone', concept: 'Defense: zone with a rusher',
     summary: 'Defense. One rusher, three underneath defenders who each guard a third of the field low, and one safety deep. Guard grass, not a guy: cover whoever comes into your area. Two in your area? Stand between them. Ball thrown? Everyone runs to it.',
     cues: ['Guard your grass', 'Two in your zone: split them', 'Ball in the air: everybody go'],
     players: [QB5, C5, X5, Z5, P('O5', 'right slot', 'H'),
@@ -478,7 +478,7 @@ export const FLAG7_DRAFT = [
       { who: 'O5', text: 'Inside open: slant' }]
   },
   {
-    key: 'cover-2', title: 'Cover 2', concept: 'Defense: two-deep zone', coverage: 'cover2',
+    key: 'cover-2', lesson: 'defense', title: 'Cover 2', concept: 'Defense: two-deep zone', coverage: 'cover2',
     summary: 'Defense. Two safeties split the deep field in halves. The two corners sit in the flats (short and wide), two linebackers take the short middle, and one sits in the middle as a robber. Nobody gets behind the safeties, and quick throws to the outside run into the corners.',
     cues: ['Safeties: deep halves', 'Corners: squat the flat', 'Ball thrown: everybody go'],
     players: [...BASE7,
@@ -504,7 +504,7 @@ export const FLAG7_DRAFT = [
       { who: 'X6', text: 'Hook: break on anything short over the middle' }]
   },
   {
-    key: 'cover-3', title: 'Cover 3', concept: 'Defense: three-deep zone', coverage: 'cover3',
+    key: 'cover-3', lesson: 'defense', title: 'Cover 3', concept: 'Defense: three-deep zone', coverage: 'cover3',
     summary: 'Defense. Three players split the deep field in thirds: two corners on the outside, one safety in the middle. Four underneath defenders cover the short areas. Great against deep throws; the short curls and flats are the soft spots, so the underneath players sink and break fast.',
     cues: ['Three deep, four under', 'Deep thirds: nobody behind you', 'Under: sink under the curl'],
     players: [...BASE7,

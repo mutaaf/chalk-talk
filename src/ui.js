@@ -7,10 +7,10 @@
 
 import AuroraField from 'aurora-field';
 import { playShape, view, particleBudget } from './engine/field.js';
-import { normalize, compile } from './engine/sim.js';
+import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
 import { listener, say, hush, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
-import { drawPlay, key, keyKind, NAMES } from './ai.js';
+import { drawPlay, smartPlayers, setApi, key, keyKind, NAMES } from './ai.js';
 import { CSS } from './style.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -22,12 +22,20 @@ const TEMPLATE = `
   <div class="ct-word">Chalk <i>Talk</i> <small>Say the play. Watch it draw.</small></div>
   <div class="ct-sports" data-r="sports" role="tablist" aria-label="Sport"></div>
   <span class="ct-sp"></span>
-  <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself, then let the AI take over">Sketch</button>
+  <button class="ct-pill" data-r="viewBtn" title="Orbit, zoom and lock the view">View</button>
+  <button class="ct-pill" data-r="namesBtn" title="Show your players' names (saved on this device only)" hidden>Names</button>
+  <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself (or just use a pencil), then let the AI take over">Sketch</button>
   <button class="ct-pill" data-r="defBtn" title="Add defenders who guard on their own">Defense</button>
   <button class="ct-pill" data-r="infoBtn">About this play</button>
   <button class="ct-pill" data-r="narrate" aria-pressed="true" title="The broadcaster calls each step">Call it</button>
   <button class="ct-pill ct-keypill" data-r="keyBtn" title="Your AI key">AI</button>
 </header>
+<div class="ct-view" data-r="viewPop" hidden>
+  <div class="ct-vrow"><span>View</span><button data-p="coach">Coach</button><button data-p="top">Top-down</button><button data-p="side">Sideline</button></div>
+  <div class="ct-vrow"><span>Zoom</span><button data-z="-1">−</button><button data-z="0">Fit</button><button data-z="1">+</button></div>
+  <button class="ct-lock" data-r="lockBtn">Lock this view</button>
+  <p class="ct-fine">Drag the field to orbit, scroll or pinch to zoom, then lock it. Saved for each sport on this device.</p>
+</div>
 <div class="ct-sketchbar" data-r="sketchbar">
   <span data-r="sketchHint">Drag from a player to draw · tap the field to add one</span>
   <button data-r="addO" class="on">+ O</button><button data-r="addX">+ X</button>
@@ -93,7 +101,8 @@ const HINTS = {
 
 let styled = false;
 export function mount(root, options) {
-  const opts = Object.assign({ sport: 'basketball', sports: null, play: null, narrate: true, fullscreen: false, title: true, glossary: '' }, options || {});
+  const opts = Object.assign({ sport: 'basketball', sports: null, play: null, narrate: true, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
+  if (opts.api) setApi(opts.api);
   if (!styled && !document.querySelector('style[data-chalk-talk]')) { const s = document.createElement('style'); s.dataset.chalkTalk = ''; s.textContent = CSS; document.head.appendChild(s); styled = true; }
   root.classList.add('ct'); if (opts.fullscreen) root.classList.add('ct-full');
   root.innerHTML = TEMPLATE;
@@ -101,11 +110,22 @@ export function mount(root, options) {
   const R = {}; root.querySelectorAll('[data-r]').forEach(el => { R[el.dataset.r] = el; });
   const canvas = root.querySelector('.ct-court');
   const allowed = (opts.sports || sports().map(s => s.id)).map(id => getSport(id)).filter((s, i, a) => a.indexOf(s) === i);
-  const state = { sport: sportFor(opts.sport), play: null, raw: null, sim: null, loads: 0, narrate: opts.narrate, defense: false, readsOn: false, busy: null, sketch: null, libKey: null, vision: { mode: 'off', side: 1 }, routeMode: false };
+  const state = { sport: sportFor(opts.sport), play: null, raw: null, sim: null, loads: 0, narrate: opts.narrate, defense: false, readsOn: false, busy: null, sketch: null, libKey: null, vision: { mode: 'off', side: 1 }, routeMode: false, view: { pose: null, zoom: 1, locked: false } };
   if (allowed.indexOf(state.sport) < 0) state.sport = allowed[0];
   let field = null, raf = 0, dead = false, toShape = view(state.sport);
-  const speak = t => { if (state.narrate) say(t, key.get()); };
+  const speak = (t, local) => { if (state.narrate) say(t, key.get(), { local }); };
+  // the play read aloud: cloud voices only ever hear positions; the on-device voice may use names
+  const speakBeat = text => speak(spoken(text, false), state.showNames ? spoken(text, true) : null);
   voiceErrors(m => toast(m));
+
+  // ---- your players' names: on this device only, never sent anywhere ----
+  const namesKey = () => 'chalktalk.names.' + opts.team + '.' + state.sport.id;
+  const names = {
+    all() { try { return JSON.parse(localStorage.getItem(namesKey()) || '{}'); } catch (e) { return {}; } },
+    set(id, n) { const a = names.all(); n = String(n || '').trim().slice(0, 24); if (n) a[id] = n; else delete a[id]; try { localStorage.setItem(namesKey(), JSON.stringify(a)); } catch (e) {} },
+    any() { return Object.keys(names.all()).length > 0; }
+  };
+  try { state.showNames = localStorage.getItem('chalktalk.showNames') === '1'; } catch (e) { state.showNames = false; }
 
   // ---- the field ----
   function makeField(name) {
@@ -117,6 +137,7 @@ export function mount(root, options) {
       radius: (w, h) => (w < 700 ? Math.min(w * 0.6, h * 0.42) : Math.min(w * 0.4, h * 0.5))
     });
     state.loads = 0;
+    applyView();
   }
 
   // ---- loading a play onto the board ----
@@ -146,28 +167,54 @@ export function mount(root, options) {
   function setSport(s) {
     if (s === state.sport) return;
     state.sport = s; toShape = view(s); state.sketch = null; root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on');
-    state.routeMode = false; state.vision.mode = 'off';
+    state.routeMode = false; state.vision.mode = 'off'; state.view = loadView();
     renderSports(); renderLibrary(); renderLegend(); renderHints();
-    const first = s.plays[0]; load(first, { key: first.key, say: s.name + '. ' + first.title + '.' });
+    const first = s.plays[0]; load(first, { key: first.key, say: s.name + '. ' + first.title + '.' }); applyView();
     opts.onSport && opts.onSport(s.id);
   }
 
   function onBeat(k) {
     const sim = state.sim; if (!sim || state.sketch) return;
     const info = sim.beatInfo(k);
-    if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speak(spoken(info.say)); }
+    if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speakBeat(info.say); }
     else { R.caption.innerHTML = `<span class="ct-n">✓</span>${state.play.reads.length ? 'Options on this play' : 'That\'s the play.'}`; R.caption.classList.add('end'); }
     state.readsOn = !info;
-    renderDots(); renderReads();
+    renderDots(); renderReads(); renderThoughts(k);
+  }
+  // what players are thinking this beat: AI players' reads, and the autonomous ones' decisions
+  function renderThoughts(k) {
+    if (!ink) return;
+    const sim = state.sim, info = sim.beatInfo(k), say = {};
+    if (info) {
+      info.actions.forEach(a => { if (a.thought) say[a.who] = a.thought; });
+      Object.assign(say, info.thoughts || {});
+      sim.notes.forEach(n => { if (n.beat === k && !say[n.who]) say[n.who] = n.why; });
+      const pass = info.actions.find(a => state.sport.kinds[a.kind].type === 'pass' && a.kind !== 'snap');
+      if (pass && ink.hasD) {
+        const tc = k + 0.94, ri = sim.idx[pass.target];
+        if (sim.space(tc, ri) < state.sport.open) {
+          let best = -1, bs = state.sport.open;
+          sim.players.forEach((p, i) => { if (p.side === 'O' && i !== ri && p.id !== pass.who && p.role !== 'C') { const v = sim.space(tc, i); if (v > bs) { bs = v; best = i; } } });
+          if (best >= 0) {
+            const who = sim.players[best].id;
+            say[who] = "I'm open!";
+            R.caption.insertAdjacentHTML('beforeend', ` <span class="ct-wrong">Wrong read: ${esc(nameOf(who))} was open.</span>`);
+          }
+        }
+      }
+    }
+    ink.thinks.forEach((el, i) => { const t = say[sim.players[i].id]; el.textContent = t || ''; el.classList.toggle('on', !!t); });
   }
 
   // names the way the board shows them: "O4" reads as "4" in basketball, "Z" in football
   const byId = id => state.play && state.play.players.find(p => p.id === id);
-  const nameOf = id => { const p = byId(id); return p ? state.sport.notation.name(p) : id; };
+  const posName = id => { const p = byId(id); return p ? state.sport.notation.name(p) : id; };
+  const nameOf = id => (state.showNames && names.all()[id]) || posName(id);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const mark = s => esc(s).replace(/\b([OX])([1-9])\b/g, (m, side, n) => byId(m) ? `<b class="ct-m ${side}">${esc(nameOf(m))}</b>` : m);
-  const spoken = s => String(s || '').replace(/\b([OX])([1-9])\b/g, (m, side) => {
+  const spoken = (s, withNames) => String(s || '').replace(/\b([OX])([1-9])\b/g, (m, side) => {
     const p = byId(m); if (!p) return m;
+    if (withNames && names.all()[m]) return names.all()[m];
     const nm = state.sport.notation.name(p);
     return state.sport.id === 'basketball' ? (side === 'O' ? 'the ' + nm : 'X ' + m[1]) : nm === 'QB' ? 'the quarterback' : nm === 'C' ? 'the center' : nm;
   });
@@ -193,7 +240,7 @@ export function mount(root, options) {
   }
   R.dots.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    state.sim.seek(+b.dataset.i); state.sim.playing(false); renderDots(); onBeat(+b.dataset.i); speak(spoken(state.sim.beatInfo(+b.dataset.i).say));
+    state.sim.seek(+b.dataset.i); state.sim.playing(false); renderDots(); onBeat(+b.dataset.i); speakBeat(state.sim.beatInfo(+b.dataset.i).say);
   });
 
   // ---- the ink: exact marks, routes and ball, re-projected every frame ----
@@ -212,30 +259,42 @@ export function mount(root, options) {
     const shadow = el('ellipse', 'shadow', svg), ball = el('circle', 'ball', svg);
     const marks = sim.players.map(p => {
       const g = el('g', '', gP), shape = nt.shape(p);
-      const glyph = el('path', 'g ' + p.side + (shape === 'square' ? ' sq' : ''), g), text = el('text', 'n ' + p.side, g), hot = el('circle', 'hot', g);
+      const glyph = el('path', 'g ' + p.side + (shape === 'square' ? ' sq' : '') + (p.smart ? ' smart' : ''), g), eye = el('path', 'eye ' + p.side, g), text = el('text', 'n ' + p.side, g), hot = el('circle', 'hot', g);
       text.textContent = nt.inside(p);
       hot.addEventListener('pointerdown', e => {
         if (state.sketch) return; e.stopPropagation();
         if (state.routeMode && p.side === 'O' && p.id !== 'O1') pickRoute(p.id); else editRole(p.id);
       });
-      return { p, shape, glyph, text, hot };
+      return { p, shape, glyph, eye, text, hot };
     });
     const stroke = el('path', 'stroke', svg);
-    R.labels.innerHTML = sim.players.map(p => `<div class="ct-lbl ${p.side}${p.role && state.sport.id === 'basketball' ? '' : ' empty'}" data-id="${p.id}">${esc(p.role || '')}</div>`).join('');
-    ink = { routes, marks, ball, shadow, stroke, lbls: Array.from(R.labels.children), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+    const nm = names.all();
+    R.labels.innerHTML = sim.players.map(p => {
+      const name = state.showNames && nm[p.id], txt = name || (state.sport.id === 'basketball' ? p.role : '') || '';
+      return `<div class="ct-lbl ${p.side}${name ? ' name' : ''}${txt || p.smart ? '' : ' empty'}" data-id="${p.id}">${p.smart ? '<i class="ct-brain" title="Played by the AI"></i>' : ''}${esc(txt)}</div>`;
+    }).join('') + sim.players.map(p => `<div class="ct-think ${p.side}"></div>`).join('');
+    const kids = Array.from(R.labels.children);
+    ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),   // in football every receiver is reading the coverage routes, marks, ball, shadow, stroke, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+    R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
   const proj = (x, y, h) => field.project(toShape(x, y, h || 0, tmp));
   function drawInk() {
-    const sim = state.sim, t = sim.time(), P = sim.posAt(t), Bp = sim.ballAt(t), RS = sim.routeState(t), U = state.sport.mark;
-    const k = Math.floor(t), holder = sim.holderAt(t);
+    const sim = state.sim, t = sim.time(), P0 = sim.posAt(t), B0 = sim.ballAt(t), RS = sim.routeState(t), U = state.sport.mark;
+    const k = Math.floor(t), holder = sim.holderAt(t), sec = performance.now() / 1000, lo = [0, 0];
+    // players breathe: a ready stance, active feet. The engine's positions stay exact; this is only how they look.
+    const P = P0.map((p, i) => { life(state.sport, sim.players[i].side, i, sec, lo); return [p[0] + lo[0], p[1] + lo[1]]; });
+    const Bp = holder >= 0 ? [B0[0] + P[holder][0] - P0[holder][0], B0[1] + P[holder][1] - P0[holder][1], B0[2]] : B0;
     sim.routes.forEach((r, i) => {
       const rs = RS[i], path = ink.routes[i];
       if (!rs.drawn) { path.setAttribute('d', ''); return; }
       const pts = sim.routeSlice(i, rs.drawn);
       let d = ''; for (let j = 0; j < pts.length; j++) { const s = proj(pts[j][0], pts[j][1], 0); d += (j ? 'L' : 'M') + s.x.toFixed(1) + ' ' + s.y.toFixed(1); }
-      path.setAttribute('d', d); path.classList.toggle('old', r.beat < k);
-      path.setAttribute('stroke-width', r.type === 'move' ? 2.6 : 2);
+      // history fades: this beat bold, the last one a ghost, the one before that footprints, then gone;
+      // the closing recap shows the whole play faintly
+      const age = rs.age || 0, cls = age === 0 ? '' : age === 1 ? ' a1' : age === 2 ? ' a2' : ' recap';
+      path.setAttribute('d', d); path.setAttribute('class', 'r ' + r.side + ' ' + r.kind + ' ' + r.type + (r.auto ? ' auto' : '') + cls);
+      path.setAttribute('stroke-width', (r.type === 'move' ? 2.6 : 2) * (age === 0 ? 1 : 0.7));
     });
     ink.marks.forEach((m, i) => {
       const [x, y] = P[i], c = proj(x, y, 0.15 * U), e = proj(x + U, y, 0.15 * U), rpx = Math.max(7, Math.hypot(e.x - c.x, e.y - c.y));
@@ -244,11 +303,21 @@ export function mount(root, options) {
       else if (m.shape === 'square') { const q = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => proj(x + a * 0.85 * U, y + b * 0.85 * U, 0.15 * U)); d = 'M' + q.map(s => s.x.toFixed(1) + ' ' + s.y.toFixed(1)).join('L') + 'Z'; }
       else { for (let j = 0; j <= 20; j++) { const a = j / 20 * Math.PI * 2, s = proj(x + Math.cos(a) * U, y + Math.sin(a) * U, 0.15 * U); d += (j ? 'L' : 'M') + s.x.toFixed(1) + ' ' + s.y.toFixed(1); } d += 'Z'; }
       m.glyph.setAttribute('d', d); m.glyph.classList.toggle('hold', i === holder);
+      m.glyph.classList.toggle('open', ink.guarded[i] && i !== holder && sim.space(t, i) >= state.sport.open * 1.15);   // open = beat your defender
       const tx = m.shape === 'x' ? c.x + rpx * 0.95 : c.x, ty = m.shape === 'x' ? c.y + rpx * 0.75 : c.y;
       const fs = (m.text.textContent.length > 1 ? 0.95 : 1.25) * rpx;
       m.text.setAttribute('x', tx.toFixed(1)); m.text.setAttribute('y', ty.toFixed(1)); m.text.setAttribute('font-size', (m.shape === 'x' ? fs * 0.75 : fs).toFixed(1));
       m.hot.setAttribute('cx', c.x); m.hot.setAttribute('cy', c.y); m.hot.setAttribute('r', rpx * 1.3);
       const lb = ink.lbls[i]; if (lb) lb.style.transform = `translate(${c.x}px, ${(c.y + rpx * 1.25).toFixed(1)}px)`;
+      const th = ink.thinks[i]; if (th && th.classList.contains('on')) th.style.transform = `translate(${c.x}px, ${(c.y - rpx * 1.5).toFixed(1)}px)`;
+      // eyes: offense off the ball watches the ball, the ball handler looks at the goal, defense splits man and ball
+      const pl = sim.players[i], goal = state.sport.field.goal;
+      let fx, fy;
+      if (pl.side === 'O') { const tg = i === holder ? goal : Bp; fx = tg[0] - x; fy = tg[1] - y; }
+      else { const mm = sim.match[i] >= 0 ? P[sim.match[i]] : Bp; fx = (mm[0] + Bp[0]) / 2 - x; fy = (mm[1] + Bp[1]) / 2 - y; }
+      const fl = Math.hypot(fx, fy) || 1; fx /= fl; fy /= fl;
+      const r0 = pl.side === 'O' ? 1.05 : 1.0, e1 = proj(x + fx * U * r0, y + fy * U * r0, 0.15 * U), e2 = proj(x + fx * U * (r0 + 0.55), y + fy * U * (r0 + 0.55), 0.15 * U);
+      m.eye.setAttribute('d', `M${e1.x.toFixed(1)} ${e1.y.toFixed(1)}L${e2.x.toFixed(1)} ${e2.y.toFixed(1)}`);
     });
     const b = proj(Bp[0], Bp[1], Bp[2]), g = proj(Bp[0], Bp[1], 0), be = proj(Bp[0] + state.sport.ball.r, Bp[1], Bp[2]);
     const br = Math.max(3.5, Math.hypot(be.x - b.x, be.y - b.y));
@@ -295,13 +364,25 @@ export function mount(root, options) {
     const i = state.play.players.indexOf(p), lb = ink.lbls[i];
     const box = document.createElement('form'); box.className = 'ct-edit';
     const chips = (state.sport.ai.roles || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 4);
-    box.innerHTML = `<input value="${esc(p.role || '')}" placeholder="Label ${esc(nameOf(id))}" maxlength="18" aria-label="Label"><div class="chips">${chips.map(c => `<button type="button">${esc(c)}</button>`).join('')}</div><button>Set</button>`;
+    box.innerHTML = `<input value="${esc(p.role || '')}" placeholder="Label ${esc(posName(id))}" maxlength="18" aria-label="Label"><div class="chips">${chips.map(c => `<button type="button">${esc(c)}</button>`).join('')}</div><button>Set</button>` +
+      `<div class="ct-edrow"><input data-n value="${esc(names.all()[id] || '')}" placeholder="Player's name (this device only)" maxlength="24" aria-label="Name, saved on this device only" autocomplete="off"></div>` +
+      `<div class="ct-edrow"><button type="button" data-s="1">🧠 ${p.smart ? 'Ask the AI again' : 'Smart (AI) plays ' + esc(posName(id))}</button><button type="button" data-s="all">🧠 Whole team smart</button></div>`;
     const r = lb.getBoundingClientRect(), host = root.getBoundingClientRect();
     box.style.left = (r.left + r.width / 2 - host.left) + 'px'; box.style.top = (r.top - host.top + 4) + 'px';
     root.appendChild(box);
     const input = box.querySelector('input'); input.focus(); input.select();
     box.querySelectorAll('.chips button').forEach(b => b.onclick = () => { input.value = b.textContent; box.requestSubmit(); });
-    box.onsubmit = e => { e.preventDefault(); setRole(id, input.value); closeEditor(); };
+    const nameIn = box.querySelector('[data-n]');
+    box.onsubmit = e => {
+      e.preventDefault();
+      const nm = nameIn.value.trim(); if (nm !== (names.all()[id] || '')) { names.set(id, nm); if (nm) { state.showNames = true; try { localStorage.setItem('chalktalk.showNames', '1'); } catch (er) {} } }
+      setRole(id, input.value); closeEditor();
+    };
+    box.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+      closeEditor();
+      const team = state.play.players.filter(q => q.side === p.side && q.id !== state.play.ball && !(state.sport.autonomy && state.sport.autonomy.skip && state.sport.autonomy.skip(q))).map(q => q.id);
+      makeSmart(b.dataset.s === 'all' ? team : [id]);
+    });
     setTimeout(() => document.addEventListener('pointerdown', outside), 0);
     function outside(e) { if (!box.contains(e.target)) closeEditor(); }
     box._off = () => document.removeEventListener('pointerdown', outside);
@@ -315,7 +396,22 @@ export function mount(root, options) {
     hit.role = role;
     const t = state.sim.time();
     load(raw, { key: state.libKey, quiet: true, at: t, keepAI: true });
-    toast(role ? `${id} is now “${role}”.` : `${id}'s label removed.`);
+    if (role) toast(`${posName(id)} is now “${role}”.`);
+  }
+  // the AI plays these positions: a real read every beat, with what they were thinking
+  async function makeSmart(ids) {
+    if (!ids.length) return;
+    if (state.busy) state.busy.abort();
+    const ctl = state.busy = new AbortController(), sport = state.sport;
+    root.classList.add('ct-drawing'); R.status.textContent = `The AI is taking over ${ids.map(posName).join(', ')}…`;
+    const pulse = setInterval(() => field && field.signal(), 500);
+    try {
+      const res = await smartPlayers(strip(state.play), ids, { sport, signal: ctl.signal });
+      if (ctl !== state.busy || dead || sport !== state.sport) return;
+      load(res.play, { key: state.libKey, quiet: true, keepAI: true }); state.sim.seek(0); state.sim.playing(true);
+      R.status.textContent = res.reply || ''; speak(res.reply || 'Smart players are in.');
+    } catch (e) { if (e.name !== 'AbortError') { toast(e.message); R.status.textContent = ''; } }
+    finally { clearInterval(pulse); if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); } }
   }
 
   // ---- controls ----
@@ -339,7 +435,7 @@ export function mount(root, options) {
     }
     if (c === 'sketch') { toggleSketch(); return; }
     if (c === 'clear') { load(blank(), { quiet: true }); return; }
-    if (c === 'next' || c === 'back') { onBeat(sim.beatAt()); const b = sim.beatInfo(sim.beatAt()); if (b) speak(spoken(b.say)); }
+    if (c === 'next' || c === 'back') { onBeat(sim.beatAt()); const b = sim.beatInfo(sim.beatAt()); if (b) speakBeat(b.say); }
     renderDots();
   }
   function blank() {
@@ -494,7 +590,10 @@ export function mount(root, options) {
       if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); }
     }
   }
-  const strip = p => ({ title: p.title, los: p.los, players: p.players.map(q => ({ id: q.id, side: q.side, role: q.role, at: { x: +q.x.toFixed(1), y: +q.y.toFixed(1) } })), ball: p.ball, beats: p.beats.map(b => ({ say: b.say, actions: b.actions.map(a => ({ kind: a.kind, who: a.who, to: a.to, via: a.via, path: a.path, target: a.target })) })), reads: p.reads });
+  // what leaves the device: X's and O's, roles and the plan. Never names (they aren't in the play at all).
+  const strip = p => ({ title: p.title, los: p.los, coverage: p.coverage || undefined,
+    players: p.players.map(q => Object.assign({ id: q.id, side: q.side, role: q.role, at: { x: +q.x.toFixed(1), y: +q.y.toFixed(1) } }, q.smart ? { smart: true } : {}, q.cover ? { cover: q.cover } : {})),
+    ball: p.ball, beats: p.beats.map(b => Object.assign({ say: b.say, actions: b.actions.map(a => Object.assign({ kind: a.kind, who: a.who, to: a.to, via: a.via, path: a.path, target: a.target }, a.thought ? { thought: a.thought } : {}, a.tree ? { tree: a.tree } : {})) }, b.thoughts ? { thoughts: b.thoughts } : {})), reads: p.reads });
 
   // what the AI (or the local matcher) recognised, its suggestions, and for sketches: use it or keep mine
   function showAI(raw, mine) {
@@ -575,6 +674,7 @@ export function mount(root, options) {
     if (Math.hypot(sx - last[0], sy - last[1]) < 4) return;
     drag.screen.push([sx, sy]); drag.pts.push(unproject(sx, sy));
     ink.stroke.setAttribute('d', 'M' + drag.screen.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L'));
+    if (e.pointerType === 'pen') ink.stroke.setAttribute('stroke-width', (1.6 + (e.pressure || 0.5) * 4).toFixed(1));   // the pencil's pressure
   });
   const endDrag = () => {
     if (!drag) return; const d = drag; drag = null; ink.stroke.setAttribute('d', '');
@@ -655,6 +755,74 @@ export function mount(root, options) {
     return bs >= 0.6 ? best : null;
   }
 
+  // ---- the view: orbit, zoom, presets, lock ----
+  const viewKey = () => 'chalktalk.view.' + state.sport.id;
+  const PRESETS = { coach: { yaw: 0, pitch: -0.04 }, top: { yaw: 0, pitch: 0.55 }, side: { yaw: -0.62, pitch: -0.12 } };
+  function loadView() { try { return JSON.parse(localStorage.getItem(viewKey()) || 'null') || { pose: null, zoom: 1, locked: false }; } catch (e) { return { pose: null, zoom: 1, locked: false }; } }
+  function saveView() { try { localStorage.setItem(viewKey(), JSON.stringify(state.view)); } catch (e) {} }
+  function applyView() {
+    if (!field) return;
+    const v = state.view;
+    field.setPose(v.pose ? { yaw: v.pose.yaw, pitch: v.pose.pitch, roll: 0 } : null);
+    field.set({ interactive: !v.locked, radius: (w, h) => (w < 700 ? Math.min(w * 0.6, h * 0.42) : Math.min(w * 0.4, h * 0.5)) * v.zoom });
+    R.lockBtn.textContent = v.locked ? '🔒 Locked · tap to unlock' : 'Lock this view';
+    R.lockBtn.classList.toggle('on', v.locked); R.viewBtn.classList.toggle('on', v.locked);
+    R.viewBtn.textContent = v.locked ? '🔒 View' : 'View';
+  }
+  R.viewBtn.onclick = () => { R.viewPop.hidden = !R.viewPop.hidden; };
+  R.viewPop.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.p) state.view.pose = Object.assign({}, PRESETS[b.dataset.p]);
+    if (b.dataset.z) state.view.zoom = b.dataset.z === '0' ? 1 : Math.max(0.6, Math.min(2.4, state.view.zoom * (b.dataset.z === '1' ? 1.15 : 1 / 1.15)));
+    if (b === R.lockBtn) { state.view.locked = !state.view.locked; if (state.view.locked && !state.view.pose) capturePose(); toast(state.view.locked ? 'View locked. It stays exactly here.' : 'View unlocked: drag to orbit.'); }
+    saveView(); applyView();
+  });
+  // after a drag, hold the field where it was left (no drifting back)
+  function capturePose() {
+    const v = field.view(), TAU = Math.PI * 2;
+    state.view.pose = { yaw: v.yaw - Math.round(v.yaw / TAU) * TAU, pitch: v.pitch + 0.06 };
+  }
+  const stage = root.querySelector('.ct-stage');
+  stage.addEventListener('pointerup', e => { if (e.pointerType !== 'pen' && !state.view.locked && !state.sketch && e.target === canvas) { capturePose(); saveView(); applyView(); } });
+  stage.addEventListener('wheel', e => {
+    if (state.view.locked) return;
+    e.preventDefault();
+    state.view.zoom = Math.max(0.6, Math.min(2.4, state.view.zoom * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015))));
+    saveView(); applyView();
+  }, { passive: false });
+  // two fingers: pinch to zoom
+  const touches = new Map(); let pinch0 = 0, zoom0 = 1;
+  stage.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { touches.set(e.pointerId, [e.clientX, e.clientY]); if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = state.view.zoom; } } });
+  stage.addEventListener('pointermove', e => {
+    if (!touches.has(e.pointerId)) return; touches.set(e.pointerId, [e.clientX, e.clientY]);
+    if (touches.size === 2 && pinch0 && !state.view.locked) { const [a, b] = [...touches.values()]; state.view.zoom = Math.max(0.6, Math.min(2.4, zoom0 * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch0)); applyView(); }
+  });
+  const untouch = e => { touches.delete(e.pointerId); if (touches.size < 2 && pinch0) { pinch0 = 0; saveView(); } };
+  stage.addEventListener('pointerup', untouch); stage.addEventListener('pointercancel', untouch);
+
+  // ---- names toggle ----
+  R.namesBtn.onclick = () => {
+    state.showNames = !state.showNames; try { localStorage.setItem('chalktalk.showNames', state.showNames ? '1' : '0'); } catch (e) {}
+    buildInk(); renderPlay(); renderThoughts(state.sim.beatAt());
+    toast(state.showNames ? 'Names on. They stay on this device and are never sent to the AI.' : 'Names off.');
+  };
+
+  // ---- pencil and peripherals: the pencil draws, fingers move the view ----
+  let lastPen = 0;
+  stage.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'pen') {
+      lastPen = performance.now();
+      if (!state.sketch) { e.preventDefault(); e.stopPropagation(); toggleSketch(); R.ink.dispatchEvent(new PointerEvent('pointerdown', e)); }
+    } else if (e.pointerType === 'touch' && state.sketch && performance.now() - lastPen < 2500) { e.stopPropagation(); e.preventDefault(); }   // palm rejection
+  }, true);
+  // pencil hover: show which player a stroke would start from
+  R.ink.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'pen' || e.buttons || !ink) return;
+    const host = R.ink.getBoundingClientRect(), x = e.clientX - host.left, y = e.clientY - host.top;
+    ink.marks.forEach(m => { const cx = +m.hot.getAttribute('cx'), cy = +m.hot.getAttribute('cy'), r = +m.hot.getAttribute('r'); m.glyph.classList.toggle('hover', Math.hypot(cx - x, cy - y) < r); });
+  });
+  R.ink.addEventListener('pointerleave', () => ink && ink.marks.forEach(m => m.glyph.classList.remove('hover')));
+
   // ---- ears ----
   const ear = listener(t => heard(t), (st, text) => {
     R.mic.dataset.state = st;
@@ -672,7 +840,17 @@ export function mount(root, options) {
     if (e.code === 'Space' && !e.repeat && ear) { e.preventDefault(); spaceDown = true; ear.start(); }
     if (e.key === 'ArrowRight') act('next');
     if (e.key === 'ArrowLeft') act('back');
-    if (e.key === 'Escape') { closeEditor(); if (state.sketch) finishSketch(); }
+    if (e.key === 'Escape') { closeEditor(); R.viewPop.hidden = true; if (state.sketch) finishSketch(); }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && state.sketch) { e.preventDefault(); R.undo.click(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k2 = e.key.toLowerCase();
+    if (k2 === 's') act('sketch');
+    if (k2 === 'd') act('defense');
+    if (k2 === 'l') { state.view.locked = !state.view.locked; if (state.view.locked && !state.view.pose) capturePose(); saveView(); applyView(); toast(state.view.locked ? 'View locked.' : 'View unlocked.'); }
+    if (k2 === 'n' && names.any()) R.namesBtn.click();
+    if (k2 === '=' || k2 === '+') { state.view.zoom = Math.min(2.4, state.view.zoom * 1.15); saveView(); applyView(); }
+    if (k2 === '-') { state.view.zoom = Math.max(0.6, state.view.zoom / 1.15); saveView(); applyView(); }
+    if (k2 === 'p' || k2 === 'k') act('toggle');
   };
   const ku = e => { if (e.code === 'Space' && spaceDown) { spaceDown = false; ear && ear.stop(); } };
   addEventListener('keydown', kd); addEventListener('keyup', ku);
@@ -709,6 +887,7 @@ export function mount(root, options) {
   let toastT = 0;
   function toast(msg) { R.toast.textContent = msg; R.toast.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => R.toast.classList.remove('on'), 4200); }
 
+  state.view = loadView();
   renderSports(); renderLibrary(); renderLegend(); renderHints();
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });

@@ -109,7 +109,7 @@ const base = (o) => ({
     why: { fill: 'spreads out from a teammate', drive: 'clears out', space: 'works open, away from the defender' } },
   unit: 'yd', field: { x: [-o.W / 2, o.W / 2], y: [0, o.depth], goal: [0, 4, 0], lines: fieldLines(o.W, o.depth, o) },
   view: { scale: 1 / (o.W / 2 + 2.5), center: o.depth / 2 + 1, tilt: 0.92, lift: -0.1 },
-  mark: o.W / 30, screenGap: 1.5,
+  mark: o.W / 30, screenGap: 1.5, open: 2.5, react: 0.3,
   ball: { r: 0.32 * o.W / 30, held: 1.1, bounce: false, offset: [0.45, -0.25], maxArc: 7, stretch: 1.7 },
   spots: spots(o.W, o.los), kinds: KINDS, guard, los: o.los
 });

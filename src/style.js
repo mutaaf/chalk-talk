@@ -14,6 +14,7 @@ export const CSS = `
   background: radial-gradient(60% 50% at 50% 58%, rgba(60, 110, 200, .16), transparent 70%), radial-gradient(30% 40% at 50% 8%, rgba(255, 142, 58, .06), transparent 70%); }
 .ct::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay; z-index: 1;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.ct [hidden] { display: none !important; }
 .ct button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; margin: 0; }
 .ct h1, .ct h2, .ct h3, .ct p, .ct ul { margin: 0; }
 .ct-stage { position: absolute; inset: 0; z-index: 1; }
@@ -26,7 +27,34 @@ export const CSS = `
 .ct-ink .r.O { stroke: var(--o); } .ct-ink .r.D { stroke: var(--x); }
 .ct-ink .r.pass, .ct-ink .r.shot { stroke: var(--paper); stroke-dasharray: 7 7; }
 .ct-ink .r.handoff { stroke: var(--paper); }
-.ct-ink .r.old { opacity: .38; }
+.ct-ink .r.a1 { opacity: .32; }
+.ct-ink .r.a2 { opacity: .16; stroke-dasharray: 1 7; }
+.ct-ink .r.recap { opacity: .26; }
+.ct-ink .r.auto { stroke-dasharray: 2 6; }
+.ct-ink .eye { stroke-width: 2.2; stroke-linecap: round; opacity: .9; }
+.ct-ink .eye.O { stroke: var(--o); } .ct-ink .eye.D { stroke: var(--x); }
+.ct-ink .g.smart { stroke-dasharray: 4 3; filter: drop-shadow(0 0 7px rgba(160, 120, 255, .9)); }
+.ct-ink .g.open { stroke: #4ade80; filter: drop-shadow(0 0 8px rgba(74, 222, 128, .85)); }
+.ct-wrong { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 8px; background: #4ade80; color: #04140a; font-size: .8em; font-weight: 700; }
+.ct-ink .g.hover { stroke: #fff; stroke-width: 3.6; }
+.ct-think { position: absolute; left: 0; top: 0; translate: -50% -100%; max-width: 190px; padding: 5px 9px; border-radius: 10px 10px 10px 2px; font-size: 11.5px; line-height: 1.3;
+  background: rgba(238, 244, 255, .94); color: #0a1220; box-shadow: 0 6px 20px rgba(0, 0, 0, .35); opacity: 0; transition: opacity .3s; pointer-events: none; white-space: normal; will-change: transform; }
+.ct-think.on { opacity: 1; }
+.ct-think.D { background: rgba(169, 212, 255, .95); }
+.ct-brain { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 8px #b48cff; margin-right: 5px; vertical-align: 1px; }
+.ct-lbl.name { text-transform: none; letter-spacing: .02em; font-size: 12px; background: rgba(255, 142, 58, .18); border-color: rgba(255, 142, 58, .6); }
+.ct-edrow { width: 100%; display: flex; gap: 6px; }
+.ct-edrow input { flex: 1; width: auto !important; }
+.ct-edrow button { background: rgba(180, 140, 255, .18) !important; color: var(--paper) !important; font-weight: 400 !important; }
+.ct-edit { flex-wrap: wrap; max-width: 330px; }
+.ct-view { position: absolute; top: 60px; right: 22px; z-index: 6; width: 290px; display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--deep); border: 1px solid var(--line); box-shadow: 0 12px 34px rgba(0, 0, 0, .45); }
+.ct-view[hidden] { display: none; }
+.ct-vrow { display: flex; align-items: center; gap: 5px; }
+.ct-vrow span { width: 44px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--mute); font-family: var(--display); font-weight: 700; }
+.ct-vrow button { height: 30px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; flex: 1; }
+.ct-lock { height: 36px; border-radius: 10px; border: 1px solid var(--o) !important; color: var(--o); font-weight: 700; }
+.ct-lock.on { background: var(--o) !important; color: var(--night); }
+.ct-view .ct-fine { font-size: 12px; color: var(--mute); }
 .ct-ink .g { fill: rgba(4, 7, 12, .55); stroke-width: 2.6; }
 .ct-ink .g.O { stroke: var(--o); } .ct-ink .g.D { stroke: var(--x); fill: none; stroke-width: 3; stroke-linecap: round; }
 .ct-ink .g.hold { fill: rgba(255, 142, 58, .32); stroke-width: 3.4; filter: drop-shadow(0 0 6px rgba(255, 142, 58, .8)); }

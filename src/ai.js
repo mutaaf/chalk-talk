@@ -67,7 +67,7 @@ ${spotTable(sport)}
 
 A play is a list of beats; the actions in one beat happen at the same time, and beats happen in order. Split what the coach said into the order it happens (3–6 beats is usual). Action kinds:
 ${kinds}
-For movement, "to" is where the player ends; "path" holds waypoints before it (route breaks) and "via" one control point for a curve. ${sport.ai.rules} Coordinates must be on the field.
+Teach the right read: every pass or throw goes to the player who is open at that moment (the nearest defender at least ${sport.open} ${sport.unit} away at the catch). If you place defenders, place them so the reason is visible (the receiver's defender is late, helping, screened or in the wrong zone); never throw to a covered player while someone else is open. For movement, "to" is where the player ends; "path" holds waypoints before it (route breaks) and "via" one control point for a curve. ${sport.ai.rules} Coordinates must be on the field.
 
 Use modern coaching language the way today's coaches say it, and explain any jargon in the kid summary. "reads" are the options the play creates, each tied to a player. "cues" are 2–4 short words a coach shouts. If the coach asks to change the current play, return the whole play with the change; if they describe or name a new play, replace it. If they name a known concept, draw a clean standard version. Set "recognized" to the library concept the play is or builds on, and use "suggestions" for 0–3 specific ways to make it better.${library && library.length ? '\n\nThe concept library (key: title, concept):\n' + library.map(p => `- ${p.key}: ${p.title} (${p.concept})`).join('\n') : ''}${glossary ? '\n\nGlossary of terms coaches use:\n' + glossary : ''}`;
 }
