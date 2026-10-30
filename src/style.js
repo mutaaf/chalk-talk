@@ -1039,4 +1039,179 @@ export const CSS = `
 /* a soccer ball is white with a dark seam */
 .ct-ink .ball.soccer { fill: #fff; stroke: #111; stroke-width: 1.4; }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
+/* ==== device layouts: phones on their side, flip cover screens, folds and two screens (CLAUDE.md → Device layouts).
+   The field is centered in .ct-boardbox (aurora-field's stage); by default it's the whole stage, so desktop and iPad
+   don't change. A layout that gives the board only part of the screen moves the box and says how the field fits in
+   it with --ct-fit (width and height factors for the radius, read by fitR in ui.js). .ct:not(.ct-board) keeps
+   whiteboard-only as it is and outranks the generated .ct.ct-touch copies. ==== */
+.ct-boardbox { position: absolute; inset: 0; pointer-events: none; visibility: hidden; }
+
+/* touch targets: the small header pills and close buttons reach 44px without growing */
+.ct.ct-touch .ct-top .ct-pill, .ct.ct-touch .ct-panel > header .ct-x { position: relative; }
+.ct.ct-touch .ct-top .ct-pill::after, .ct.ct-touch .ct-panel > header .ct-x::after, .ct.ct-touch .ct-cardx::after { content: ''; position: absolute; inset: -6px -2px; }
+.ct.ct-touch .ct-sports .ct-pill::after { inset: -9px -2px; }
+.ct.ct-touch .ct-panel > header .ct-x::after, .ct.ct-touch .ct-cardx::after { inset: -6px; }
+/* phones: the step controls are thumb-sized, the dots share what's left */
+@container (max-width: 700px) {
+  .ct:not(.ct-board) .ct-transport > button { width: 44px; height: 44px; }
+  .ct:not(.ct-board) .ct-transport > .ct-speed { width: auto; border-radius: 22px; }
+  .ct:not(.ct-board) .ct-dock { grid-template-columns: minmax(0, 1fr); }
+  .ct-transport { max-width: 100%; }
+  .ct-dots { flex: 1 1 auto; min-width: 0; gap: 4px; }
+  .ct-dots button { flex: 0 1 26px; min-width: 6px; }
+  .ct-dots button.now { flex-basis: 40px; }
+  /* listening: the words sit just above the step controls, never on them */
+  .ct:not(.ct-board) .ct-livecard { bottom: calc(236px + env(safe-area-inset-bottom)); }
+}
+/* the smallest iPhones: the dock spans the width and its five sections share it (the touch copy kept them at 70px,
+   so More ran off a 375px screen) */
+@container (max-width: 420px) {
+  .ct:not(.ct-board) nav.ct-tabbar { left: 10px; right: 10px; width: auto; translate: none; gap: 0; }
+  .ct:not(.ct-board) nav.ct-tabbar button { flex: 1 1 0; min-width: 0; padding: 6px 2px; }
+  .ct:not(.ct-board) nav.ct-tabbar .ct-tbmic { margin: 0 2px; }
+}
+
+/* ---- phones on their side: a slim header, the sections as a rail on the right, the play and the step controls in a
+   column on the left, and the field gets the middle ---- */
+@container (orientation: landscape) and (min-width: 480px) and (max-width: 1100px) and (max-height: 500px) {
+  .ct > * { --ct-l: max(12px, env(safe-area-inset-left)); --ct-r: max(8px, env(safe-area-inset-right)); --ct-col: clamp(226px, 30cqw, 300px); --ct-rail: 82px; }
+  .ct:not(.ct-board):not(.ct-quiz):not(.ct-present-on) .ct-boardbox { top: 44px; bottom: 4px; left: calc(var(--ct-l) + var(--ct-col) + 6px); right: calc(var(--ct-r) + var(--ct-rail)); --ct-fit: .44 .46; }
+  .ct:not(.ct-board) .ct-top { padding: max(6px, env(safe-area-inset-top)) calc(var(--ct-r) + var(--ct-rail)) 0 var(--ct-l); }
+  .ct:not(.ct-board) .ct-word { font-size: 19px; }
+  .ct:not(.ct-board) nav.ct-tabbar { flex-direction: column; left: auto; right: var(--ct-r); top: 50%; bottom: auto; translate: 0 -50%; max-width: none; max-height: calc(100% - 12px); padding: 5px; gap: 1px; border-radius: 28px; }
+  .ct:not(.ct-board) nav.ct-tabbar button { min-width: 66px; height: 54px; padding: 4px 6px; gap: 3px; font-size: 10.5px; }
+  .ct:not(.ct-board) nav.ct-tabbar .ct-tbmic { height: 58px; margin: 2px 0; padding: 4px 6px; }
+  .ct:not(.ct-board) nav.ct-tabbar .ct-dot { right: 12px; }
+  .ct:not(.ct-board) .ct-playchip { top: 50px; left: var(--ct-l); translate: none; max-width: var(--ct-col); }
+  .ct:not(.ct-board) .ct-fab { top: 50px; right: calc(var(--ct-r) + var(--ct-rail) + 4px); }
+  .ct:not(.ct-board) .ct-dock { left: var(--ct-l); right: auto; width: var(--ct-col); bottom: max(8px, env(safe-area-inset-bottom)); translate: none; gap: 6px; justify-items: stretch; grid-template-columns: minmax(0, 1fr); }
+  .ct:not(.ct-board) .ct-caption { min-height: 0; padding: 4px 6px; font-size: 14px; line-height: 1.3; text-align: left; max-height: 34cqh; overflow: auto; background: none; }
+  .ct:not(.ct-board) .ct-caption .ct-n { width: 22px; height: 22px; font-size: 13px; margin-right: 6px; }
+  .ct:not(.ct-board) .ct-transport { justify-content: space-between; gap: 2px; }
+  .ct:not(.ct-board) .ct-transport > button { width: 44px; height: 44px; }
+  .ct:not(.ct-board) .ct-transport > .ct-speed { width: auto; padding: 0 9px; border-radius: 22px; }
+  .ct-dots { flex: 1 1 auto; min-width: 0; gap: 3px; padding: 0 2px; }
+  .ct-dots button { flex: 0 1 26px; min-width: 5px; }
+  .ct-dots button.now { flex-basis: 40px; }
+  .ct:not(.ct-board) .ct-heard:empty, .ct:not(.ct-board) .ct-status:empty { display: none; }
+  .ct:not(.ct-board) .ct-card { top: max(8px, env(safe-area-inset-top)); bottom: 8px; left: var(--ct-l); right: auto; width: min(380px, calc(100% - var(--ct-l) - var(--ct-r) - var(--ct-rail) - 8px)); max-width: none; max-height: none; margin: 0; border-radius: 20px; padding-bottom: 16px; translate: calc(-100% - 60px) 0; }
+  .ct:not(.ct-board).ct-info .ct-card { translate: 0 0; }
+  .ct:not(.ct-board) .ct-sketchbar { top: 48px; left: var(--ct-l); right: auto; width: var(--ct-col); max-width: none; max-height: calc(100% - 56px); overflow: auto; }
+  .ct:not(.ct-board) .ct-sketchbar .ct-tools { flex-wrap: wrap; justify-content: center; }
+  .ct:not(.ct-board) .ct-coach { left: var(--ct-l); bottom: max(8px, env(safe-area-inset-bottom)); width: var(--ct-col); translate: none; max-height: 60cqh; overflow: auto; }
+  .ct:not(.ct-board) .ct-toast, .ct:not(.ct-board) .ct-focus { top: 50px; }
+  .ct:not(.ct-board).ct-fbopen .ct-fb { top: 48px; right: calc(var(--ct-r) + var(--ct-rail) + 4px); max-height: calc(100% - 56px); }
+  .ct:not(.ct-board) .ct-livecard { left: var(--ct-l); top: 48px; bottom: auto; width: var(--ct-col); max-height: calc(100% - 182px); overflow: auto; translate: none; gap: 8px; }
+  .ct:not(.ct-board) .ct-livesaid { font-size: 22px; max-height: 46cqh; }
+  /* the IQ game: the question in the left column, the players to tap in the middle, never under it */
+  .ct:not(.ct-board).ct-quiz .ct-boardbox { top: 8px; bottom: 4px; left: calc(var(--ct-l) + var(--ct-col) + 6px); right: var(--ct-r); --ct-fit: .44 .46; }
+  .ct:not(.ct-board) .ct-iqhud { top: max(8px, env(safe-area-inset-top)); left: var(--ct-l); translate: none; width: var(--ct-col); max-height: calc(100% - 16px); overflow: auto; padding: 8px 12px 10px; }
+  .ct:not(.ct-board) .ct-panel.sheet { bottom: max(8px, env(safe-area-inset-bottom)); right: calc(var(--ct-r) + var(--ct-rail)); max-height: calc(100% - 16px); }
+}
+
+/* ---- flip cover screens (Galaxy Z Flip, ~260px wide) and other tiny screens: the board, the mic and the step
+   controls; the sports stay in the header, and plays, film room and everything else are in More ---- */
+@container (max-width: 300px) or ((max-width: 420px) and (max-height: 360px)) {
+  .ct:not(.ct-board):not(.ct-present-on) .ct-boardbox { top: 84px; bottom: calc(170px + env(safe-area-inset-bottom)); --ct-fit: .48 .56; }
+  .ct:not(.ct-board) .ct-top { padding: max(6px, env(safe-area-inset-top)) 6px 0; justify-content: center; }
+  .ct:not(.ct-board) .ct-word { display: none; }
+  .ct:not(.ct-board) .ct-sports { margin: 0 auto; }
+  .ct:not(.ct-board) .ct-sports .ct-pill { padding: 0 8px; font-size: 12px !important; }
+  .ct:not(.ct-board) .ct-playchip { top: calc(max(6px, env(safe-area-inset-top)) + 42px); height: 34px; max-width: calc(100% - 16px); padding: 0 6px 0 10px; }
+  .ct:not(.ct-board) .ct-playchip small { display: none; }
+  .ct:not(.ct-board) .ct-playchip b { font-size: 15px; }
+  .ct:not(.ct-board) .ct-fab { display: none; }
+  .ct:not(.ct-board) nav.ct-tabbar [data-tb=plays], .ct:not(.ct-board) nav.ct-tabbar [data-tb=guide], .ct:not(.ct-board) nav.ct-tabbar [data-tb=film] { display: none; }
+  .ct:not(.ct-board) nav.ct-tabbar { bottom: calc(6px + env(safe-area-inset-bottom)); padding: 4px; }
+  .ct:not(.ct-board) nav.ct-tabbar button { min-width: 72px; height: 54px; }
+  .ct:not(.ct-board) .ct-dock { left: 8px; right: 8px; bottom: calc(72px + env(safe-area-inset-bottom)); gap: 4px; }
+  .ct:not(.ct-board) .ct-talk { display: none; }
+  .ct:not(.ct-board) .ct-caption { min-height: 0; padding: 2px 4px; font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .ct:not(.ct-board) .ct-caption .ct-n { width: 20px; height: 20px; font-size: 12px; margin-right: 5px; }
+  .ct:not(.ct-board) .ct-transport { width: 100%; justify-content: space-between; }
+  .ct:not(.ct-board) .ct-transport > .ct-speed { display: none; }
+  .ct:not(.ct-board) .ct-card { max-height: calc(100% - 8px); }
+  .ct:not(.ct-board) .ct-panel.sheet, .ct.ct-touch:not(.ct-board) .ct-panel.sheet { left: 6px !important; right: 6px; bottom: max(6px, env(safe-area-inset-bottom)); max-height: calc(100% - 12px - env(safe-area-inset-top)); }
+  .ct-cc { grid-template-columns: repeat(3, 1fr); padding: 10px; }
+  .ct-playgrid { grid-template-columns: 1fr; }
+  .ct:not(.ct-board) .ct-livecard { bottom: calc(124px + env(safe-area-inset-bottom)); width: calc(100% - 12px); }
+  .ct:not(.ct-board) .ct-livesaid { font-size: 18px; max-height: 30cqh; }
+  .ct:not(.ct-board) .ct-livesteps { display: none; }
+  .ct:not(.ct-board) .ct-iqhud { width: calc(100% - 12px); max-height: 112px; overflow: auto; padding: 8px 10px; }
+  .ct.ct-quiz:not(.ct-board):not(.ct-present-on) .ct-boardbox { top: 124px; bottom: 6px; }
+  .ct:not(.ct-board) .ct-toast, .ct:not(.ct-board) .ct-focus { top: 84px; }
+}
+/* a square cover screen: no room for words under the board */
+@container (max-width: 420px) and (max-height: 360px) {
+  .ct:not(.ct-board):not(.ct-present-on) .ct-boardbox { top: 40px; bottom: calc(120px + env(safe-area-inset-bottom)); }
+  .ct:not(.ct-board) .ct-caption, .ct:not(.ct-board) .ct-playchip { display: none; }
+}
+
+/* ---- folds and two screens (src/devices.js sets the class). The hinge runs from --ct-fold-a to --ct-fold-b; with
+   no script geometry the env() segment values, or the middle. Nothing crosses it. ---- */
+@media (horizontal-viewport-segments: 2) { .ct.ct-full { --ct-fold-a: env(viewport-segment-right 0 0, 50%); --ct-fold-b: env(viewport-segment-left 1 0, 50%); } }
+@media (vertical-viewport-segments: 2) { .ct.ct-full { --ct-fold-a: env(viewport-segment-bottom 0 0, 50%); --ct-fold-b: env(viewport-segment-top 0 1, 50%); } }
+.ct.ct-split-x > *, .ct.ct-split-y > * { --ct-fa: var(--ct-fold-a, 50%); --ct-fb: var(--ct-fold-b, 50%); }
+/* side by side: the board alone on the first screen; the header, the play card, the dock and every panel on the second */
+.ct.ct-split-x:not(.ct-board) .ct-boardbox { left: 0; right: calc(100% - var(--ct-fa)); top: max(12px, env(safe-area-inset-top)); bottom: 12px; --ct-fit: .42 .4; }
+.ct.ct-split-x:not(.ct-board) .ct-top { left: var(--ct-fb); padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 0 14px; }
+.ct.ct-split-x:not(.ct-board) .ct-playchip, .ct.ct-split-x:not(.ct-board) .ct-cardx { display: none; }
+.ct.ct-split-x:not(.ct-board) .ct-card { left: calc(var(--ct-fb) + 12px); right: 12px; top: 60px; bottom: calc(300px + env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: none; margin: 0; border-radius: 18px; padding-bottom: 16px; translate: 0 0; }
+.ct.ct-split-x:not(.ct-board) .ct-dock { left: calc(var(--ct-fb) + 12px); right: 12px; width: auto; translate: none; }
+.ct.ct-split-x:not(.ct-board) nav.ct-tabbar, .ct.ct-split-x:not(.ct-board) .ct-coach, .ct.ct-split-x:not(.ct-board) .ct-toast, .ct.ct-split-x:not(.ct-board) .ct-focus,
+.ct.ct-split-x:not(.ct-board) .ct-livecard, .ct.ct-split-x:not(.ct-board) .ct-iqhud { left: calc(var(--ct-fb) + (100% - var(--ct-fb)) / 2); max-width: calc(100% - var(--ct-fb) - 20px); }
+.ct.ct-split-x:not(.ct-board) .ct-livecard, .ct.ct-split-x:not(.ct-board) .ct-iqhud { width: calc(100% - var(--ct-fb) - 24px); }
+.ct.ct-split-x:not(.ct-board) .ct-fab { right: calc(100% - var(--ct-fa) + 12px); top: max(12px, env(safe-area-inset-top)); }
+.ct.ct-split-x:not(.ct-board) .ct-sketchbar { left: calc(var(--ct-fb) + 12px); right: 12px; top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); width: auto; max-width: none; translate: none; }
+.ct.ct-split-x:not(.ct-board).ct-fbopen .ct-fb { right: 12px; top: 60px; max-height: calc(100% - 180px); }
+.ct.ct-split-x:not(.ct-board) .ct-panel, .ct.ct-split-x:not(.ct-board) .ct-panel.sheet { left: calc(var(--ct-fb) + 8px) !important; right: 8px; top: auto !important; bottom: calc(84px + env(safe-area-inset-bottom)) !important; width: auto !important; max-width: none; max-height: calc(100% - 100px) !important; border-radius: 22px; }
+/* one above the other (tabletop, Flex mode, a Duo on its side): the board on top, everything else below */
+.ct.ct-split-y:not(.ct-board) .ct-boardbox { top: max(8px, env(safe-area-inset-top)); bottom: calc(100% - var(--ct-fa) + 8px); left: max(0px, env(safe-area-inset-left)); right: max(0px, env(safe-area-inset-right)); --ct-fit: .44 .46; }
+.ct.ct-split-y:not(.ct-board) .ct-top { top: var(--ct-fb); padding-top: 8px; }
+.ct.ct-split-y:not(.ct-board) .ct-playchip { top: calc(var(--ct-fb) + 52px); }
+.ct.ct-split-y:not(.ct-board) .ct-fab { top: calc(var(--ct-fb) + 49px); }
+.ct.ct-split-y:not(.ct-board) .ct-sketchbar, .ct.ct-split-y:not(.ct-board) .ct-toast, .ct.ct-split-y:not(.ct-board) .ct-focus { top: calc(var(--ct-fb) + 52px); }
+.ct.ct-split-y:not(.ct-board) .ct-iqhud { top: calc(var(--ct-fb) + 8px); max-height: calc(100% - var(--ct-fb) - 16px); overflow: auto; }
+.ct.ct-split-y:not(.ct-board) .ct-card { max-height: calc(100% - var(--ct-fb) - 8px); }
+.ct.ct-split-y:not(.ct-board).ct-fbopen .ct-fb { top: calc(var(--ct-fb) + 52px); max-height: calc(100% - var(--ct-fb) - 150px); }
+.ct.ct-split-y:not(.ct-board) .ct-panel, .ct.ct-split-y:not(.ct-board) .ct-panel.sheet { left: 8px !important; right: 8px; top: auto !important; bottom: calc(84px + env(safe-area-inset-bottom)) !important; width: auto !important; max-width: none; max-height: calc(100% - var(--ct-fb) - 92px) !important; border-radius: 22px; }
+
+/* ==== Liquid Glass: one material for everything that floats over the board. A clear glass for controls (the dock,
+   the play chip, pills, rail, toasts, edge tabs, the live pill, the presenter bar) and a denser one for surfaces
+   you read (panels, the play card, the IQ HUD, football tools, coach notes). The backdrop is dimmed (dark) or
+   lifted (light) under the blur, so text stays readable over the brightest aurora. ==== */
+.ct {
+  --glass-clear: rgba(14, 20, 34, .46); --glass-regular: rgba(10, 16, 28, .74);
+  --glass-blur: blur(22px) saturate(185%) brightness(.82);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, .16), inset 0 0 0 1px rgba(255, 255, 255, .05);
+  --glass-depth: 0 12px 34px rgba(0, 0, 0, .38);
+}
+.ct.ct-light {
+  --glass-clear: rgba(255, 253, 248, .56); --glass-regular: rgba(255, 253, 248, .84);
+  --glass-blur: blur(22px) saturate(185%) brightness(1.08);
+  --glass-edge: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .4);
+  --glass-depth: 0 12px 34px rgba(16, 26, 43, .14);
+}
+.ct :is(nav.ct-tabbar, .ct-playchip, .ct-livek, .ct-pbar, .ct-rail, .ct-toast, .ct-edge, .ct-fab:not(.ct-fab.on), .ct-sports, .ct-top .ct-pill:not(.ct-pill.on)) {
+  background: var(--glass-clear) !important; backdrop-filter: var(--glass-blur) !important; -webkit-backdrop-filter: var(--glass-blur) !important; box-shadow: var(--glass-edge), var(--glass-depth) !important;
+}
+.ct .ct-sports .ct-pill:not(.ct-pill.on) { background: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; }
+.ct :is(.ct-panel, .ct-card, .ct-iqhud, .ct-fb, .ct-coach, .ct-sketchbar) {
+  background: var(--glass-regular) !important; backdrop-filter: var(--glass-blur) !important; -webkit-backdrop-filter: var(--glass-blur) !important; box-shadow: var(--glass-edge), var(--glass-depth);
+}
+.ct .ct-panel > header { background: transparent; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.ct .ct-toast { color: var(--paper) !important; }
+/* no blur available, less transparency asked for, or more contrast: the same surfaces, near-solid */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ct { --glass-clear: rgba(10, 16, 28, .92); --glass-regular: rgba(10, 16, 28, .96); }
+  .ct.ct-light { --glass-clear: rgba(255, 253, 248, .94); --glass-regular: rgba(255, 253, 248, .97); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ct { --glass-clear: rgba(10, 16, 28, .95); --glass-regular: #0a1220; --glass-blur: none; }
+  .ct.ct-light { --glass-clear: rgba(255, 253, 248, .96); --glass-regular: #fffdf8; --glass-blur: none; }
+}
+@media (prefers-contrast: more) {
+  .ct { --glass-clear: #0a1220; --glass-regular: #0a1220; --glass-blur: none; --glass-edge: inset 0 0 0 1px rgba(238, 244, 255, .7); }
+  .ct.ct-light { --glass-clear: #fffdf8; --glass-regular: #fffdf8; --glass-edge: inset 0 0 0 1px rgba(16, 26, 43, .7); }
+}
 `;

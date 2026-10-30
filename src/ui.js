@@ -27,13 +27,14 @@ import { startTracking, track } from './track.js';
 import { strip } from './engine/strip.js';
 import { buildPlaybook, openPlaybook } from './playbook.js';
 import { bestReads } from './engine/reads.js';
+import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const MIC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>';
 const TEMPLATE = `
-<div class="ct-stage"><canvas class="ct-court" aria-label="The field drawn in light, with the play's X's and O's"></canvas><svg class="ct-ink" data-r="ink"></svg><div class="ct-labels" data-r="labels"></div></div>
+<div class="ct-stage"><div class="ct-boardbox" aria-hidden="true"></div><canvas class="ct-court" aria-label="The field drawn in light, with the play's X's and O's"></canvas><svg class="ct-ink" data-r="ink"></svg><div class="ct-labels" data-r="labels"></div></div>
 <header class="ct-top">
   <div class="ct-word">Chalk <i>Talk</i> <small>Say the play. Watch it draw.</small></div>
   <div class="ct-sports" data-r="sports" role="tablist" aria-label="Sport"></div>
@@ -182,8 +183,9 @@ const HINTS = {
   soccer9: ['Tap the mic (or hold space) and say a play: “Switch it to the 7, the 2 overlaps, cross it low to the 9…”', '…or type it: show me a third-man run']
 };
 
-// how big the field is drawn: the whole field fits with every player on screen, leaving room for the header and dock
-const fitR = (w, h, touch) => (w < 700 ? Math.min(w * 0.5, h * 0.36) : w < 1100 || touch ? Math.min(w * 0.44, h * 0.4) : Math.min(w * 0.4, h * 0.5));
+// how big the field is drawn: the whole field fits with every player on screen, leaving room for the header and dock.
+// Device layouts that give the board its own box (landscape phones, folds, two screens) say how it fits with --ct-fit.
+const fitR = (w, h, touch, fit) => fit ? Math.min(w * fit[0], h * fit[1]) : (w < 700 ? Math.min(w * 0.5, h * 0.36) : w < 1100 || touch ? Math.min(w * 0.44, h * 0.4) : Math.min(w * 0.4, h * 0.5));
 
 let styled = false;
 export function mount(root, options) {
@@ -206,6 +208,7 @@ export function mount(root, options) {
   const touchMq = typeof matchMedia !== 'undefined' ? matchMedia('(hover: none) and (pointer: coarse)') : null;
   const setTouch = () => root.classList.toggle('ct-touch', !!(touchMq && touchMq.matches));
   setTouch(); if (touchMq && touchMq.addEventListener) touchMq.addEventListener('change', setTouch);
+  const unwatchDevice = watchDevice(root);   // folds and two screens: ct-split-x / ct-split-y (src/devices.js)
   root.innerHTML = TEMPLATE;
   if (!opts.title) root.querySelector('.ct-word').remove();
   const R = {}; root.querySelectorAll('[data-r]').forEach(el => { R[el.dataset.r] = el; });
@@ -232,13 +235,25 @@ export function mount(root, options) {
   try { state.showNames = localStorage.getItem('chalktalk.showNames') === '1'; } catch (e) { state.showNames = false; }
 
   // ---- the field ----
+  // the board's box: the whole stage, unless a device layout (style.js) gives the field only part of the screen
+  const board = {
+    box: root.querySelector('.ct-boardbox'), vk: '',
+    fit() { const f = getComputedStyle(board.box).getPropertyValue('--ct-fit').trim().split(/\s+/).map(Number); return f.length === 2 && f[0] > 0 && f[1] > 0 ? f : null; },
+    r: (w, h) => fitR(w, h, root.classList.contains('ct-touch'), board.fit()) * state.view.zoom
+  };
+  // the box moved without a window resize (a fold, a class): lay the field out again. A window resize the field handles itself.
+  const boxRO = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
+    const vk = innerWidth + 'x' + innerHeight; if (vk !== board.vk) { board.vk = vk; return; }
+    if (field) field.set({ radius: board.r });
+  }) : null;
+  if (boxRO) boxRO.observe(board.box);
   function makeField(name) {
     if (field) field.destroy();
     field = AuroraField.create(canvas, {
       container: root.querySelector('.ct-stage'), shapes: [name], initial: name,
       count: particleBudget, cycle: 0, intro: 900, stars: 60, autonomy: 0.12, depth: 3.4, interactive: true, blank: true, seed: 7,
       palette: { preset: 'ice', accent: [255, 142, 58], signal: [255, 190, 120] }, maxDpr: 2, quality: 'auto',
-      radius: (w, h) => fitR(w, h, root.classList.contains('ct-touch'))
+      stage: board.box, radius: board.r
     });
     state.loads = 0;
     applyView();
@@ -1242,7 +1257,7 @@ export function mount(root, options) {
     if (!field) return;
     const v = state.view;
     field.setPose(v.pose ? { yaw: v.pose.yaw, pitch: v.pose.pitch, roll: 0 } : null);
-    field.set({ interactive: !v.locked, radius: (w, h) => fitR(w, h, root.classList.contains('ct-touch')) * v.zoom });
+    field.set({ interactive: !v.locked, radius: board.r });
     R.viewBtn.classList.toggle('on', v.locked);
     R.viewBtn.innerHTML = icon(v.locked ? 'lock' : 'view') + '<span>View</span>';
   }
@@ -1599,7 +1614,10 @@ export function mount(root, options) {
   // the control center: destinations as tiles, and every on/off as a stock switch row that flips in place
   function controlCenter() {
     const fb = !!state.sport.kinds.route;
+    // a flip's cover screen keeps only the mic and More in the dock (style.js): the plays and the film room move in here
+    const cw = root.clientWidth, mini = cw <= 300 || (cw <= 420 && root.clientHeight <= 360);
     const tiles = [
+      ...(mini ? [['plays', 'book', 'Plays', state.sport.name], ['film', 'film', 'Film room', 'Every position’s read']] : []),
       ['mine', 'film', 'My plays', 'Everything you’ve drawn'],
       ['playbook', 'book', 'Playbook', 'Print any plays as a PDF'],
       ['guide', 'book', 'Guide', 'Positions in depth'],
@@ -1642,7 +1660,7 @@ export function mount(root, options) {
           return;
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
-        ({ playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+        ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
           ai: () => openKey(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
@@ -1708,7 +1726,7 @@ export function mount(root, options) {
     const light = theme === 'light' || (theme === 'auto' && mq && mq.matches);
     root.classList.toggle('ct-light', light);
     R.themeBtn.innerHTML = icon(light ? 'sun' : 'moon') + '<span>' + (theme === 'auto' ? 'Auto' : light ? 'Light' : 'Dark') + '</span>';
-    const meta = document.querySelector('meta[name=theme-color]'); if (meta && opts.fullscreen) meta.setAttribute('content', light ? '#f3efe6' : '#04070c');
+    if (opts.fullscreen) document.querySelectorAll('meta[name=theme-color]').forEach(m => m.setAttribute('content', light ? '#f3efe6' : '#04070c'));
   }
   function setTheme(t) { track('theme', { t }); theme = t; try { localStorage.setItem('chalktalk.theme', t); } catch (e) {} applyTheme(); }
   function themeMenu(anchor) {
@@ -1924,8 +1942,8 @@ export function mount(root, options) {
     get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
-      removeEventListener('keydown', kd); removeEventListener('keyup', ku);
-      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
+      removeEventListener('keydown', kd); removeEventListener('keyup', ku); unwatchDevice(); if (boxRO) boxRO.disconnect();
+      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle', 'ct-split-x', 'ct-split-y');
     }
   };
 }

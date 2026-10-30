@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chalk Talk</title>
 <meta name="description" content="Say a play out loud, or sketch it, and watch it draw itself in light. X's and O's for youth basketball and flag football coaches.">
-<meta name="theme-color" content="#04070c">
+<meta name="theme-color" content="#04070c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3efe6" media="(prefers-color-scheme: light)">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -15,7 +16,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Chalk Talk">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<style>html, body { margin: 0; height: 100%; background: #04070c; overflow: hidden; }</style>
+<style>
+  html, body { margin: 0; height: 100%; background: #04070c; overflow: hidden; }
+  /* iOS 26 Safari floats its toolbars as glass over the page: what shows under them is this, so it follows the board's theme */
+  html:has(.ct-light), html:has(.ct-light) body { background: #f3efe6; }
+  @media (prefers-color-scheme: light) { html:not(:has(.ct)), html:not(:has(.ct)) body { background: #f3efe6; } }
+</style>
 <style>
   /* Marquee ad (owner decision 2026-10-30): one banner at the foot of the play library (the desktop
      Concepts sidebar, the Plays panel and the phone sheet), standalone page only.
