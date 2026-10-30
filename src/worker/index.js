@@ -179,7 +179,10 @@ export default {
       }
       return json({ error: 'Not found.' }, 404, h);
     } catch (e) {
+      // the account's shared free Workers AI allowance ran out for today: same answer as our own cap
+      if (/4006|daily free allocation/i.test(String(e && e.message))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
       const status = e.status || 502;
+      if (status >= 500) console.error('chalk-talk api', path, (e && e.message) || e);   // the error only, never the request
       return json({ error: status < 500 ? e.message : 'The free AI stumbled. Try again in a moment.' }, status, h);
     }
   }
