@@ -107,3 +107,25 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
   assert.equal((await worker.fetch(req('/analyst', { sport: 'flag5', play: canned, facts: [] }), env('{}'))).status, 400);
   console.log('ok: analyst endpoint');
 }
+// opt-in voice learning: a phrase or a fix is shared with everyone only once 3 different coaches confirm it;
+// anything carrying a scrubbed name is refused
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  const mk = (sql, a = []) => ({ first: async () => sq.prepare(sql).get(...a) ?? null, run: async () => { sq.prepare(sql).run(...a); return {}; }, all: async () => ({ results: sq.prepare(sql).all(...a) }) });
+  const D = { prepare: sql => Object.assign(mk(sql), { bind: (...a) => mk(sql, a) }) };
+  const e = env('{}', { DB: D });
+  const post = (ip, body) => worker.fetch(new Request('https://x/chalktalk/api/learn', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': ip }, body: JSON.stringify(body) }), e);
+  const lex = async () => (await worker.fetch(new Request('https://x/chalktalk/api/lexicon'), e)).json();
+  const phrase = { kind: 'phrase', sport: 'basketball', text: 'our five rolling thing', concept: 'pick-and-roll', kept: true };
+  for (const ip of ['1.1.1.1', '2.2.2.2']) assert.equal((await post(ip, phrase)).status, 200);
+  await post('2.2.2.2', phrase);   // the same coach twice still counts once
+  assert.equal((await lex()).phrases.basketball, undefined);
+  await post('3.3.3.3', phrase);
+  assert.equal((await lex()).phrases.basketball['our five rolling thing'], 'pick-and-roll');
+  for (const ip of ['1.1.1.1', '2.2.2.2', '3.3.3.3']) await post(ip, { kind: 'word', a: 'spade', b: 'spain' });
+  assert.equal((await lex()).words.spade, 'spain');
+  assert.equal((await post('4.4.4.4', { kind: 'phrase', sport: 'basketball', text: '[name] runs it', concept: 'pick-and-roll', kept: true })).status, 400);
+  assert.equal((await post('4.4.4.4', { kind: 'phrase', sport: 'basketball', text: 'whatever', concept: 'not-a-play', kept: true })).status, 400);
+  console.log('ok: opt-in voice learning shares only what 3+ coaches confirm, never names');
+}

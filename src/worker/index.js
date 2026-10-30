@@ -7,12 +7,15 @@
 //   POST /chalktalk/api/analyst {sport, play, facts}          → booth commentary, one line per beat, lite model
 //   POST /chalktalk/api/hear   audio (webm/mp4/wav, ≤ 2 MB)     → {text}   (Whisper)
 //   POST /chalktalk/api/say    {text ≤ 300 chars}                → audio    (MeloTTS, cached)
+//   POST /chalktalk/api/learn  {kind, sport, text, concept, kept | a, b} → opt-in voice learning (names scrubbed on the device)
+//   GET  /chalktalk/api/lexicon                                 → phrases and word fixes 3+ coaches confirmed
 //   GET  /chalktalk/api/health                                   → {ok, models, today}
 // Prompts, schemas, validation and the one repair round are src/ai.js's, shared with the browser.
 // Requests carry X's and O's only (player names never leave the coach's device); nothing is stored
-// but hashed-IP counters.
+// but hashed-IP counters, and (only from coaches who opt in) the words of plays they kept and words
+// they fixed, keyed by a salted hash, deleted after 180 days.
 
-import { playRequest, smartRequest, brainRequest, tutorRequest, analystRequest, solve } from '../ai.js';
+import { requestFor, TASKS, LITE, solve } from '../server.js';
 import { getSport } from '../sports/index.js';
 
 export const MODELS = {
@@ -25,10 +28,11 @@ export const MODELS = {
 // Per hashed IP per UTC day, and for everyone together, so this stays inside the free Workers AI
 // allowance (10k neurons a day, shared with COLD GAS and Hearth).
 export const LIMITS = {
-  perIp: { play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
+  perIp: { learn: 300, play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
   neuronsPerDay: 3500,
   // charged up front, then corrected to what the call really cost (tokens × price, below)
-  estNeurons: { play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
+  lexiconMin: 3,   // distinct coaches before a phrase or a fix is shared with everyone
+  estNeurons: { learn: 0, play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
   maxJson: 64 * 1024, maxAudio: 2 * 1024 * 1024, maxSay: 300
 };
 const SPORTS = ['basketball', 'flag5', 'flag7'];
@@ -63,10 +67,20 @@ async function ipHash(req, env) {
   const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode((env.SALT || 'chalk-talk') + '|' + day() + '|' + ip));
   return [...new Uint8Array(d)].slice(0, 12).map(b => b.toString(16).padStart(2, '0')).join('');
 }
-let ready = false;
+// a stable pseudonym for counting distinct coaches (salted, not reversible, not tied to a day)
+async function whoHash(req, env) {
+  const ip = req.headers.get('cf-connecting-ip') || 'local';
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode((env.SALT || 'chalk-talk') + '|who|' + ip));
+  return [...new Uint8Array(d)].slice(0, 10).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const ready = new WeakSet();   // per database binding
 async function db(env) {
   if (!env.DB) return null;
-  if (!ready) { await env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_usage (bucket TEXT PRIMARY KEY, n INTEGER NOT NULL)').run(); ready = true; }
+  if (!ready.has(env.DB)) {
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_usage (bucket TEXT PRIMARY KEY, n INTEGER NOT NULL)').run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS voice_learn (day TEXT NOT NULL, sport TEXT NOT NULL, kind TEXT NOT NULL, a TEXT NOT NULL, b TEXT NOT NULL, kept INTEGER NOT NULL, who TEXT NOT NULL)').run();
+    ready.add(env.DB);
+  }
   return env.DB;
 }
 async function bump(d, bucket, by) {
@@ -127,26 +141,30 @@ export default {
         const d = await db(env);
         return json({ ok: true, models: Object.assign({}, MODELS, { play: env.PLAY_MODEL || MODELS.play }), today: { calls: await peek(d, `calls:${day()}`), neurons_est: await peek(d, `neurons:${day()}`), cap: LIMITS.neuronsPerDay } }, 200, h);
       }
+      if (path === '/lexicon' && req.method === 'GET') {
+        const d = await db(env), out = { words: {}, phrases: {} };
+        if (d) {
+          const n = LIMITS.lexiconMin;
+          const ph = await d.prepare("SELECT sport, a, b, COUNT(DISTINCT who) n FROM voice_learn WHERE kind = 'phrase' GROUP BY sport, a, b HAVING n >= ? AND AVG(kept) >= 0.7 ORDER BY n DESC LIMIT 400").bind(n).all();
+          (ph.results || []).forEach(r => { (out.phrases[r.sport] = out.phrases[r.sport] || {})[r.a] = r.b; });
+          const wd = await d.prepare("SELECT a, b, COUNT(DISTINCT who) n FROM voice_learn WHERE kind = 'word' GROUP BY a, b HAVING n >= ? ORDER BY n DESC LIMIT 300").bind(n).all();
+          (wd.results || []).forEach(r => { if (!out.words[r.a]) out.words[r.a] = r.b; });
+        }
+        return json(out, 200, Object.assign({ 'cache-control': 'public, max-age=3600' }, h));
+      }
       if (req.method !== 'POST') return json({ error: 'Not found.' }, 404, h);
       if (!env.AI) return json({ error: 'The free AI is offline.' }, 503, h);
 
-      if (path === '/play' || path === '/smart' || path === '/brain' || path === '/tutor' || path === '/analyst') {
-        const body = await readJson(req), sport = sportOf(body.sport), task = path.slice(1);
-        if (task === 'play' && !String(body.text || '').trim() && !body.sketch) return json({ error: 'Say or sketch a play first.' }, 400, h);
-        if (task === 'smart' && (!body.play || !Array.isArray(body.ids) || !body.ids.length)) return json({ error: 'Pick a player to make smart.' }, 400, h);
-        if (task === 'brain' && (!body.play || !/^[OX][1-9]$/.test(String(body.id || '')) || ['smart', 'film'].indexOf(body.mode) < 0)) return json({ error: 'Pick a player and a mode.' }, 400, h);
-        if (task === 'analyst' && (!body.play || !Array.isArray(body.facts) || !body.facts.length || body.facts.length > 12)) return json({ error: 'Nothing to analyse.' }, 400, h);
-        if (task === 'tutor' && (!body.q || ['answer', 'recap'].indexOf(body.mode) < 0)) return json({ error: 'Nothing to tutor.' }, 400, h);
+      const task = path.slice(1);
+      if (TASKS.indexOf(task) >= 0) {
+        const body = await readJson(req);
+        let req2;
+        try { req2 = requestFor(task, body); } catch (e) { return json({ error: e.message }, e.status || 400, h); }
         if (!(await allow(req, env, task))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
-        const req2 = task === 'play' ? playRequest({ sport, text: String(body.text || '').slice(0, 2000), current: body.current || null, sketch: !!body.sketch })
-          : task === 'brain' ? brainRequest({ sport, play: body.play, id: String(body.id), mode: body.mode })
-          : task === 'analyst' ? analystRequest({ sport, play: body.play, facts: body.facts.map(f => String(f).slice(0, 600)) })
-          : task === 'tutor' ? tutorRequest({ sport, band: ['young', 'mid', 'older'].indexOf(body.band) >= 0 ? body.band : 'young', mode: body.mode, q: body.q, play: body.play || null, given: body.given == null ? null : body.given, right: !!body.right, summary: body.summary || null })
-          : smartRequest({ sport, play: body.play, ids: body.ids.map(String).filter(id => /^[OX][1-9]$/.test(id)).slice(0, 7) });
         // plays: Gemma first (fast, cheap), then Llama 3.3 70B gets one go. Brains: GLM 4.7 Flash,
         // then Gemma. Every call is charged what it really cost.
         const t0 = Date.now(), forced = env.BENCH && req.headers.get('x-ct-model');
-        const chain = forced ? [forced] : task === 'brain' || task === 'tutor' || task === 'analyst' ? [env.BRAIN_MODEL || MODELS.brain, MODELS.play] : [modelFor(env, req), MODELS.fallback];
+        const chain = forced ? [forced] : LITE[task] ? [env.BRAIN_MODEL || MODELS.brain, MODELS.play] : [modelFor(env, req), MODELS.fallback];
         let raw = null, model = null, err = null, spent = 0;
         const used = { in: 0, out: 0 };
         for (const m of chain) {
@@ -158,6 +176,25 @@ export default {
         ctx && ctx.waitUntil ? ctx.waitUntil(settle(env, task, spent)) : await settle(env, task, spent);
         if (!raw) throw err;
         return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'x-ct-in': String(used.in), 'x-ct-out': String(used.out), 'access-control-expose-headers': 'x-ct-model, x-ct-ms, x-ct-neurons, x-ct-in, x-ct-out' }, h));
+      }
+
+      if (path === '/learn') {
+        const body = await readJson(req), d = await db(env);
+        const clean = v => String(v || '').toLowerCase().replace(/[^a-z0-9 \[\]]+/g, ' ').replace(/\s+/g, ' ').trim();
+        let row = null;
+        if (body.kind === 'phrase' && SPORTS.indexOf(body.sport) >= 0) {
+          const text = clean(body.text).slice(0, 160), key = String(body.concept || '');
+          if (text && text.split(' ').length <= 8 && !/\[name\]/.test(text) && getSport(body.sport).plays.some(p => p.key === key)) row = [body.sport, 'phrase', text, key, body.kept ? 1 : 0];
+        } else if (body.kind === 'word') {
+          const a = clean(body.a).slice(0, 40), b = clean(body.b).slice(0, 40);
+          if (a && b && a !== b && !/\[name\]/.test(a + b)) row = ['any', 'word', a, b, 1];
+        }
+        if (!row) return json({ error: 'Nothing to learn.' }, 400, h);
+        if (!d || !(await allow(req, env, 'learn'))) return json({ ok: true }, 200, h);   // over the cap: drop it quietly
+        const who = await whoHash(req, env);
+        await d.prepare('INSERT INTO voice_learn (day, sport, kind, a, b, kept, who) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(day(), row[0], row[1], row[2], row[3], row[4], who).run();
+        if (Math.random() < 0.02) ctx && ctx.waitUntil && ctx.waitUntil(d.prepare("DELETE FROM voice_learn WHERE day < date('now', '-180 days')").run());
+        return json({ ok: true }, 200, h);
       }
 
       if (path === '/hear') {

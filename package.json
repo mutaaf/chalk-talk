@@ -1,12 +1,13 @@
 {
   "name": "chalk-talk",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Say a play out loud (or sketch it) and watch it draw itself in light: X's and O's for youth basketball and flag football coaches, on an aurora-field court.",
   "type": "module",
   "exports": {
     ".": "./src/index.js",
     "./engine": "./src/engine/sim.js",
-    "./sports": "./src/sports/index.js"
+    "./sports": "./src/sports/index.js",
+    "./server": "./src/server.js"
   },
   "files": ["src", "README.md", "LICENSE"],
   "sideEffects": false,

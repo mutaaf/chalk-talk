@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.7.1';
+export const VERSION = '0.8.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.8.0', date: '2026-10-30', title: 'Smarter with every coach', items: [
+    { title: 'Help the voice learn (opt-in)', call: 'Turn it on in AI settings and the plays you keep and the words you fix teach it for every coach, with your players\' names removed on your device first. Off unless you say so.', show: 'keyBtn' },
+    { title: 'Shortcuts from other coaches', call: 'Phrases three or more coaches confirmed now work instantly for you too, offline.', show: 'mic' },
+    { title: 'AI through your app', call: 'In CourtIQ, every paid plan unlocks the AI: plays, brains, the tutor and the analyst, no key needed.', show: 'filmTop' }
+  ] },
   { version: '0.7.1', date: '2026-10-30', title: 'Wake the brains', items: [
     { title: 'Connect AI from the film room', call: 'No AI connected? The film room still breaks down every position from the engine, and one tap connects your key, or the subscription where your app offers one.', show: 'filmTop' }
   ] },

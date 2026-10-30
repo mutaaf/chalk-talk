@@ -5,7 +5,9 @@
 //    instantly next time with no network;
 //  - corrections: tapping the transcript to fix a word teaches the healer that word;
 //  - the log: every voice attempt's path, timing and outcome, for the Voice stats and the eval corpus.
-// Nothing here leaves the device.
+// Nothing here leaves the device unless the coach opts in to sharing (off by default): then the words of
+// plays they keep, and the words they fix, go to Chalk Talk's API with their players' names removed here
+// first. Phrases several coaches confirm come back to everyone as a community lexicon.
 
 const K = 'chalktalk.learn';
 const empty = () => ({ words: {}, phrases: {}, log: [] });
@@ -35,7 +37,8 @@ function players(t) {
 export function heal(text, mem) {
   mem = mem || memory.get();
   let t = ' ' + String(text || '') + ' ';
-  for (const [w, fix] of Object.entries(mem.words)) t = t.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), fix);
+  const words = Object.assign({}, community().words, mem.words);   // the coach's own fixes win
+  for (const [w, fix] of Object.entries(words)) t = t.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), fix);
   t = t.replace(/\s+/g, ' ');
   let low = t.toLowerCase();
   FIXES.forEach(([re, fix]) => { low = low.replace(re, fix.toLowerCase()); });
@@ -49,6 +52,9 @@ export function recall(sport, text, mem) {
   const t = norm(text), P = mem.phrases[sport] || {};
   let best = null, len = 0;
   for (const ph in P) if (t.indexOf(' ' + ph + ' ') >= 0 && ph.length > len && P[ph].n >= 1) { best = P[ph].key; len = ph.length; }
+  if (best) return best;
+  const C = community().phrases[sport] || {};   // what other coaches confirmed
+  for (const ph in C) if (t.indexOf(' ' + ph + ' ') >= 0 && ph.length > len) { best = C[ph]; len = ph.length; }
   return best;
 }
 // the coach kept what the AI drew for this phrase: next time, it's instant
@@ -81,4 +87,31 @@ export function vocabulary(sport) {
   const titles = sport.plays.map(p => p.title), concepts = sport.plays.map(p => p.concept);
   const spots = Object.keys(sport.spots).slice(0, 30), kinds = Object.keys(sport.kinds);
   return Array.from(new Set(ids.concat(titles, concepts, spots, kinds))).filter(Boolean);
+}
+
+// ---- sharing (opt-in) and the community lexicon ----
+const SHARE = 'chalktalk.shareVoice', LEX = 'chalktalk.lexicon';
+export const sharing = () => { try { return localStorage.getItem(SHARE) === '1'; } catch (e) { return false; } };
+export const setSharing = v => { try { localStorage.setItem(SHARE, v ? '1' : '0'); } catch (e) {} };
+// the coach's players' names (every team and sport saved on this device) never leave it: replaced here
+export function scrub(text) {
+  let t = String(text || ''), names = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^chalktalk\.names\./.test(k)) names = names.concat(Object.values(JSON.parse(localStorage.getItem(k) || '{}'))); } } catch (e) {}
+  names.filter(n => n && n.length > 1).sort((a, b) => b.length - a.length).forEach(n => {
+    n.split(/\s+/).filter(w => w.length > 1).forEach(w => { t = t.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), '[name]'); });
+  });
+  return t;
+}
+// send one learning, only if the coach opted in
+export function share(base, row) {
+  if (!sharing() || typeof fetch === 'undefined') return;
+  const body = Object.assign({}, row, { text: row.text != null ? scrub(row.text).slice(0, 160) : undefined, a: row.a != null ? scrub(row.a).slice(0, 40) : undefined, b: row.b != null ? scrub(row.b).slice(0, 40) : undefined });
+  if (/\[name\]/.test((body.a || '') + (body.b || ''))) return;   // a fix that was about a name: keep it here
+  fetch(base + '/learn', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), keepalive: true }).catch(() => {});
+}
+export function community() { try { return Object.assign({ words: {}, phrases: {} }, JSON.parse(localStorage.getItem(LEX) || '{}')); } catch (e) { return { words: {}, phrases: {} }; } }
+// everyone gets the community lexicon (it holds no one's data), refreshed at most every 12 hours
+export async function refreshLexicon(base) {
+  const c = community(); if (c.at && Date.now() - c.at < 12 * 3600e3) return;
+  try { const r = await fetch(base + '/lexicon'); if (!r.ok) return; const j = await r.json(); localStorage.setItem(LEX, JSON.stringify({ at: Date.now(), words: j.words || {}, phrases: j.phrases || {} })); } catch (e) {}
 }

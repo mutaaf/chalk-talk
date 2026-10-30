@@ -93,7 +93,7 @@ export function openFilm(ctx, startId) {
   ids.filter(id => !notes[id]).forEach(id => {
     pending.add(id);
     filmFor(ctx.strip, id, { sport: S }).then(n => { if (n) notes[id] = n; })
-      .catch(e => { if (e.name === 'AbortError') return; down = e.code === 'nokey' ? 'Connect AI to wake the brains.' : e.status === 429 ? 'The free AI is resting for today.' : 'The brains are offline right now.'; })
+      .catch(e => { if (e.name === 'AbortError') return; down = e.code === 'upgrade' ? 'Your plan doesn’t include the AI brains yet.' : e.code === 'nokey' ? 'Connect AI to wake the brains.' : e.status === 429 ? 'The free AI is resting for today.' : 'The brains are offline right now.'; })
       .finally(() => { pending.delete(id); redraw(true); });
   });
   redraw(true);

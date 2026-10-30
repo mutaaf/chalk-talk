@@ -4,7 +4,7 @@
 
 import { meter } from './ai.js';
 import { icon } from './icons.js';
-import { memory, forget } from './learn.js';
+import { memory, forget, sharing, setSharing, community } from './learn.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const BEAT_S = 2.4;   // a beat is ~2.4 s at 1×
@@ -106,11 +106,13 @@ export function openStats(ctx, start) {
     return `<div class="ct-tiles">${tiles.map(([k, v, s2]) => `<div class="ct-tile"><small>${k}</small><b>${v}</b><span>${esc(s2)}</span></div>`).join('')}</div>
       <h6>It learned these shortcuts (instant next time)</h6>${phrases.length ? `<ul class="ct-learned">${phrases.map(([ph, e]) => `<li><span>“${esc(ph)}”</span><b>${esc((S.plays.find(p => p.key === e.key) || {}).title || e.key)}</b><button type="button" data-forget="phrase" data-k="${esc(ph)}" aria-label="Forget">${icon('close')}</button></li>`).join('')}</ul>` : '<p class="ct-empty">Say a play in your own words; when you keep what the AI draws, the phrase is learned.</p>'}
       <h6>Words it hears right now</h6>${words.length ? `<ul class="ct-learned">${words.map(([w, f]) => `<li><span>“${esc(w)}”</span><b>→ ${esc(f)}</b><button type="button" data-forget="word" data-k="${esc(w)}" aria-label="Forget">${icon('close')}</button></li>`).join('')}</ul>` : '<p class="ct-empty">Tap what it heard (under the mic) to fix a word. It remembers.</p>'}
-      <p class="ct-fine">All of this lives on this device and gets better every time you talk to it. Nothing you say is stored anywhere else.</p>`;
+      <label class="ct-share"><input type="checkbox" data-share ${sharing() ? 'checked' : ''}><span><b>Help the voice get better for every coach</b><small>Off unless you turn it on. Shares the words of plays you keep and words you fix, with your players' names removed here first. Never audio. ${(() => { const c = community(), n = Object.keys(c.words).length + Object.values(c.phrases).reduce((a, p) => a + Object.keys(p).length, 0); return n ? 'Coaches have taught it ' + n + ' shortcuts so far; you already get them.' : ''; })()}</small></span></label>
+      <p class="ct-fine">Your own learning lives on this device and gets better every time you talk to it.</p>`;
   };
   const body = () => `<div class="ct-seg ct-gtabs">${[['play', 'This play'], ['voice', 'Voice'], ['ai', 'AI usage']].map(([k, l]) => `<button type="button" data-tab="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div class="ct-gbody">${tab === 'play' ? playTab() : tab === 'voice' ? voiceTab() : aiTab()}</div>`;
   ctx.openPanel('Stats', body(), pb => {
     const redraw = () => { pb.innerHTML = body(); };
+    pb.onchange = e => { if (e.target.matches('[data-share]')) { setSharing(e.target.checked); ctx.toast(e.target.checked ? 'Thanks, coach. Names stay on this device.' : 'Sharing off.'); } };
     pb.onclick = e => {
       const t = e.target.closest('[data-tab],[data-span],[data-b],[data-forget]'); if (!t) return;
       if (t.dataset.forget) { forget(t.dataset.forget, t.dataset.k, S.id); redraw(); return; }

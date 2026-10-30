@@ -10,7 +10,7 @@ import { playShape, view, particleBudget } from './engine/field.js';
 import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
 import { listener, say, hush, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
-import { drawPlay, smartPlayers, filmRoom, setApi, transcribe, key, keyKind, NAMES } from './ai.js';
+import { drawPlay, smartPlayers, filmRoom, setApi, ownApi, transcribe, key, keyKind, NAMES } from './ai.js';
 import { CSS } from './style.js';
 import { readStroke } from './engine/sketch.js';
 import { icon } from './icons.js';
@@ -21,7 +21,7 @@ import { openStats } from './stats.js';
 import { openFilm } from './filmroom.js';
 import { analyze } from './analyst.js';
 import { analyst } from './ai.js';
-import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary } from './learn.js';
+import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
 import { chime, soundOn, setSound } from './sound.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -134,6 +134,7 @@ const TEMPLATE = `
     <label>Broadcaster voice key <span class="ct-badge" data-r="voiceBadge"></span></label>
     <input data-r="voiceInput" type="password" placeholder="optional: OpenAI sk-… or ElevenLabs sk_…" autocomplete="off" spellcheck="false">
     <p class="ct-fine" data-r="voiceFine"></p>
+    <label class="ct-share"><input type="checkbox" data-r="shareVoice"><span><b>Help the voice get better for every coach</b><small>Off unless you turn it on. Shares only the words of plays you keep and words you fix, with your players' names removed on this device first. Never audio, never names. A phrase reaches other coaches only after three of them confirm it.</small></span></label>
     <button type="button" class="ct-keypro" data-r="keyPro" hidden></button>
     <menu><button type="button" data-r="keyClear">Forget keys</button><button type="button" data-r="keyCancel">Cancel</button><button value="save">Save</button></menu>
   </form>
@@ -825,10 +826,13 @@ export function mount(root, options) {
       clearTimeout(state.keepT);
       state.keepT = setTimeout(() => {
         const kept = state.raw === shown; markVoice(li, { kept });
-        if (kept && raw.recognized && sport.plays.some(p => p.key === raw.recognized)) learnPhrase(sport.id, text, raw.recognized);
+        if (raw.recognized && sport.plays.some(p => p.key === raw.recognized)) {
+          if (kept) learnPhrase(sport.id, text, raw.recognized);
+          share(ownApi(), { kind: 'phrase', sport: sport.id, text, concept: raw.recognized, kept });   // only if the coach opted in
+        }
       }, 20000);
     } catch (e) {
-      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey') openKey(); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); }
+      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey' || e.code === 'upgrade' || (e.status === 429 && opts.upgrade)) openKey(e.message); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); }
     } finally {
       clearInterval(pulse);
       if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); }
@@ -1140,6 +1144,7 @@ export function mount(root, options) {
       if (!commit || !v || v === was) return;
       const learned = correct(was, v);
       if (learned.length) toast(`Got it. Next time “${learned[0][0]}” means “${learned[0][1]}”.`);
+      learned.forEach(([a, b]) => share(ownApi(), { kind: 'word', a, b }));
       heard(v);
     };
     inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
@@ -1435,6 +1440,7 @@ export function mount(root, options) {
   function openKey(why) {
     R.keyWhy.textContent = why || 'Plays from your own words, the AI taking over your sketches and the broadcaster voice all use your own AI account.';
     R.keyInput.value = key.get(); R.voiceInput.value = voiceKey.get();
+    R.shareVoice.checked = sharing();
     R.keyPro.hidden = !opts.upgrade; if (opts.upgrade) R.keyPro.innerHTML = `${icon('sparkle')}<span><b>${esc(opts.upgrade.label || 'Get unlimited AI')}</b><small>${esc(opts.upgrade.note || 'No key needed.')}</small></span>`;
     R.keyInput.oninput(); R.voiceInput.oninput();
     R.keyDlg.showModal();
@@ -1449,6 +1455,7 @@ export function mount(root, options) {
   };
   R.keyBtn.onclick = () => openKey();
   R.keyPro.onclick = () => { R.keyDlg.close(); upgradeAI(); };
+  R.shareVoice.onchange = () => { setSharing(R.shareVoice.checked); toast(R.shareVoice.checked ? 'Thanks, coach. Kept plays and fixed words will help every coach (names stay here).' : 'Voice sharing off. Learning stays on this device.'); };
   R.keyCancel.onclick = () => R.keyDlg.close();
   R.keyX.onclick = () => R.keyDlg.close();
   R.keyDlg.addEventListener('click', e => { if (e.target === R.keyDlg) R.keyDlg.close(); });   // a tap on the backdrop closes it
@@ -1471,6 +1478,7 @@ export function mount(root, options) {
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });
   tipify(root);
+  refreshLexicon(ownApi());   // what other coaches taught it (no one's data, just confirmed phrases)
   if (opts.tour !== false) {
     if (!seen.get().tour) setTimeout(() => { if (!dead) startTour(); }, 1600);
     else if (hasNews()) { R.newsDot.hidden = false; R.tbDot.hidden = false; setTimeout(() => { if (!dead) toast(`New in v${VERSION}: ${RELEASES[0].title}. Tap ? to see it.`); }, 1800); }

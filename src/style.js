@@ -662,6 +662,10 @@ export const CSS = `
 .ct-fbooth { display: block; margin: 0 0 6px 30px; color: var(--mute); font-size: 12.5px; font-style: italic; }
 @container (max-width: 760px) { .ct-fsee { grid-template-columns: 1fr; } }
 
+/* opt-in sharing */
+.ct-share { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 12px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.ct-share input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--o); flex: none; }
+.ct-share span { display: grid; gap: 3px; } .ct-share b { font-size: 14px; color: var(--paper); } .ct-share small { font-size: 12.5px; color: var(--mute); font-weight: 400; line-height: 1.4; }
 /* the subscription row in AI settings (when the host offers one) */
 .ct-keypro { display: flex; align-items: center; gap: 12px; width: 100%; margin: 4px 0 14px; padding: 12px 14px; border-radius: 14px; border: 0; cursor: pointer; text-align: left; background: linear-gradient(135deg, #ffc75a, #ff8e3a); color: #04070c; font: inherit; }
 .ct-keypro .ct-i { width: 22px; height: 22px; } .ct-keypro span { display: grid; } .ct-keypro small { font-size: 12.5px; opacity: .8; }

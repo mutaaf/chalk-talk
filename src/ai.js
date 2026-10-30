@@ -105,8 +105,12 @@ export const meter = {
 // Where keyless coaches get AI: open models on Workers AI behind our API (src/worker). Hosts can point
 // it elsewhere with mount({ api }). Requests carry X's and O's only, never names.
 let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0\.0\.1$/.test(location.hostname) ? '/chalktalk/api' : 'https://digitalcraftai.com/api/chalktalk';
+// the AI tasks can go to a host's own server (CourtIQ runs them for paid plans); listening and the
+// shared voice lexicon always stay on Chalk Talk's own API
+const OWN = API;
 export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
 export const apiBase = () => API;
+export const ownApi = () => OWN;
 async function free(task, body, signal) {
   const nokey = () => Object.assign(new Error('Add your Claude or OpenAI key to draw plays from your own words.'), { code: 'nokey' });
   let r; const t0 = performance.now();
@@ -115,15 +119,16 @@ async function free(task, body, signal) {
   if (r.status === 404 || r.status === 405) throw nokey();
   const j = await r.json().catch(() => ({}));
   const hd = n => +(r.headers.get(n) || 0);
-  meter.add({ task, provider: 'free', model: r.headers.get('x-ct-model') || 'open model', ok: r.ok, ms: hd('x-ct-ms') || Math.round(performance.now() - t0), in: hd('x-ct-in'), out: hd('x-ct-out'), neurons: hd('x-ct-neurons'), cost: 0 });
-  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
+  meter.add({ task, provider: API === OWN ? 'free' : 'host', model: r.headers.get('x-ct-model') || 'open model', ok: r.ok, ms: hd('x-ct-ms') || Math.round(performance.now() - t0), in: hd('x-ct-in'), out: hd('x-ct-out'), neurons: hd('x-ct-neurons'), cost: 0 });
+  if (r.status === 402) throw Object.assign(new Error(j.error || 'Your plan doesn’t include Chalk Talk AI yet.'), { status: 402, code: 'upgrade' });
+  if (!r.ok) throw Object.assign(new Error(r.status === 429 ? (API === OWN ? 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' : j.error || 'You’ve used a lot of AI today. Try again in a bit.') : j.error || 'The free AI didn’t answer (' + r.status + ').'), { status: r.status });
   return j;
 }
 
 // speech → text on the free API (an open Whisper model); used where the browser can't do it
 export async function transcribe(blob, sport) {
   const t0 = performance.now();
-  const r = await fetch(API + '/hear' + (sport ? '?sport=' + encodeURIComponent(sport) : ''), { method: 'POST', headers: { 'content-type': blob.type || 'audio/webm' }, body: blob });
+  const r = await fetch(OWN + '/hear' + (sport ? '?sport=' + encodeURIComponent(sport) : ''), { method: 'POST', headers: { 'content-type': blob.type || 'audio/webm' }, body: blob });
   const j = await r.json().catch(() => ({}));
   meter.add({ task: 'hear', provider: 'free', model: 'whisper-large-v3-turbo', ok: r.ok, ms: Math.round(performance.now() - t0), cost: 0 });
   if (!r.ok) throw new Error(r.status === 429 ? 'Voice is resting for today. Type it instead.' : j.error || 'Couldn’t hear that. Try again, or type it.');
