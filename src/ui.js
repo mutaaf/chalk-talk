@@ -18,6 +18,7 @@ import { VERSION, TOUR, RELEASES, SHORTCUTS, seen, hasNews } from './tour.js';
 import { openGuide } from './guide.js';
 import { createIQ } from './iqmode.js';
 import { openStats } from './stats.js';
+import { openFilm } from './filmroom.js';
 import { analyze } from './analyst.js';
 import { analyst } from './ai.js';
 import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary } from './learn.js';
@@ -36,10 +37,12 @@ const TEMPLATE = `
   <button class="ct-pill" data-r="namesBtn" title="Show your players' names (saved on this device only)" hidden>${icon('names')}<span>Names</span></button>
   <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself (or just use a pencil), then let the AI take over (S)">${icon('sketch')}<span>Sketch</span></button>
   <button class="ct-pill ct-switch" data-r="defBtn" role="switch" aria-checked="false" title="Defense on or off: X's that guard, help and react on their own (D)">${icon('shield')}<span>Defense</span><i class="ct-sw"></i></button>
+  <button class="ct-pill ct-filmpill" data-r="filmTop" title="Film room: every position's brain breaks down the play; tap a player for the full breakdown (R)">${icon('film')}<span>Film room</span></button>
   <button class="ct-pill" data-r="guideBtn" title="Every position in depth, the play player by player, and sideline cards (G)">${icon('book')}<span>Guide</span></button>
   <button class="ct-pill ct-iqpill" data-r="iqBtn" title="The game: read real plays, build your IQ, level up (I)">${icon('trophy')}<span data-r="iqLabel">IQ</span></button>
   <button class="ct-pill" data-r="statsBtn" title="Stats: the play's numbers, and AI tokens, time and cost">${icon('chart')}<span>Stats</span></button>
   <button class="ct-pill" data-r="presentBtn" title="Presenter mode for a TV: AirPlay, Cast or any mirroring (F)">${icon('cast')}<span>Present</span></button>
+  <button class="ct-pill" data-r="themeBtn" title="Light, dark, or follow the device">${icon('moon')}<span>Theme</span></button>
   <button class="ct-pill" data-r="infoBtn">${icon('info')}<span>About</span></button>
   <button class="ct-pill off" data-r="narrate" aria-pressed="false" title="The voice: an analyst who explains the read, or play-by-play">${icon('mute')}<span>Narrate</span></button>
   <button class="ct-pill ct-keypill" data-r="keyBtn" title="AI settings and your own keys">${icon('sparkle')}<span>AI</span></button>
@@ -118,6 +121,7 @@ const TEMPLATE = `
     <button type="button" data-p="exit">${icon('close')}<span>Exit</span></button>
   </div>
 </div>
+<div class="ct-scrim" data-r="scrim"></div>
 <div class="ct-spot" data-r="spot" hidden></div>
 <div class="ct-tip" data-r="tip" role="tooltip" hidden></div>
 <dialog class="ct-dlg" data-r="keyDlg">
@@ -471,6 +475,7 @@ export function mount(root, options) {
       el2.style.left = x + 'px'; el2.style.top = y + 'px'; el2.style.maxHeight = (host.height - 24) + 'px';
     }
     el2.style.visibility = '';
+    if (sheet || /ct-xl/.test(cls || '')) R.scrim.classList.add('on');   // the big ones and sheets dim the board; a tap on it closes
     el2.querySelector('.ct-x').onclick = closePanel;
     const outside = e => { if (!el2.contains(e.target) && !(anchor.contains && anchor.contains(e.target))) closePanel(); };
     setTimeout(() => document.addEventListener('pointerdown', outside, true), 0);
@@ -479,7 +484,12 @@ export function mount(root, options) {
     const first = el2.querySelector('.ct-pbody input, .ct-pbody button'); if (first && !sheet) first.focus();
     return el2;
   }
-  function closePanel() { root.querySelectorAll('.ct-panel').forEach(p => { p._off && p._off(); p.remove(); }); if (R.spot && !root.querySelector('.ct-panel.ct-tourcard')) R.spot.hidden = true; }
+  // closing: the panel and its scrim fade and slide away rather than vanish
+  function closePanel() {
+    root.querySelectorAll('.ct-panel:not(.out)').forEach(p => { p._off && p._off(); p.classList.add('out'); p.setAttribute('aria-hidden', 'true'); setTimeout(() => p.remove(), 200); });
+    R.scrim.classList.remove('on');
+    if (R.spot && !root.querySelector('.ct-panel:not(.out).ct-tourcard')) R.spot.hidden = true;
+  }
   const markAnchor = i => { const m = ink.marks[i]; return { x: +m.hot.getAttribute('cx'), y: +m.hot.getAttribute('cy') + (+m.hot.getAttribute('r') || 10) }; };
 
   // ---- labels: tap a player (or say "label 5 the big") to tag a role ----
@@ -674,7 +684,15 @@ export function mount(root, options) {
   }
 
   // ---- the film room: every position's brain watches the play ----
-  R.filmBtn.onclick = () => film();
+  // the film room: a card per player, a full breakdown per position (filmroom.js)
+  let filmErr = 0;
+  function openFilmRoom(id) {
+    openFilm({ sport: state.sport, play: state.play, sim: state.sim, raw: state.raw, strip: strip(state.play), openPanel: panelAt(R.filmTop), posName, mark, watch, band,
+      booth: state.booth ? (state.booth.ai || state.booth.lines) : null, say: t => say(spoken(t), key.get()),
+      onError: e => { if (Date.now() - filmErr > 5000) { filmErr = Date.now(); toast(e.message + ' The engine’s read is shown.'); } } }, id);
+  }
+  R.filmBtn.onclick = () => openFilmRoom();
+  R.filmTop.onclick = () => openFilmRoom();
   async function film() {
     const play = strip(state.play), sport = state.sport;
     const ids = state.play.players.filter((p, i) => p.side === 'O' || sim0().match[i] >= 0 || sim0().job[i]).map(p => p.id).slice(0, 10);   // every O, and every X with a job
@@ -714,7 +732,7 @@ export function mount(root, options) {
     openPanel(anchor, st.title, body, pb => {
       pb.onclick = e => { const b = e.target.closest('[data-b]'); if (!b) return; spotlight(steps, i + (b.dataset.b === 'next' ? 1 : -1), eyebrow); };
     }, 'ct-tourcard');
-    const card = root.querySelector('.ct-panel.ct-tourcard'); if (card) { card._step = { steps, i, eyebrow }; card.querySelector('.ct-x').onclick = endTour; }
+    const card = root.querySelector('.ct-panel:not(.out).ct-tourcard'); if (card) { card._step = { steps, i, eyebrow }; card.querySelector('.ct-x').onclick = endTour; }
     place();
     if (state.narrate) say(st.call, key.get());
   }
@@ -737,14 +755,14 @@ export function mount(root, options) {
     openPanel(R.helpBtn, 'Keyboard shortcuts', `<dl class="ct-keys">${SHORTCUTS.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`, null, 'ct-wide');
   }
   R.helpBtn.onclick = () => {
-    if (root.querySelector('.ct-panel.ct-helpm')) { closePanel(); return; }
+    if (root.querySelector('.ct-panel:not(.out).ct-helpm')) { closePanel(); return; }
     openPanel(R.helpBtn, 'Help', `<div class="ct-menu"><button type="button" data-h="tour">${icon('sparkle')}<span>Take the tour</span></button>
       <button type="button" data-h="news">${icon('film')}<span>What's new in v${VERSION}</span>${hasNews() ? '<i class="ct-new">New</i>' : ''}</button>
       <button type="button" data-h="keys">${icon('key')}<span>Keyboard shortcuts</span></button></div>`, pb => {
       pb.onclick = e => { const b = e.target.closest('[data-h]'); if (!b) return; ({ tour: startTour, news: whatsNew, keys: shortcuts })[b.dataset.h](); };
     }, 'ct-helpm');
   };
-  addEventListener('resize', () => { const c = root.querySelector('.ct-panel.ct-tourcard'); if (c && c._step) spotlight(c._step.steps, c._step.i, c._step.eyebrow); });
+  addEventListener('resize', () => { const c = root.querySelector('.ct-panel:not(.out).ct-tourcard'); if (c && c._step) spotlight(c._step.steps, c._step.i, c._step.eyebrow); });
 
   // tooltips: the board's own, styled and instant on hover or focus (long-press on touch)
   function tipify(scope) { scope.querySelectorAll('[title]').forEach(el2 => { if (el2.closest('.ct-dlg')) return; el2.dataset.tip = el2.getAttribute('title'); el2.removeAttribute('title'); if (!el2.getAttribute('aria-label') && !el2.textContent.trim()) el2.setAttribute('aria-label', el2.dataset.tip); }); }
@@ -1041,7 +1059,7 @@ export function mount(root, options) {
     R.viewBtn.innerHTML = icon(v.locked ? 'lock' : 'view') + '<span>View</span>';
   }
   R.viewBtn.onclick = () => {
-    if (root.querySelector('.ct-panel.ct-viewp')) { closePanel(); return; }
+    if (root.querySelector('.ct-panel:not(.out).ct-viewp')) { closePanel(); return; }
     const v = state.view;
     const body = `<div class="ct-seg"><span>Angle</span><button data-p="coach">Coach</button><button data-p="top">Top-down</button><button data-p="side">Sideline</button></div>
       <div class="ct-seg"><span>Zoom</span><button data-z="-1" aria-label="Zoom out">−</button><button data-z="0">Fit</button><button data-z="1" aria-label="Zoom in">+</button></div>
@@ -1142,11 +1160,11 @@ export function mount(root, options) {
     if (e.key === 'ArrowRight') act('next');
     if (e.key === 'ArrowLeft') act('back');
     if (e.key === 'Escape') {
-      if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel')) { closePanel(); return; }
+      if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel:not(.out)')) { closePanel(); return; }
       if (state.coach) { endCoach(false); return; } if (state.quiz) { iq.stop(); return; } if (state.focus) { R.focusChip.click(); return; }
       if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) finishSketch();
     }
-    const tc = root.querySelector('.ct-panel.ct-tourcard');
+    const tc = root.querySelector('.ct-panel:not(.out).ct-tourcard');
     if (tc && tc._step && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); spotlight(tc._step.steps, tc._step.i + (e.key === 'ArrowRight' ? 1 : -1), tc._step.eyebrow); return; }
     if (e.key === '?') { R.helpBtn.click(); return; }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && state.sketch) { e.preventDefault(); R.undo.click(); return; }
@@ -1159,6 +1177,7 @@ export function mount(root, options) {
     }
     if (state.quiz) return;
     if (k2 === 'g') guide();
+    if (k2 === 'r') openFilmRoom();
     if (k2 === 'i') iq.open();
     if (k2 === 'f') present();
     if (k2 === 's') act('sketch');
@@ -1359,6 +1378,7 @@ export function mount(root, options) {
   function controlCenter() {
     const fb = !!state.sport.kinds.route, V = state.view;
     const tiles = [
+      ['film', 'film', 'Film room', 'Every position, broken down'],
       ['guide', 'book', 'Guide', 'Positions in depth'],
       ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
       ['voice', state.narrate ? 'speaker' : 'mute', 'Voice', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
@@ -1367,14 +1387,15 @@ export function mount(root, options) {
       ['stats', 'chart', 'Stats', 'Play numbers, AI cost'],
       fb ? ['fb', 'draw', 'Routes & coverage', root.classList.contains('ct-fbopen') ? 'Showing' : 'Route tree, Cover 2/3, QB eyes'] : null,
       names.any() ? ['names', 'names', 'Names', state.showNames ? 'On' : 'Off'] : null,
+      ['theme', root.classList.contains('ct-light') ? 'sun' : 'moon', 'Appearance', theme === 'auto' ? 'Auto' : theme === 'light' ? 'Light' : 'Dark'],
       ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : 'Free AI'],
       ['help', 'info', 'Help', hasNews() ? 'What’s new' : 'Tour, shortcuts']
     ].filter(Boolean);
     openPanel(R.playChip, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}" class="${(k === 'voice' && state.narrate) || (k === 'fb' && root.classList.contains('ct-fbopen')) || (k === 'names' && state.showNames) ? 'on' : ''}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>`, pb => {
       pb.onclick = e => {
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
-        ({ guide: () => guide(), iq: () => iq.open(), voice: voiceMenu, view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
-          fb: () => { root.classList.toggle('ct-fbopen'); }, names: () => R.namesBtn.click(), ai: () => openKey(), help: () => R.helpBtn.click() })[k]();
+        ({ film: () => openFilmRoom(), guide: () => guide(), iq: () => iq.open(), voice: voiceMenu, view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+          fb: () => { root.classList.toggle('ct-fbopen'); }, names: () => R.namesBtn.click(), theme: () => themeMenu(R.playChip), ai: () => openKey(), help: () => R.helpBtn.click() })[k]();
       };
     }, 'ct-xl ct-ccp');
   }
@@ -1383,6 +1404,26 @@ export function mount(root, options) {
     ({ plays: playsSheet, sketch: () => act('sketch'), mic: () => R.mic.click(), defense: () => act('defense'), more: controlCenter })[b.dataset.tb]();
   });
   R.playChip.onclick = () => root.classList.toggle('ct-info');
+
+
+  // ---- light and dark: dark by default (the light glows), light for a bright sideline, or follow the device ----
+  let theme = 'dark'; try { theme = localStorage.getItem('chalktalk.theme') || 'dark'; } catch (e) {}
+  const mq = typeof matchMedia !== 'undefined' ? matchMedia('(prefers-color-scheme: light)') : null;
+  function applyTheme() {
+    const light = theme === 'light' || (theme === 'auto' && mq && mq.matches);
+    root.classList.toggle('ct-light', light);
+    R.themeBtn.innerHTML = icon(light ? 'sun' : 'moon') + '<span>' + (theme === 'auto' ? 'Auto' : light ? 'Light' : 'Dark') + '</span>';
+    const meta = document.querySelector('meta[name=theme-color]'); if (meta && opts.fullscreen) meta.setAttribute('content', light ? '#f3efe6' : '#04070c');
+  }
+  function setTheme(t) { theme = t; try { localStorage.setItem('chalktalk.theme', t); } catch (e) {} applyTheme(); }
+  function themeMenu(anchor) {
+    openPanel(anchor || R.themeBtn, 'Appearance', `<div class="ct-menu ct-voices">${[['dark', 'moon', 'Dark', 'The board glows. Best indoors and on a TV.'], ['light', 'sun', 'Light', 'High contrast for a bright sideline.'], ['auto', 'view', 'Auto', 'Follows this device.']].map(([k, ic, t, sub]) => `<button type="button" data-t="${k}" class="${theme === k ? 'on' : ''}">${icon(ic)}<span>${t}<small>${sub}</small></span></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => { const b = e.target.closest('[data-t]'); if (b) { setTheme(b.dataset.t); closePanel(); } };
+    });
+  }
+  R.themeBtn.onclick = () => themeMenu();
+  if (mq && mq.addEventListener) mq.addEventListener('change', applyTheme);
+  applyTheme();
 
   // ---- the keys ----
   function badge(el2, kind) { el2.textContent = kind ? '✓ ' + kind : ''; el2.className = 'ct-badge' + (kind ? ' ok' : ''); }
@@ -1429,12 +1470,12 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku);
-      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
+      if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
     }
   };
 }

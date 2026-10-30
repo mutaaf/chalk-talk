@@ -325,3 +325,5 @@ export async function analyst(args, opts) {
   if (keyKind(k)) return solve(analystRequest(args), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, true, 'analyst'));
   return free('analyst', { sport: args.sport.id, play: args.play, facts: args.facts }, opts.signal);
 }
+// one position's film-room read, so the film room can fill in each card as its brain answers
+export const filmFor = (play, id, opts) => brain(opts.sport, play, id, 'film', opts || {}).then(r => (r && r.read ? Object.assign({ id, brain: brainFor(opts.sport, play, id).name }, r) : null));

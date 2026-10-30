@@ -76,6 +76,9 @@ export function playerFor(sport, play, pos) {
   const roles = pos.id === 'H' ? ['H', 'Y'] : [pos.id];
   return play.players.find(p => roles.indexOf(p.role) >= 0) || null;
 }
+const VERBS = { move: 'moves to a new spot', cut: 'cuts', drift: 'drifts to open space', lift: 'lifts up', pop: 'pops out', roll: 'rolls to the rim', slide: 'slides with the ball', closeout: 'closes out', help: 'helps on the ball',
+  dribble: 'dribbles', screen: 'screens for', boxout: 'boxes out', route: 'runs the route', motion: 'goes in motion', run: 'runs with it', rush: 'rushes the QB', cover: 'covers', zone: 'drops to the zone', pull: 'goes for the flag',
+  pass: 'passes to', throw: 'throws to', handoff: 'hands off to', pitch: 'pitches to', snap: 'snaps to', shot: 'shoots', ready: 'gets ready' };
 // what a player does in the play, beat by beat, in the play's own words
 export function storyOf(play, id) {
   const out = [];
@@ -83,7 +86,7 @@ export function storyOf(play, id) {
     const mine = (b.actions || []).filter(a => a.who === id || a.target === id);
     if (!mine.length) return;
     const lines = String(b.say || '').split(/(?<=\.)\s+/).filter(s => new RegExp('\\b' + id + '\\b').test(s));
-    out.push({ beat: k, text: lines.join(' ') || mine.map(a => a.kind + (a.target ? ' → ' + a.target : '')).join(', ') });
+    out.push({ beat: k, text: lines.join(' ') || mine.map(a => a.who !== id ? `gets it from ${a.who}` : (VERBS[a.kind] || 'moves') + (a.target ? ' ' + a.target : '')).join(', then ') });
   });
   return out;
 }

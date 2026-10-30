@@ -264,6 +264,14 @@ export function compile(play, sport, options) {
     const line = ev.type === 'handoff' ? route(p0, [[(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2 + 1.2]], p1, true, 10) : route(p0, [], p1, false, 20);
     routes.push(makeRoute(ev.from, k, ev.kind, line));
     ev.p0 = p0; ev.p1 = p1;
+    // passing style, where the sport says passes are thrown low (basketball: chest or bounce, never a lob):
+    // a bounce pass to a cutter or roller going to the rim, or past a defender in the lane; else a chest pass
+    if (sport.ball.passes && ev.type === 'pass') {
+      const toRim = [paths[k], paths[k - 1]].some(mv => mv && mv[ev.to] && /^(cut|roll|curl|dive)$/.test(mv[ev.to].kind) && Math.hypot(p1[0] - goal[0], p1[1] - goal[1]) < 14);
+      const mid = [(p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2], at = play.players.map((_, pi) => posIn(k, 0.7, pi));
+      const inLane = play.players.some((p, d) => p.side === 'D' && Math.hypot(at[d][0] - mid[0], at[d][1] - mid[1]) < 3.5);
+      ev.style = toRim || inLane ? 'bounce' : 'chest';
+    }
   });
 
   // Off-ball offense with nothing to do still plays: crowded by a teammate's cut or screen, or in
@@ -422,6 +430,7 @@ export function compile(play, sport, options) {
     routeSlice: (ri, frac) => slice(routes[ri].m, frac),
     isAuto: (k, d) => !!(auto[Math.min(k, beats.length - 1)] || [])[d],
     beatInfo: k => beats[k] || null,
+    passStyle: k => (ballEv[k] && ballEv[k].style) || null,
     holderAt: time => {   // who has the ball right now (−1 in the air or gone)
       const k = Math.floor(time), f = time - k;
       if (k >= beats.length) return holders[beats.length];
@@ -448,6 +457,11 @@ export function compile(play, sport, options) {
         const a = ev.p0, b = ev.type === 'shot' ? goal : ev.type === 'handoff' ? P[ev.to] : ev.p1;   // thrown to where the receiver will be
         const h0 = B.held, h1 = ev.type === 'shot' ? goal[2] + B.r : B.held;
         const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (ev.style === 'bounce') {   // down to the floor two-thirds of the way, up into the hands at the waist
+          const hit = 0.62, h = u < hit ? h0 * (1 - u / hit) + B.r : B.r + (B.held * 0.8 - B.r) * ((u - hit) / (1 - hit));
+          return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h];
+        }
+        if (ev.style === 'chest') return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h0 + 0.35 * Math.sin(Math.PI * u) * Math.min(1, dist / 20)];   // flat, on a line
         const peak = ev.type === 'shot' ? goal[2] * 0.7 : ev.type === 'handoff' ? 0.15 * sport.mark : Math.min(B.maxArc, dist * 0.18) * ev.arc;
         return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h0 + (h1 - h0) * u + 4 * peak * u * (1 - u)];
       }

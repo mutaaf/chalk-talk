@@ -41,7 +41,8 @@ export function analyze(sim, sport, nameOf) {
           if (d != null && hold >= 0) { const toBall = Math.hypot(P[d][0] - P[hold][0], P[d][1] - P[hold][1]), toMan = Math.hypot(P[d][0] - P[ri][0], P[d][1] - P[ri][1]); if (toBall < toMan) why = `${nm(dd)} stepped over to help on the ball, and that leaves ${nm(a.target)} alone.`; }
           if (!why && d != null && sim.screened[k] && sim.screened[k][d] != null) why = `${nm(dd)} is stuck on the screen.`;
           if (!why) why = `${nm(sim.players[near.d].id)} is ${near.dist.toFixed(0)} feet away.`;
-          out.push(`${nm(a.who)} sees it: ${why} That's the read: the ball goes to the open man.`);
+          const st = sim.passStyle && sim.passStyle(k);
+          out.push(`${nm(a.who)} sees it: ${why} ${st === 'bounce' ? 'Bounce pass, under the hands.' : st === 'chest' ? 'Chest pass, on a line.' : ''} That's the read: the ball goes to the open man.`.replace(/\s+/g, ' '));
         } else out.push(`${nm(a.who)} finds ${nm(a.target)}. Turn the defense on and you'll see why that's the right look.`);
       }
       if (T.type === 'shot') out.push(`${nm(a.who)} rises up in rhythm. That's what spacing buys you: a clean look.`);
