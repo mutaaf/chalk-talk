@@ -1021,5 +1021,16 @@ export const CSS = `
 .ct-pbgo span { color: var(--mute); font-size: 13px; } .ct .ct-pbgo .go { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 21px; } .ct-pbgo .go:disabled { opacity: .4; } .ct-pbgo .ct-i { width: 17px; height: 17px; }
 .ct .ct-fcard.settled { animation: ct-settle .45s ease-out both; } .ct-fsee.settled { animation: ct-settle .45s ease-out both; }
 @keyframes ct-settle { from { opacity: .55; box-shadow: 0 0 0 2px rgba(184, 156, 255, .5); } }
+/* best reads */
+.ct-best { margin: -2px 0 6px; padding: 10px; border-radius: 14px; background: rgba(74, 222, 128, .07); border: 1px solid rgba(74, 222, 128, .3); }
+.ct-best h6 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-family: var(--display); font-size: 12.5px; letter-spacing: .14em; text-transform: uppercase; color: #6ee7a8; }
+.ct-best h6 .ct-i { width: 14px; height: 14px; } .ct-best h6 small { margin-left: auto; color: var(--mute); letter-spacing: .04em; text-transform: none; font-family: var(--body); font-size: 11.5px; }
+.ct-best ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ct .ct-best button { width: 100%; display: grid; gap: 1px; text-align: left; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent !important; }
+.ct .ct-best button.on { background: rgba(74, 222, 128, .14); border-color: rgba(74, 222, 128, .45) !important; }
+.ct-best b { font-size: 14px; } .ct-best small { color: var(--mute); font-size: 12px; }
+.ct-ink .readline { fill: none; stroke: #4ade80; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 6; filter: drop-shadow(0 0 6px rgba(74, 222, 128, .8)); animation: ct-march 0.8s linear infinite; }
+.ct-ink .readring { fill: rgba(74, 222, 128, .12); stroke: #4ade80; stroke-width: 2; }
+.ct.ct-light .ct-best h6 { color: #15803d; } .ct.ct-light .ct-ink .readline, .ct.ct-light .ct-ink .readring { stroke: #15803d; }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;

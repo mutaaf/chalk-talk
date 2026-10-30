@@ -26,6 +26,7 @@ import { chime, soundOn, setSound } from './sound.js';
 import { startTracking, track } from './track.js';
 import { strip } from './engine/strip.js';
 import { buildPlaybook, openPlaybook } from './playbook.js';
+import { bestReads } from './engine/reads.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -378,7 +379,7 @@ export function mount(root, options) {
       return { p, shape, glyph, eye, text, hot, g };
     });
     const stroke = el('path', 'stroke', svg);
-    const target = el('circle', 'iqtarget', svg), tapX = el('path', 'iqtap', svg), ghost = el('path', 'ghost', svg), finger = el('circle', 'finger', svg), laser = el('path', 'laser', svg), laserDot = el('circle', 'laserdot', svg);
+    const target = el('circle', 'iqtarget', svg), tapX = el('path', 'iqtap', svg), ghost = el('path', 'ghost', svg), finger = el('circle', 'finger', svg), laser = el('path', 'laser', svg), laserDot = el('circle', 'laserdot', svg), readLine = el('path', 'readline', svg), readRing = el('circle', 'readring', svg);
     const nm = names.all();
     R.labels.innerHTML = sim.players.map(p => {
       const name = state.showNames && nm[p.id], txt = name || (state.sport.id === 'basketball' ? p.role : '') || '';
@@ -387,7 +388,7 @@ export function mount(root, options) {
     const kids = Array.from(R.labels.children);
     // guarded: who has a defender to beat (in football, every receiver reads the coverage)
     ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),
-      routes, marks, ball, pig, pigAng: -0.45, pigAt: null, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+      routes, marks, ball, pig, pigAng: -0.45, pigAt: null, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, readLine, readRing, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
     R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
@@ -444,7 +445,7 @@ export function mount(root, options) {
       const r0 = pl.side === 'O' ? 1.05 : 1.0, e1 = proj(x + fx * U * r0, y + fy * U * r0, 0.15 * U), e2 = proj(x + fx * U * (r0 + 0.55), y + fy * U * (r0 + 0.55), 0.15 * U);
       m.eye.setAttribute('d', `M${e1.x.toFixed(1)} ${e1.y.toFixed(1)}L${e2.x.toFixed(1)} ${e2.y.toFixed(1)}`);
     });
-    drawExtras(P, U);
+    drawExtras(P, U); drawRead(P);
     const b = proj(Bp[0], Bp[1], Bp[2]), g = proj(Bp[0], Bp[1], 0), be = proj(Bp[0] + state.sport.ball.r, Bp[1], Bp[2]);
     const br = Math.max(3.5, Math.hypot(be.x - b.x, be.y - b.y));
     if (ink.pig) {
@@ -519,6 +520,16 @@ export function mount(root, options) {
     if (lp) { ink.laserDot.setAttribute('cx', lp[0]); ink.laserDot.setAttribute('cy', lp[1]); ink.laserDot.setAttribute('r', state.lasing ? 6 : 5); } else ink.laserDot.setAttribute('r', 0);
   }
   const laserPts = [];
+  // the best read, drawn: a green arrow from the player to who or where, and a ring on the target
+  function drawRead(P) {
+    const h = state.readHint;
+    if (!h) { ink.readLine.setAttribute('d', ''); ink.readRing.setAttribute('r', 0); return; }
+    const a = P[h.from], b = Array.isArray(h.to) ? h.to : P[h.to], pa = proj(a[0], a[1], 0.1), pb2 = proj(b[0], b[1], 0.1);
+    const dx = pb2.x - pa.x, dy = pb2.y - pa.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, e = [pb2.x - ux * 14, pb2.y - uy * 14], s0 = [pa.x + ux * 14, pa.y + uy * 14];
+    const head = `M${e[0] - ux * 9 - uy * 6} ${e[1] - uy * 9 + ux * 6}L${e[0]} ${e[1]}L${e[0] - ux * 9 + uy * 6} ${e[1] - uy * 9 - ux * 6}`;
+    ink.readLine.setAttribute('d', L > 30 ? `M${s0[0]} ${s0[1]}L${e[0]} ${e[1]}${head}` : '');
+    ink.readRing.setAttribute('cx', pb2.x); ink.readRing.setAttribute('cy', pb2.y); ink.readRing.setAttribute('r', 16 + 3 * Math.sin(performance.now() / 180));
+  }
 
   // ---- the aurora shows what's happening: ripples from the mic with the coach's voice while listening, sparks
   // racing along the court lines and a slow center ripple while a play is drawn ----
@@ -592,7 +603,7 @@ export function mount(root, options) {
   // closing: the panel and its scrim fade and slide away rather than vanish
   function closePanel() {
     root.querySelectorAll('.ct-panel:not(.out)').forEach(p => { p._off && p._off(); p.classList.add('out'); p.setAttribute('aria-hidden', 'true'); setTimeout(() => p.remove(), 200); });
-    R.scrim.classList.remove('on');
+    R.scrim.classList.remove('on'); state.readHint = null;
     if (R.tabbar) R.tabbar.querySelectorAll('[data-tb].on').forEach(x => x.classList.remove('on'));
     if (R.spot && !root.querySelector('.ct-panel:not(.out).ct-tourcard')) R.spot.hidden = true;
   }
@@ -603,13 +614,24 @@ export function mount(root, options) {
     const p = byId(id); if (!p) return;
     const i = state.play.players.indexOf(p);
     const chips = (state.sport.ai.roles || '').split(',').map(c => c.trim()).filter(Boolean).slice(0, 6);
-    const body = `<form class="ct-form"><label>Label</label><div class="ct-row"><input data-role value="${esc(p.role || '')}" placeholder="e.g. ${esc(chips[0] || 'Shooter')}" maxlength="18" autocomplete="off"><button class="go">Save</button></div>
+    // the best read right now: the play holds still while the coach looks
+    const sim = state.sim, t = sim.time(); sim.playing(false); renderDots();
+    const reads = state.quiz ? [] : bestReads(sim, state.sport, t, i, k => nameOf(sim.players[k].id));
+    const readsHTML = reads.length ? `<section class="ct-best"><h6>${icon('sparkle')} Best read right now <small>${sim.beatInfo(sim.beatAt()) ? 'step ' + (sim.beatAt() + 1) : 'end of the play'}</small></h6>
+      <ol>${reads.map((r, n) => `<li><button type="button" data-read="${n}" class="${n === 0 ? 'on' : ''}"><b>${esc(r.text)}</b><small>${esc(r.why)}</small></button></li>`).join('')}</ol></section>` : '';
+    const body = readsHTML + `<form class="ct-form"><label>Label</label><div class="ct-row"><input data-role value="${esc(p.role || '')}" placeholder="e.g. ${esc(chips[0] || 'Shooter')}" maxlength="18" autocomplete="off"><button class="go">Save</button></div>
       <div class="ct-chips">${chips.map(c => `<button type="button" data-chip>${esc(c)}</button>`).join('')}</div>
       <label>Name <small>saved on this device only, never sent to the AI</small></label><input data-n value="${esc(names.all()[id] || '')}" placeholder="Player's first name" maxlength="24" autocomplete="off"></form>
       <div class="ct-brains"><button type="button" data-s="1">${icon('brain')}<span>${p.smart ? 'Ask this brain again' : 'Let the AI play ' + esc(posName(id))}</span></button><button type="button" data-s="all">${icon('brain')}<span>Every ${p.side === 'O' ? 'teammate' : 'defender'} thinks</span></button></div>`;
     openPanel(markAnchor(i), (p.side === 'O' ? 'Offense ' : 'Defense ') + posName(id), body, pb => {
       const form = pb.querySelector('form'), roleIn = pb.querySelector('[data-role]'), nameIn = pb.querySelector('[data-n]');
       pb.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { roleIn.value = b.textContent; form.requestSubmit(); });
+      state.readHint = reads[0] ? { from: i, to: reads[0].to, kind: reads[0].kind } : null;
+      pb.querySelectorAll('[data-read]').forEach(b => b.onclick = () => {
+        const r = reads[+b.dataset.read]; state.readHint = { from: i, to: r.to, kind: r.kind };
+        pb.querySelectorAll('[data-read]').forEach(x => x.classList.toggle('on', x === b));
+      });
+      track('best_read', { kind: reads[0] ? reads[0].kind : 'none' });
       form.onsubmit = e => {
         e.preventDefault();
         const nm = nameIn.value.trim(); if (nm !== (names.all()[id] || '')) { names.set(id, nm); if (nm) { state.showNames = true; try { localStorage.setItem('chalktalk.showNames', '1'); } catch (er) {} } }
