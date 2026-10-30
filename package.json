@@ -13,7 +13,7 @@
   "sideEffects": false,
   "scripts": {
     "up": "npm install --no-audit --no-fund --silent && node scripts/serve.mjs",
-    "test": "node test/modules.test.mjs && node test/sim.test.mjs && node test/football.test.mjs && node test/soccer.test.mjs && node test/reads.test.mjs && node test/sketch.test.mjs && node test/iq.test.mjs && node test/voice.test.mjs && node test/history.test.mjs && node test/worker.test.mjs && node test/ads.test.mjs",
+    "test": "node test/modules.test.mjs && node test/sim.test.mjs && node test/football.test.mjs && node test/soccer.test.mjs && node test/reads.test.mjs && node test/mind.test.mjs && node test/sketch.test.mjs && node test/iq.test.mjs && node test/voice.test.mjs && node test/history.test.mjs && node test/worker.test.mjs && node test/ads.test.mjs",
     "build": "node scripts/build.mjs",
     "eval": "node scripts/eval-plays.mjs",
     "deploy": "npm test && npm run build && npx wrangler@4 deploy",
