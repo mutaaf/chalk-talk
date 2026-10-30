@@ -16,6 +16,21 @@
 <meta name="apple-mobile-web-app-title" content="Chalk Talk">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>html, body { margin: 0; height: 100%; background: #04070c; overflow: hidden; }</style>
+<style>
+  /* Marquee ad (owner decision 2026-10-30): one banner at the foot of the play library (the desktop
+     Concepts sidebar, the Plays panel and the phone sheet), standalone page only.
+     Nothing shows until it's filled, and it never sits over the board. */
+  .ct-adwrap { display: grid; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px solid rgba(140, 188, 255, .16); }
+  .ct-adwrap [data-marquee] { min-height: 50px; border-radius: 10px; overflow: hidden; }
+  .ct-adwrap [data-marquee]:empty, .ct-adwrap [data-marquee][hidden] { display: none; }
+  .ct-adwrap:has(> [data-marquee]:empty), .ct-adwrap:has(> [data-marquee][hidden]) { border-top: 0; padding-top: 0; }   /* no fill: just the policy link */
+  .ct-adwrap > a { justify-self: end; font: 11px/1.2 system-ui, sans-serif; letter-spacing: .04em; color: #8a9bb5; text-decoration: none; }
+  .ct-adwrap > a:hover { color: #eef4ff; text-decoration: underline; }
+  .ct-lib > .ct-adwrap { flex: none; margin: 10px 0 4px; padding: 10px 0 0; }
+  @container (max-width: 900px) { .ct-lib > .ct-adwrap { display: none; } }   /* the strip: the Plays sheet carries it instead */
+</style>
+<!-- Marquee ad loader (mutaafaziz.com/ads). Never blocks: with no fill every slot stays empty. Not on /admin. -->
+<script async src="/ads/v1/ads.js" data-app="chalktalk" data-slots="library:banner:menu"></script>
 <script type="importmap">{ "imports": { "aurora-field": "./vendor/aurora-field.mjs" } }</script>
 </head>
 <body>
@@ -24,6 +39,20 @@
   import { mount } from './src/index.js';
   const q = new URLSearchParams(location.search);
   window.chalk = mount(document.getElementById('app'), { fullscreen: true, sport: q.get('sport') || 'basketball', play: q.get('play') });
+  // Ad slot: the foot of the play library (desktop Concepts sidebar, Plays panel, phone sheet), never over the board.
+  // Lives here, not in src/, so hosts that mount the package (CourtIQ) never show ads.
+  const appEl = document.getElementById('app');
+  new MutationObserver(() => {
+    for (const list of appEl.querySelectorAll('.ct-lib, .ct-plays, .ct-playgrid')) {
+      const inside = list.classList.contains('ct-lib');   // the sidebar re-renders its buttons, so the slot lives inside it, last
+      if (inside ? list.lastElementChild?.classList.contains('ct-adwrap') || !list.children.length : list.parentElement.querySelector(':scope > .ct-adwrap')) continue;
+      list.querySelector(':scope > .ct-adwrap')?.remove();
+      const w = document.createElement('div');
+      w.className = 'ct-adwrap';
+      w.innerHTML = '<div data-marquee="library" data-marquee-context="menu"></div><a href="https://mutaafaziz.com/ads/privacy/" target="_blank" rel="noopener">Ads &amp; privacy</a>';
+      inside ? list.append(w) : list.after(w);
+    }
+  }).observe(appEl, { childList: true, subtree: true });
   // installable and offline (not on localhost, where it would cache the code under development)
   if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) navigator.serviceWorker.register('sw.js');
 </script>
