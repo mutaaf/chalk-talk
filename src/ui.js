@@ -81,6 +81,7 @@ const TEMPLATE = `
 </aside>
 <div class="ct-legend" data-r="legend"></div>
 <div class="ct-fb" data-r="fb" hidden>
+  <header class="ct-fbhead"><b>Routes &amp; coverage</b><button type="button" class="ct-x" data-r="fbClose" aria-label="Close">${icon('close')}</button></header>
   <div class="ct-fbrow"><span>Routes</span><button data-r="routeBtn">Route tree</button></div>
   <div class="ct-fbrow"><span>Coverage</span><div data-r="covs"></div></div>
   <div class="ct-fbrow"><span>QB eyes</span><div data-r="eyes"><button data-v="off" class="on">Off</button><button data-v="half">Half field</button><button data-v="full">Full field</button><button data-v="side" title="Which side the QB reads first">→</button></div></div>
@@ -324,6 +325,7 @@ export function mount(root, options) {
   function renderPlay() {
     const p = state.play;
     R.chipK.textContent = p.concept || state.sport.short; R.chipT.textContent = p.title;
+    if (typeof renderSides === 'function' && R.cardToggle && R.cardToggle.classList.contains('tucked')) renderSides();
     R.title.textContent = p.title; R.concept.textContent = (p.concept || 'Your play') + ' · ' + state.sport.short;
     R.summary.innerHTML = mark(p.summary || '');
     R.cues.innerHTML = p.cues.map(c => `<li>${esc(c)}</li>`).join('');
@@ -360,6 +362,9 @@ export function mount(root, options) {
     const badges = order.map((pi, n) => { const g = el('g', 'rd', gP); const c = el('circle', '', g); const tx = el('text', '', g); tx.textContent = n + 1; return { pi, g, c, tx }; });
     const routes = sim.routes.map(r => el('path', 'r ' + r.side + ' ' + r.kind + ' ' + r.type, gR));
     const shadow = el('ellipse', 'shadow', svg), ball = el('circle', 'ball', svg);
+    // football: a pointed oval with laces, turned to where it's going (basketball and soccer stay round)
+    const pig = fb ? el('g', 'pigskin', svg) : null;
+    if (pig) { el('path', 'pig', pig); el('path', 'laces', pig); ball.setAttribute('r', 0); }
     const marks = sim.players.map(p => {
       const g = el('g', '', gP), shape = nt.shape(p);
       const glyph = el('path', 'g ' + p.side + (shape === 'square' ? ' sq' : '') + (p.smart ? ' smart' : ''), g), eye = el('path', 'eye ' + p.side, g), text = el('text', 'n ' + p.side, g), hot = el('circle', 'hot', g);
@@ -381,7 +386,7 @@ export function mount(root, options) {
     const kids = Array.from(R.labels.children);
     // guarded: who has a defender to beat (in football, every receiver reads the coverage)
     ink = { hasD: sim.players.some(p => p.side === 'D'), guarded: sim.players.map((p, i) => p.side === 'O' && (sim.match.some(m => m === i) || (!!state.sport.kinds.route && sim.players.some(q => q.side === 'D') && p.role !== 'QB' && p.role !== 'C'))),
-      routes, marks, ball, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
+      routes, marks, ball, pig, pigAng: -0.45, pigAt: null, shadow, stroke, target, tapX, ghost, finger, laser, laserDot, lbls: kids.slice(0, sim.players.length), thinks: kids.slice(sim.players.length), zones, dim, cone, order, badges, t0: order.length ? readStart(sim) : 0 };
     R.namesBtn.hidden = !names.any(); R.namesBtn.classList.toggle('on', state.showNames);
   }
   const tmp = [0, 0, 0];
@@ -441,7 +446,17 @@ export function mount(root, options) {
     drawExtras(P, U);
     const b = proj(Bp[0], Bp[1], Bp[2]), g = proj(Bp[0], Bp[1], 0), be = proj(Bp[0] + state.sport.ball.r, Bp[1], Bp[2]);
     const br = Math.max(3.5, Math.hypot(be.x - b.x, be.y - b.y));
-    ink.ball.setAttribute('cx', b.x); ink.ball.setAttribute('cy', b.y); ink.ball.setAttribute('r', br);
+    if (ink.pig) {
+      // nose follows the flight; in a player's hands it rests at a slight angle
+      const prev = ink.pigAt, mv = prev ? Math.hypot(b.x - prev[0], b.y - prev[1]) : 0;
+      if (mv > 1.2 && holder < 0) ink.pigAng = Math.atan2(b.y - prev[1], b.x - prev[0]); else if (holder >= 0) ink.pigAng += (-0.45 - ink.pigAng) * 0.2;
+      ink.pigAt = [b.x, b.y];
+      const rx = br * 1.55, ry = br * 0.95;
+      ink.pig.setAttribute('transform', `translate(${b.x.toFixed(1)} ${b.y.toFixed(1)}) rotate(${(ink.pigAng * 180 / Math.PI).toFixed(1)})`);
+      ink.pig.firstChild.setAttribute('d', `M${-rx} 0Q0 ${-ry * 1.9} ${rx} 0Q0 ${ry * 1.9} ${-rx} 0Z`);
+      const l = rx * 0.42, t = ry * 0.32;
+      ink.pig.lastChild.setAttribute('d', `M${-l} 0L${l} 0` + [-0.6, -0.2, 0.2, 0.6].map(k => `M${(k * l).toFixed(1)} ${-t.toFixed(1)}L${(k * l).toFixed(1)} ${t.toFixed(1)}`).join(''));
+    } else { ink.ball.setAttribute('cx', b.x); ink.ball.setAttribute('cy', b.y); ink.ball.setAttribute('r', br); }
     ink.shadow.setAttribute('cx', g.x); ink.shadow.setAttribute('cy', g.y); ink.shadow.setAttribute('rx', br * 1.1); ink.shadow.setAttribute('ry', br * 0.45);
     // coverage zones, shaded on the field
     ink.zones.forEach(z => {
@@ -1599,8 +1614,12 @@ export function mount(root, options) {
   try { side = Object.assign(side, JSON.parse(localStorage.getItem('chalktalk.panels') || '{}')); } catch (e) {}
   function renderSides() {
     root.classList.toggle('ct-sidelib', !!side.lib); root.classList.toggle('ct-sidecard', !!side.card);
-    R.libToggle.textContent = side.lib ? '›' : '‹'; R.libToggle.setAttribute('aria-label', (side.lib ? 'Show' : 'Collapse') + ' the plays list ([)');
-    R.cardToggle.textContent = side.card ? '‹' : '›'; R.cardToggle.setAttribute('aria-label', (side.card ? 'Show' : 'Collapse') + ' the play card (])');
+    // collapsed, a tab says what's tucked away: the plays list, or the play on the board
+    R.libToggle.classList.toggle('tucked', !!side.lib); R.cardToggle.classList.toggle('tucked', !!side.card);
+    R.libToggle.innerHTML = side.lib ? `${icon('book')}<span>Plays</span><i>›</i>` : '‹';
+    R.cardToggle.innerHTML = side.card ? `<i>‹</i>${icon('info')}<span>${esc(state.play ? state.play.title : 'Play card')}</span>` : '›';
+    R.libToggle.setAttribute('aria-label', (side.lib ? 'Show' : 'Collapse') + ' the plays list ([)');
+    R.cardToggle.setAttribute('aria-label', (side.card ? 'Show the play card: ' + (state.play ? state.play.title : '') : 'Collapse the play card') + ' (])');
     R.libToggle.dataset.tip = side.lib ? 'Plays' : 'Collapse'; R.cardToggle.dataset.tip = side.card ? 'Play card' : 'Collapse';
   }
   const flipSide = k => { side[k] = !side[k]; try { localStorage.setItem('chalktalk.panels', JSON.stringify(side)); } catch (e) {} renderSides(); };
@@ -1609,6 +1628,7 @@ export function mount(root, options) {
   renderSides();
   R.moreBtn.onclick = () => { if (root.querySelector('.ct-panel:not(.out).ct-ccp')) closePanel(); else controlCenter(); };
   R.tbSketch.onclick = () => act('sketch');
+  R.fbClose.onclick = () => root.classList.remove('ct-fbopen');
 
   // ---- whiteboard only: full screen, every panel collapsed, a slim rail of icons ----
   async function boardOnly(on) {

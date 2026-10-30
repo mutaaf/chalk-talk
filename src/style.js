@@ -858,8 +858,8 @@ export const CSS = `
   .ct:not(.ct-touch).ct-sidecard .ct-card { transform: translateX(calc(100% + 40px)); opacity: 0; pointer-events: none; }
   .ct:not(.ct-touch).ct-sidecard .ct-edger { right: 8px; }
 }
-@container (max-width: 1100px) { .ct .ct-edge { display: none; } }
-.ct.ct-touch .ct-edge, .ct.ct-board .ct-edge, .ct.ct-present-on .ct-edge, .ct.ct-quiz .ct-edge { display: none; }
+@container (max-width: 1100px) { .ct .ct-edge { display: none !important; } }
+.ct.ct-touch .ct-edge, .ct.ct-board .ct-edge, .ct.ct-present-on .ct-edge, .ct.ct-quiz .ct-edge { display: none !important; }
 /* light mode: everything that sat on a dark glass reads on paper too */
 .ct.ct-light .ct-lib button { color: var(--paper); } .ct.ct-light .ct-lib button span { color: var(--o); }
 .ct.ct-light .ct-lib button.on { background: rgba(194, 65, 12, .1); border-color: rgba(194, 65, 12, .45); }
@@ -986,5 +986,26 @@ export const CSS = `
 .ct.ct-liveon .ct-dock .ct-said, .ct.ct-liveon .ct-dock .ct-caption { visibility: hidden; }
 .ct.ct-liveon .ct-dock .ct-transport { visibility: visible; }
 .ct-mic[data-state=starting], .ct-tbmic[data-state=starting] i { opacity: .7; }
+/* football tools on phones and tablets: a compact card in the corner, never a strip across the field */
+.ct-fbhead { display: none; }
+@container (max-width: 1100px) {
+  .ct.ct-fbopen .ct-fb { display: grid !important; position: absolute; left: auto; right: 12px; top: calc(max(10px, env(safe-area-inset-top)) + 92px); bottom: auto; width: min(300px, calc(100% - 24px)); max-height: calc(100% - 300px); overflow-y: auto; gap: 10px; padding: 12px; border-radius: 18px; z-index: 6; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); }
+  .ct.ct-fbopen .ct-fbrow { display: grid; flex: none; gap: 5px; } .ct.ct-fbopen .ct-fbrow > span { display: block; } .ct.ct-fbopen .ct-fbrow > div { flex-wrap: wrap; }
+  .ct.ct-fbopen .ct-fbhead { display: flex; align-items: center; justify-content: space-between; } .ct-fbhead b { font-family: var(--display); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+  .ct.ct-fbopen .ct-fab { display: none; }
+}
+.ct.ct-touch.ct-fbopen .ct-fb { display: grid !important; position: absolute; left: auto; right: 12px; top: calc(max(10px, env(safe-area-inset-top)) + 92px); bottom: auto; width: min(300px, calc(100% - 24px)); max-height: calc(100% - 300px); overflow-y: auto; gap: 10px; padding: 12px; border-radius: 18px; z-index: 6; box-shadow: 0 16px 40px rgba(0, 0, 0, .45); }
+.ct.ct-touch.ct-fbopen .ct-fbrow { display: grid; flex: none; gap: 5px; } .ct.ct-touch.ct-fbopen .ct-fbrow > span { display: block; } .ct.ct-touch.ct-fbopen .ct-fbrow > div { flex-wrap: wrap; }
+.ct.ct-touch.ct-fbopen .ct-fbhead { display: flex; align-items: center; justify-content: space-between; }
+.ct.ct-touch.ct-fbopen .ct-fab { display: none; }
+.ct-ink .pigskin .pig { fill: #8b4a22; stroke: #4a2210; stroke-width: 1; filter: drop-shadow(0 0 5px rgba(255, 142, 58, .55)); }
+.ct-ink .pigskin .laces { fill: none; stroke: #fff; stroke-width: 1.3; stroke-linecap: round; }
+/* a tucked panel leaves a labeled tab on its edge */
+.ct .ct-edge.tucked { width: 38px; height: auto; max-height: 60cqh; padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 9px; color: var(--paper); border-color: rgba(255, 142, 58, .35) !important; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.ct .ct-edge.tucked:hover { color: var(--o); border-color: var(--o) !important; }
+.ct-edge.tucked .ct-i { width: 18px; height: 18px; color: var(--o); flex: none; }
+.ct-edge.tucked span { writing-mode: vertical-rl; font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 40cqh; }
+.ct-edgel.tucked span { transform: rotate(180deg); }
+.ct-edge.tucked i { font-style: normal; color: var(--mute); font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .ct *, .ct *::before, .ct *::after { animation: none !important; transition: none !important; } }
 `;
