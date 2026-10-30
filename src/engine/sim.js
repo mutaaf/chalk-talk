@@ -7,7 +7,7 @@
 import { clamp, ease, route, measured, walk, slice, toward } from './geom.js';
 
 const HOLD = 1.6;   // beats of stillness at the end before it plays again
-const SPANS = { move: [0, 0.82], pass: [0.52, 0.94], handoff: [0.55, 0.8], shot: [0.35, 0.95] };
+export const SPANS = { move: [0, 0.82], pass: [0.52, 0.94], handoff: [0.55, 0.8], shot: [0.35, 0.95] };
 
 // players are never statues: offense sways in a ready stance, defense has active feet
 export function life(sport, side, i, seconds, out) {

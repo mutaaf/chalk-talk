@@ -144,7 +144,7 @@ export const RELEASES = [
 ];
 
 export const SHORTCUTS = [
-  ['Space (hold)', 'Talk'], ['← →', 'Step back / forward'], ['P', 'Play or pause'], ['S', 'Sketch'], ['D', 'Defense'],
+  ['Space (hold)', 'Talk'], ['← →', 'Step back / forward'], ['P', 'Play or pause'], ['S', 'Sketch'], ['D', 'Defense'], ['V', 'Mind view: every player’s live read'],
   ['L', 'Lock the view'], ['+ / −', 'Zoom'], ['N', 'Show names'], ['G', 'Guide'], ['R', 'Film room'], ['I', 'IQ game'], ['F', 'Presenter mode'], ['W', 'Whiteboard only'], ['H', 'My plays'], ['M', 'More'], ['[ / ]', 'Collapse the side panels'], ['0', 'Reset the view'], ['Esc', 'Close'], ['In sketch: D M E B O X', 'Draw, Move, Erase, Ball, add O, add X'], ['In sketch: T', 'Same time'], ['⌘Z', 'Undo a stroke']
 ];
 

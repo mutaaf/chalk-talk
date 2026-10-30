@@ -27,6 +27,7 @@ import { startTracking, track } from './track.js';
 import { strip } from './engine/strip.js';
 import { buildPlaybook, openPlaybook } from './playbook.js';
 import { bestReads } from './engine/reads.js';
+import { createMind } from './mind.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
 
@@ -259,7 +260,7 @@ export function mount(root, options) {
     state.loads++;
     state.play = sim.play; state.raw = raw; state.sim = sim; state.readsOn = false; state.libKey = o.key || null;
     state.booth = { lines: analyze(sim, sport, posName), ai: null }; state.focus = null; state.reveal = null; R.focusChip.hidden = true;
-    buildInk(); renderPlay(); renderDots(); renderFootball(); renderPresent();
+    buildInk(); mind.rebuild(); renderPlay(); renderDots(); renderFootball(); renderPresent();
     if (!o.quiet && state.narrate && state.style === 'analyst' && !state.quiz) boothAI();
     R.lib.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === o.key));
     if (o.at != null) { sim.seek(o.at); sim.playing(false); renderDots(); }
@@ -555,6 +556,9 @@ export function mount(root, options) {
       }
     };
   })();
+  // the mind view (src/mind.js): every player's live read in a translucent layer; costs nothing while it's off
+  const mind = createMind({ root, sim: () => state.sim, sport: () => state.sport, nameOf: id => nameOf(id), vision: () => state.vision, marks: () => ink && ink.marks,
+    project: (x, y) => proj(x, y, 0), track, onChange: v => { if (!v) toast('Mind view off.'); } });
   let loopErr = false;
   (function loop(now) {
     if (dead) return;
@@ -567,6 +571,7 @@ export function mount(root, options) {
         else if (q != null && t >= q) { state.sim.seek(q); state.sim.playing(false); state.quizStop = null; renderDots(); }
       }
       drawInk();
+      if (mind.on) mind.tick(now);
     } catch (err) { if (!loopErr) { loopErr = true; console.error('[chalk-talk] frame', err); } }   // one bad frame never stops the board
     raf = requestAnimationFrame(loop);
   })(0);
@@ -1397,6 +1402,7 @@ export function mount(root, options) {
     if (k2 === '0') resetView();
     if (k2 === 's') act('sketch');
     if (k2 === 'd') act('defense');
+    if (k2 === 'v') mind.toggle();
     if (k2 === 'l') toggleLock();
     if (k2 === 'n' && names.any()) R.namesBtn.click();
     if (k2 === '=' || k2 === '+') { state.view.zoom = Math.min(2.4, state.view.zoom * 1.15); saveView(); applyView(); }
@@ -1616,6 +1622,7 @@ export function mount(root, options) {
       ['voice', 'speaker', 'Analyst voice', 'Explains the read as the play runs', state.narrate],
       fb ? ['fb', 'draw', 'Routes & coverage', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')] : null,
       names.any() ? ['names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      ['mind', 'brain', 'Mind view', 'Every player’s live read, for the nerds (V)', mind.on],
       ['board', 'expand', 'Whiteboard only', 'Full screen, panels away, icons only', root.classList.contains('ct-board')],
       ['lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked],
       ['light', 'sun', 'Light mode', 'For a bright sideline', root.classList.contains('ct-light')],
@@ -1634,6 +1641,7 @@ export function mount(root, options) {
           if (k === 'fb') root.classList.toggle('ct-fbopen');
           if (k === 'names') R.namesBtn.click();
           if (k === 'lock') toggleLock();
+          if (k === 'mind') mind.toggle();
           if (k === 'board') { closePanel(); boardOnly(); return; }
           if (k === 'light') setTheme(root.classList.contains('ct-light') ? 'dark' : 'light');
           if (k === 'sound') { setSound(!soundOn()); if (soundOn()) chime('yes'); }
@@ -1920,10 +1928,10 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
-      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
+      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku);
       if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle');
     }
