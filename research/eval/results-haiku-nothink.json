@@ -1,0 +1,158 @@
+{
+  "label": "haiku-nothink",
+  "avg": 0.9624338624338625,
+  "perfect": 15,
+  "results": [
+    {
+      "id": "dho-wing",
+      "ms": 5187,
+      "score": 1,
+      "notes": [],
+      "title": "Right Wing Handoff Drive",
+      "recognized": "handoff"
+    },
+    {
+      "id": "spain",
+      "ms": 5886,
+      "score": 1,
+      "notes": [],
+      "title": "Spain Pick and Roll",
+      "recognized": "spain-pnr"
+    },
+    {
+      "id": "give-go",
+      "ms": 4254,
+      "score": 1,
+      "notes": [],
+      "title": "Give and Go",
+      "recognized": "give-and-go"
+    },
+    {
+      "id": "backdoor",
+      "ms": 4431,
+      "score": 1,
+      "notes": [],
+      "title": "Left Wing Backdoor",
+      "recognized": "backdoor"
+    },
+    {
+      "id": "horns-pop",
+      "ms": 4830,
+      "score": 1,
+      "notes": [],
+      "title": "Horns: Left Ball Screen, Swing to Pop",
+      "recognized": "horns"
+    },
+    {
+      "id": "drive-kick",
+      "ms": 5507,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Drive and Kick",
+      "recognized": "spacing"
+    },
+    {
+      "id": "chicago",
+      "ms": 6689,
+      "score": 0.8571428571428571,
+      "notes": [
+        "O2 never reaches top (ends -12,12)"
+      ],
+      "title": "Chicago Action",
+      "recognized": "chicago"
+    },
+    {
+      "id": "slant-flat",
+      "ms": 4506,
+      "score": 1,
+      "notes": [],
+      "title": "Slant-Flat Right",
+      "recognized": "slant-flat"
+    },
+    {
+      "id": "mesh",
+      "ms": 5003,
+      "score": 1,
+      "notes": [],
+      "title": "Mesh",
+      "recognized": "mesh"
+    },
+    {
+      "id": "trips-dig",
+      "ms": 7509,
+      "score": 1,
+      "notes": [],
+      "title": "Trips Right Post-Dig-Go",
+      "recognized": "none"
+    },
+    {
+      "id": "four-verts",
+      "ms": 6898,
+      "score": 1,
+      "notes": [],
+      "title": "Four Verticals",
+      "recognized": "four-verts"
+    },
+    {
+      "id": "boxout",
+      "ms": 3977,
+      "score": 1,
+      "notes": [],
+      "title": "Box Out After Right Wing Shot",
+      "recognized": "box-out"
+    },
+    {
+      "id": "messy-pnr",
+      "ms": 4851,
+      "score": 1,
+      "notes": [],
+      "title": "Pick and Roll with Corner Spacer",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "defense-ice",
+      "ms": 4921,
+      "score": 0.6666666666666666,
+      "notes": [
+        "missing {\"who\":\"O5\",\"kind\":[\"screen\"],\"target\":\"O1\"}",
+        "missing {\"who\":\"X5\",\"kind\":[\"slide\",\"move\",\"help\"]}"
+      ],
+      "title": "Right Wing Side Pick and Roll vs. ICE",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "edit-pop",
+      "ms": 5381,
+      "score": 1,
+      "notes": [],
+      "title": "Pick and Pop",
+      "recognized": "pick-and-roll"
+    },
+    {
+      "id": "long-motion",
+      "ms": 4863,
+      "score": 1,
+      "notes": [],
+      "title": "Five Out Motion: Pass, Cut, Screen Away",
+      "recognized": "pass-cut-fill"
+    },
+    {
+      "id": "vague-flag",
+      "ms": 4823,
+      "score": 1,
+      "notes": [],
+      "title": "Quick Hitch to Z",
+      "recognized": "none"
+    },
+    {
+      "id": "cover3-out",
+      "ms": 5239,
+      "score": 0.8,
+      "notes": [
+        "missing {\"role\":\"Z\",\"kind\":[\"route\"]}"
+      ],
+      "title": "Quick Out vs Cover 3",
+      "recognized": "none"
+    }
+  ]
+}

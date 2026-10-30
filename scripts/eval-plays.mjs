@@ -5,8 +5,8 @@
 // Results go to research/eval/results-<label>.json so runs can be compared.
 import { readFileSync, writeFileSync } from 'node:fs';
 const store = {}; globalThis.localStorage = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
-const { drawPlay, setModelOverride } = await import('../src/ai.js');
-setModelOverride(process.env.CT_EVAL_MODEL);
+const { drawPlay, setModelOverride, setNoThink } = await import('../src/ai.js');
+setModelOverride(process.env.CT_EVAL_MODEL); setNoThink(process.env.CT_EVAL_NOTHINK);
 const { getSport } = await import('../src/sports/index.js');
 const { normalize, compile } = await import('../src/engine/sim.js');
 

@@ -391,6 +391,18 @@ export function mount(root, options) {
     const k = Math.floor(t), holder = sim.holderAt(t), sec = performance.now() / 1000, lo = [0, 0];
     // players breathe: a ready stance, active feet. The engine's positions stay exact; this is only how they look.
     const P = P0.map((p, i) => { life(state.sport, sim.players[i].side, i, sec, lo); return [p[0] + lo[0], p[1] + lo[1]]; });
+    // never drawn on top of each other: overlapping marks are eased apart, measured on screen (the court is tilted,
+    // so depth shrinks), with teammates needing more room than a defender on his man. The engine's positions,
+    // and every read, stay exact; this is only where the marks are drawn.
+    const o0 = proj(0, 0, 0), ox = proj(1, 0, 0), oy = proj(0, 1, 0), kx = Math.hypot(ox.x - o0.x, ox.y - o0.y) || 1, ky = Math.hypot(oy.x - o0.x, oy.y - o0.y) || 1;
+    for (let pass = 0; pass < 3; pass++) for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) {
+      const a = P[i], b = P[j], same = sim.players[i].side === sim.players[j].side, min = U * kx * (same ? 2.15 : 1.55);
+      let dx = (b[0] - a[0]) * kx, dy = (b[1] - a[1]) * ky, d = Math.hypot(dx, dy);
+      if (d >= min) continue;
+      if (d < 1e-3) { dx = 1; dy = 0; d = 1; }
+      const push = (min - d) / 2, px = dx / d * push / kx, py = dy / d * push / ky;
+      a[0] -= px; a[1] -= py; b[0] += px; b[1] += py;
+    }
     const Bp = holder >= 0 ? [B0[0] + P[holder][0] - P0[holder][0], B0[1] + P[holder][1] - P0[holder][1], B0[2]] : B0;
     sim.routes.forEach((r, i) => {
       const rs = RS[i], path = ink.routes[i];

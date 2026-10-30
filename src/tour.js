@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.17.1';
+export const VERSION = '0.18.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.18.0', date: '2026-10-30', title: 'Room to read', items: [
+    { title: 'No more pile-ups', call: 'Players are never drawn on top of each other: at a screen or a handoff you can always tell 1 from 5 from the defender, while the play itself stays exact.', show: null }
+  ] },
   { version: '0.17.1', date: '2026-10-30', title: 'A ready film room', items: [
     { title: 'Film room, instantly', call: 'Every play in the library now has its film room and analyst ready ahead of time: open it and every position’s brain answers at once.', show: 'filmTop' }
   ] },

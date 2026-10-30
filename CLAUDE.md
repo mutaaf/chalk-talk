@@ -21,6 +21,7 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 
 ## Drawing accuracy (`npm run eval`)
 - `research/eval/plays.json`: 18 coach descriptions (clean, messy speech-to-text, edits of the board, defense, long motion, vague requests, flag coverages) with checkable facts: every expected action in order (who, kind, target), the concept, start/end spots (5 ft / 3 yd) and route depths. `CT_EVAL_KEY=… npm run eval <label>` writes `research/eval/results-<label>.json`; `CT_EVAL_MODEL` forces a Claude model, `CT_EVAL_COACH` a lens, `CT_EVAL_ONLY` a subset.
+- Haiku (the free path): 98.1% (17/18) with thinking, median ~9.8 s; thinking disabled (`CT_EVAL_NOTHINK=1`) is 2× faster (5.0 s) but 96.2% (15/18). A library worked example in the prompt made it worse (97.5%, 13.5 s); reverted. Measure before shipping any of these.
 - 2026-10-30: Sonnet 5.5 99–100% (17–18/18), ~8 s; Haiku 5.5 96% (13/18), ~13 s. Run it before and after any prompt or schema change; add every real miss as a case.
 - Coach lenses (`src/sports/basketball-coaches.js`) shape names, beats, reads and cues ("inspired by" a coach's public system; never quotes or claims to be them).
 

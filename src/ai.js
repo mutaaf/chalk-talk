@@ -111,7 +111,8 @@ let API = typeof location !== 'undefined' && /mutaafaziz\.com$|localhost$|127\.0
 // shared voice lexicon always stay on Chalk Talk's own API
 const OWN = API;
 // for evaluations only: draw plays with a specific Claude model
-let MODEL_OVERRIDE = null;
+let MODEL_OVERRIDE = null, NO_THINK = false;
+export const setNoThink = v => { NO_THINK = !!v; };
 export const setModelOverride = m => { MODEL_OVERRIDE = m || null; };
 export const setApi = url => { if (url) API = String(url).replace(/\/$/, ''); };
 // a CourtIQ link token (mutaafaziz.com coaches who connected their CourtIQ account): sent only to that host
@@ -163,6 +164,7 @@ async function ask(k, sys, messages, signal, schema, lite, task) {
       // position brains run on Haiku 5.5: small, fast, one per player, in parallel
       const body = { model: MODEL_OVERRIDE || (lite ? 'claude-haiku-5-5' : 'claude-sonnet-5-5'), max_tokens: lite ? 4000 : 16000, output_config: { effort: 'low', format: { type: 'json_schema', schema } }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }], messages };
       if (lite) fallback = false;   // Haiku has no server-side fallback
+      if (body.model === 'claude-haiku-5-5' && NO_THINK) body.thinking = { type: 'disabled' };
       if (fallback) { h['anthropic-beta'] = 'server-side-fallback-2026-07-01'; body.fallbacks = 'default'; }
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: h, body: JSON.stringify(body), signal });
       const j = await r.json().catch(() => ({}));
