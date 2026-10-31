@@ -136,6 +136,8 @@ function allFor(sport) {
   if (!all) { all = bank(sport).flatMap(p => candidates(p, sport).concat(candidates(p, sport, { mirror: true }))); cache.set(sport, all); }
   return all;
 }
+// build a sport's bank ahead of time (idle time after the board loads), so the first game starts instantly
+export const warm = sport => { allFor(sport); };
 export function quiz(sport, opts) {
   const o = Object.assign({ n: 5, iq: START, age: '9-11', seed: Date.now(), seen: {} }, opts), r = rng(o.seed), A = ageOf(o.age), mix = o.mix || A.mix;
   const all = allFor(sport);

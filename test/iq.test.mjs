@@ -93,7 +93,19 @@ console.log(`ok: ${count} IQ questions cut from the plays; ratings, levels and l
   const qs = bank(hoops).flatMap(p => candidates(p, hoops));
   assert.ok(qs.length > 3000, 'thousands of questions (' + qs.length + ')');
   assert.ok(!qs.some(q => q.type === 'name' && /^sit-/.test(q.key)), 'no "name that play" for a made-up situation');
-  assert.equal(situations(sports().find(s => s.id === 'flag5')).length, 0, 'only sports that ask for them');
+  // every sport: a deep bank, every situation a valid play whose last pass goes to a real teammate
+  for (const sp of sports()) {
+    const SS = situations(sp); assert.ok(SS.length >= 120, `${sp.id}: ${SS.length} situations`);
+    for (const raw of SS.slice(0, 40)) {
+      const n2 = norm(raw, sp); assert.ok(n2.ok, raw.key + ' ' + n2.errors);
+      const passes = raw.beats.flatMap(b => b.actions).filter(a => sp.kinds[a.kind] && sp.kinds[a.kind].type === 'pass' && a.kind !== 'snap');
+      assert.ok(passes.length && n2.play.players.some(p => p.id === passes[passes.length - 1].target && p.side === 'O'), raw.key + ': the read goes to a teammate');
+      assert.ok(raw.reads && raw.reads.length, raw.key + ': says why');
+      if (sp.pitch) assert.notEqual(passes[passes.length - 1].target, 'O1', 'never the keeper');
+    }
+    const QQ = bank(sp).flatMap(p => candidates(p, sp));
+    assert.ok(QQ.length > 1500, `${sp.id}: ${QQ.length} questions`);
+  }
 }
 // coming back: badges from what's stored, the share line, the countdown
 {

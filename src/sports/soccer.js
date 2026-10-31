@@ -153,7 +153,7 @@ function base(o) {
     view: { scale: 0.86 / Math.max(o.W / 2 + 2.5, o.L / 2.45), center: o.L / 2, tilt: 0.92, lift: -0.02 },   // the whole pitch, both boxes, clear of the dock
     mark: o.mark, screenGap: 1.5, open: 3, react: 0.3,
     ball: { r: 0.42, held: 0.3, bounce: false, offset: [0.3, -0.45], maxArc: 4.5, stretch: 1 },
-    kinds: KINDS, guard: guarder(o), los: null, pitch: o,
+    kinds: KINDS, guard: guarder(o), los: null, pitch: o, situations: true,
     // offense in circles (the keeper in a square) numbered by shirt; defense as X's with the shirt of the
     // player they mark (X1 marks their keeper, so X1 is our keeper)
     notation: {

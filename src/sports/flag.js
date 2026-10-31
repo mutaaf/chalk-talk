@@ -139,7 +139,7 @@ const base = (o) => ({
   mark: o.W / 30, screenGap: 1.5, open: 2.5, react: 0.3,
   rush: { depth: 7, delay: 0.25 },   // rushers start 7 yd off and go a short count after the QB has the ball
   ball: { r: 0.32 * o.W / 30, held: 1.1, bounce: false, offset: [0.45, -0.25], maxArc: 7, stretch: 1.7 },
-  spots: spots(o.W, o.los), kinds: KINDS, guard, los: o.los
+  spots: spots(o.W, o.los), kinds: KINDS, guard, los: o.los, situations: true
 });
 
 export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, noRun: [15, 30] }), {

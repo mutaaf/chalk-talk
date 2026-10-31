@@ -3,10 +3,13 @@
 // skip, post entry), then the decision: the engine plays the action against its own defense and the pass goes
 // to whoever it says is open. Only clear reads are kept (the best pass well ahead of the next), so every
 // answer is the engine's, never a guess. Seeded: the same seed gives the same situations everywhere.
-// Pure: no DOM. Basketball for now (sports without `situations: true` get none).
+// Football: a real alignment from the playbook, a route for every receiver, a coverage, and the QB's own
+// progression read (football.js findOpen) picks who gets it. Soccer (and any other sport): a real play cut at a
+// moment, players nudged, and the engine's best pass from there. Pure: no DOM. Sports opt in with `situations: true`.
 
 import { normalize, compile } from './sim.js';
 import { bestReads } from './reads.js';
+import { ROUTE_TREE, applyRoute, applyCoverage, coverages, findOpen, throwTo } from './football.js';
 const rng = seed => { let s = (seed >>> 0) || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
 
 const FORMS = {
@@ -81,6 +84,58 @@ export function situation(sport, seed) {
   return raw;
 }
 
+// flag football: routes against a coverage; the ball goes to the first open receiver in the QB's progression
+const FB_ROUTES = ['hitch', 'flat', 'slant', 'out', 'dig', 'corner', 'post', 'go', 'drag', 'curl', 'seam', 'wheel', 'comeback'];
+export function fieldSituation(sport, seed) {
+  const r = rng(seed), pick = a => a[Math.floor(r() * a.length)];
+  const base = pick(sport.plays.filter(p => !p.lesson)), n0 = normalize(base, sport); if (!n0.ok) return null;
+  const P = n0.play, los = P.los != null ? P.los : sport.los;
+  if (!P.players.some(p => p.id === 'O2') || !P.players.some(p => p.id === 'O1')) return null;
+  let raw = { key: 'sit-' + seed, situation: true, title: '', concept: '', summary: '', los, ball: 'O2',
+    players: P.players.filter(p => p.side === 'O').map(p => ({ id: p.id, side: 'O', role: p.role, at: { x: +(p.x + (r() - 0.5) * 2).toFixed(1), y: p.y } })), beats: [] };
+  const used = {};
+  for (const p of raw.players) {
+    if (p.id === 'O1' || (p.id === 'O2' && r() < 0.6)) continue;
+    const side = Math.sign(p.at.x || 1); let name = pick(FB_ROUTES), n = 0;
+    while (used[side + name] && n++ < 6) name = pick(FB_ROUTES);
+    used[side + name] = 1;
+    raw = applyRoute(raw, sport, p.id, name, [p.at.x, p.at.y]);
+  }
+  const C = coverages(sport), cov = pick(Object.keys(C));
+  raw = applyCoverage(raw, sport, cov);
+  const n = normalize(raw, sport); if (!n.ok) return null;
+  const sim = compile(n.play, sport, { defense: true }), got = findOpen(sim, 'full', r() < 0.5 ? -1 : 1);
+  if (!got || got.s < 3) return null;
+  raw = throwTo(raw, sim, got, sport);
+  raw.title = 'Beat ' + C[cov].name; raw.concept = 'Situation · ' + C[cov].name;
+  return raw;
+}
+// soccer and the rest: a real play up to a moment (players nudged), then the engine's best pass and a finish
+export function branchSituation(sport, seed) {
+  const r = rng(seed), pool = sport.plays.filter(p => p.lesson !== 'defense'), base = pool[Math.floor(r() * pool.length)];
+  const n0 = normalize(base, sport); if (!n0.ok || n0.play.beats.length < 2) return null;
+  const k = 1 + Math.floor(r() * (n0.play.beats.length - 1));
+  const players = n0.play.players.filter(p => p.side === 'O' || r() < 0.5).map(p => Object.assign({}, p, { x: +(p.x + (r() - 0.5) * 3).toFixed(1), y: +(p.y + (r() - 0.5) * 3).toFixed(1) }));
+  const ids = new Set(players.map(p => p.id));
+  const beats = n0.play.beats.slice(0, k).map(b => Object.assign({}, b, { actions: b.actions.filter(a => ids.has(a.who) && (!a.target || ids.has(a.target))) }));
+  if (beats.some(b => !b.actions.length)) return null;
+  const raw = { key: 'sit-' + seed, situation: true, title: base.title + ', live', concept: 'Situation · ' + (base.concept || sport.short), summary: '', players, ball: n0.play.ball, beats };
+  const n = normalize(Object.assign({}, raw, { beats: beats.concat([{ say: '', actions: [] }]) }), sport); if (!n.ok) return null;
+  const sim = compile(n.play, sport, { defense: true }), t = k - 0.06, h = sim.holderAt(t); if (h < 0) return null;
+  const keeper = i => /^GK$/i.test(sim.players[i].role || '') || (sport.pitch && sim.players[i].id === 'O1');
+  const all = bestReads(sim, sport, t, h).filter(x => !(x.kind === 'pass' && keeper(x.to))), best = all[0];
+  if (!best || best.kind !== 'pass') return null;
+  const second = all[1], space = sim.space(t, best.to), to = sim.players[best.to].id, from = sim.players[h].id;
+  if ((second && best.score - second.score < 0.3) || space < sport.open * 1.3) return null;
+  const pass = Object.keys(sport.kinds).find(x => x === 'pass') || 'pass', fin = sport.kinds.shot ? 'shot' : null;
+  raw.beats = beats.concat([{ say: `${from} finds ${to}: ${Math.round(space)} ${sport.unit} of space.`, actions: [{ kind: pass, who: from, target: to }] }]);
+  // a finish only from shooting range; otherwise the pass is the read
+  const g = sport.field.goal, at = sim.posAt(t)[best.to];
+  if (fin && Math.hypot(at[0] - g[0], at[1] - g[1]) <= (sport.pitch ? 22 : 24)) raw.beats.push({ say: `${to} shoots.`, actions: [{ kind: fin, who: to }] });
+  raw.reads = [{ who: to, text: 'Open: ' + Math.round(space) + ' ' + sport.unit + ' of space' }];
+  return raw;
+}
+
 // a bank of them, cached per sport and size
 const banks = new Map();
 export function situations(sport, n = 160, seed = 9001) {
@@ -88,7 +143,8 @@ export function situations(sport, n = 160, seed = 9001) {
   const id = sport.id + ':' + n + ':' + seed;
   if (banks.has(id)) return banks.get(id);
   const out = [];
-  for (let i = 0; out.length < n && i < n * 6; i++) { let s = null; try { s = situation(sport, seed + i * 101); } catch (e) { s = null; } if (s) out.push(s); }
+  const make = sport.kinds.route ? fieldSituation : sport.id === 'basketball' ? situation : branchSituation;
+  for (let i = 0; out.length < n && i < n * 6; i++) { let s = null; try { s = make(sport, seed + i * 101); } catch (e) { s = null; } if (s) out.push(s); }
   banks.set(id, out);
   return out;
 }

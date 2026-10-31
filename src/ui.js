@@ -17,7 +17,7 @@ import { icon } from './icons.js';
 import { VERSION, TOUR, RELEASES, SHORTCUTS, seen, hasNews } from './tour.js';
 import { openGuide } from './guide.js';
 import { createIQ, dailyStore } from './iqmode.js';
-import { dayNumber } from './engine/iq.js';
+import { dayNumber, warm as warmIQ } from './engine/iq.js';
 import { openStats } from './stats.js';
 import { openFilm } from './filmroom.js';
 import { analyze } from './analyst.js';
@@ -309,6 +309,7 @@ export function mount(root, options) {
     state.routeMode = false; state.vision.mode = 'off'; state.view = loadView();
     renderSports(); renderLibrary(); renderLegend(); renderHints();
     const first = s.plays[0]; load(first, { key: first.key, say: s.name + '. ' + first.title + '.' }); applyView();
+    if (s.iq) (typeof requestIdleCallback === 'function' ? requestIdleCallback : f => setTimeout(f, 1500))(() => { try { warmIQ(s); } catch (e) {} });
     opts.onSport && opts.onSport(s.id);
   }
 
@@ -2004,6 +2005,9 @@ export function mount(root, options) {
   load(first, { key: first.key, quiet: true });
   tipify(root);
   // a link straight into the game (?iq=daily from a share, a post or a hero): today's five, or the lobby
+  // the IQ bank (thousands of questions) is built when the board is idle, for this sport and each one switched to
+  const idle = f => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 4000 }) : setTimeout(f, 1500));
+  idle(() => { if (!dead && state.sport.iq) try { warmIQ(state.sport); } catch (e) {} });
   if (opts.iq && state.sport.iq) setTimeout(() => { if (!dead) { track('iq_cta', { at: 'link' }); iq.open(opts.iq === 'daily' ? 'daily' : null); } }, 700);
   refreshLexicon(ownApi());
   // anonymous usage analytics (track.js): never names, words, keys or IPs. Off in development and when the host says so.
