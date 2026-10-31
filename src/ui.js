@@ -10,7 +10,7 @@ import { playShape, view, particleBudget } from './engine/field.js';
 import { normalize, compile, life } from './engine/sim.js';
 import { getSport, sports, sportFor } from './sports/index.js';
 import { listener, say, hush, speaking, understand, prefetch, voiceKey, voiceKind, voiceErrors, localVoiceName } from './voice.js';
-import { drawPlay, smartPlayers, filmRoom, setApi, setAuth, ownApi, plan as aiPlan, transcribe, key, keyKind, NAMES } from './ai.js';
+import { drawPlay, smartPlayers, filmRoom, setApi, setAuth, ownApi, plan as aiPlan, transcribe, key, keyKind, NAMES, meter } from './ai.js';
 import { CSS } from './style.js';
 import { readStroke } from './engine/sketch.js';
 import { icon } from './icons.js';
@@ -22,7 +22,7 @@ import { openStats } from './stats.js';
 import { openFilm } from './filmroom.js';
 import { analyze } from './analyst.js';
 import { analyst } from './ai.js';
-import { heal, recall, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
+import { heal, recall, voiceLog, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
 import { chime, soundOn, setSound } from './sound.js';
 import { startTracking, track } from './track.js';
 import { strip } from './engine/strip.js';
@@ -30,6 +30,7 @@ import { buildPlaybook, openPlaybook } from './playbook.js';
 import { bestReads } from './engine/reads.js';
 import { createMind } from './mind.js';
 import { createShorts } from './shorts.js';
+import { createHow, howChip } from './howai.js';
 import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
@@ -618,6 +619,9 @@ export function mount(root, options) {
   const mind = createMind({ root, sim: () => state.sim, sport: () => state.sport, nameOf: id => nameOf(id), vision: () => state.vision, marks: () => ink && ink.marks,
     project: (x, y) => proj(x, y, 0), track, onChange: v => { if (!v) toast('Mind view off.'); } });
   // Make a Short (src/shorts.js): the play as a vertical video with captions; nothing runs until the coach asks
+  // Under the hood (src/howai.js): the explainer, opened from the control center or any ✦ how chip
+  const how = createHow({ openPanel: (title, body, onMount, cls) => openPanel(R.moreBtn, title, body, onMount, cls), log: () => voiceLog(), meter: () => meter.all(), track });
+  root.addEventListener('click', e => { const h = e.target.closest('[data-how]'); if (h && root.contains(h)) { e.stopPropagation(); how.open(h.dataset.how); } });
   const shorts = createShorts({ root, field: () => field, sim: () => state.sim, play: () => state.play, sport: () => state.sport, nameOf: id => nameOf(id), spoken: s => spoken(s, false), analystLine: k => state.booth && ((state.booth.ai && state.booth.ai[k]) || state.booth.lines[k]), style: () => state.style, playKey: () => key.get(), busy: () => !!(state.quiz || state.sketch || state.busy), narrate: v => (v == null ? state.narrate : (state.narrate = v)), hold: waitForVoice, speed: () => state.userSpeed || baseSpeed(), openKey: why => openKey(why), toast: m => toast(m), track });
   let loopErr = false;
   (function loop(now) {
@@ -734,7 +738,7 @@ export function mount(root, options) {
       const res = await smartPlayers(strip(state.play), ids, { sport, signal: ctl.signal });
       if (ctl !== state.busy || dead || sport !== state.sport) return;
       load(res.play, { key: state.libKey, quiet: true, keepAI: true }); state.sim.seek(0); state.sim.playing(true);
-      R.status.textContent = res.reply || ''; speak(res.reply || 'Smart players are in.');
+      R.status.innerHTML = esc(res.reply || '') + howChip('minds'); speak(res.reply || 'Smart players are in.');
     } catch (e) { if (e.name !== 'AbortError') { toast(e.message); R.status.textContent = ''; } }
     finally { clearInterval(pulse); if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); } }
   }
@@ -818,7 +822,7 @@ export function mount(root, options) {
   function runHistory(id) {
     const entry = history.all().find(x => x.id === id); if (!entry) return;
     closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null);
-    R.status.textContent = 'From My plays · instant, no AI used';
+    R.status.innerHTML = 'From My plays · instant, no AI used' + howChip('ears');
   }
   R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.daily) { track('iq_cta', { at: 'library' }); iq.open('daily'); return; } if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
@@ -1036,7 +1040,7 @@ export function mount(root, options) {
     if (state.quiz) return;
     if (!o.sketch) {
       const u = understand(text, state.sport.aliases);
-      const done = (path, extra) => { const ms = performance.now() - t0; if (live.mode) live.done(path === 'command' ? 'Done ✓' : `Instant ✓ ${Math.max(1, Math.round(ms))} ms`); track('voice', { path, ms: Math.round(ms), ok: 1 }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.textContent = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms`; };
+      const done = (path, extra) => { const ms = performance.now() - t0; if (live.mode) live.done(path === 'command' ? 'Done ✓' : `Instant ✓ ${Math.max(1, Math.round(ms))} ms`); track('voice', { path, ms: Math.round(ms), ok: 1 }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.innerHTML = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms` + howChip('ears'); };
       if (u.cmd) { act(u.cmd); done('command'); return; }
       if (u.concept) { teach(u.concept); done('library'); return; }
       const learned = recall(state.sport.id, text);   // a phrase this coach taught it before
@@ -1060,7 +1064,7 @@ export function mount(root, options) {
       if (o.sketch) { history.add({ sport: sport.id, said: 'Sketch: ' + (raw.title || 'my play'), board: hashOf(JSON.stringify(o.mine && o.mine.beats)), source: 'sketch', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); film(); return; }
       load(raw, { say: raw.reply, keepAI: true });
       showAI(raw, null);
-      R.status.textContent = (raw.reply || '') + ` · drawn in ${secs}`;
+      R.status.innerHTML = esc(raw.reply || '') + ` · drawn in ${secs}, then checked by the engine` + howChip('engine');
       // learn: if the coach keeps what was drawn for this phrase, it becomes instant next time
       track('voice', { path: 'ai', ms: Math.round(ms), ok: 1 });
       history.add({ sport: sport.id, said: text, board, source: o.source || 'text', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); renderLibrary();
@@ -1600,7 +1604,8 @@ export function mount(root, options) {
       <button type="button" data-v="off" class="${!state.narrate ? 'on' : ''}">${icon('mute')}<span>Off<small>Quiet board</small></span></button>
       <button type="button" data-v="analyst" class="${state.narrate && state.style === 'analyst' ? 'on' : ''}">${icon('speaker')}<span>Analyst<small>Explains the read: the coverage, the defender who moves, why the ball goes there</small></span></button>
       <button type="button" data-v="pbp" class="${state.narrate && state.style === 'pbp' ? 'on' : ''}">${icon('film')}<span>Play-by-play<small>Calls each step as it happens</small></span></button>
-      <label class="ct-check"><input type="checkbox" data-v="sound" ${soundOn() ? 'checked' : ''}> Sound effects</label></div>`, pb => {
+      <label class="ct-check"><input type="checkbox" data-v="sound" ${soundOn() ? 'checked' : ''}> Sound effects</label>
+      <p class="ct-glede">The analyst reads the engine, not the internet.${howChip('board')}</p></div>`, pb => {
       pb.onclick = e => {
         const b = e.target.closest('[data-v]'); if (!b) return; const v = b.dataset.v;
         if (v === 'sound') { setSound(b.checked); return; }
@@ -1692,6 +1697,7 @@ export function mount(root, options) {
       ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
       ['stats', 'chart', 'Stats', 'Play numbers, AI cost'],
       ['view', 'view', 'Angles', 'Coach, top-down, sideline'],
+      ['how', 'brain', 'Under the hood', 'How the AI works'],
       ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : opts.api ? 'Included' : 'Free AI'],
       ['voicestyle', 'speaker', 'Voice', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
       ['help', 'info', 'Help', hasNews() ? 'What’s new' : 'Tour, shortcuts']
@@ -1732,7 +1738,7 @@ export function mount(root, options) {
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
         ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
-          ai: () => openKey(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
+          ai: () => openKey(), how: () => how.open(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
   }
@@ -2011,10 +2017,10 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
-      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); shorts.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
+      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku); unwatchDevice(); if (boxRO) boxRO.disconnect();
       if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle', 'ct-split-x', 'ct-split-y');
     }

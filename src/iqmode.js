@@ -8,6 +8,7 @@ import { icon } from './icons.js';
 import { quiz, playFor, grade, record, blank, level, likeness, explain, ageOf, AGES, DIMS, DAILY, dayNumber } from './engine/iq.js';
 import { tutor } from './ai.js';
 import { chime } from './sound.js';
+import { howChip } from './howai.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -100,7 +101,7 @@ export function createIQ(ctx) {
         <div class="ct-iqherorow"><button type="button" class="go" data-share="1">${icon('share')}<span>Share</span></button><button type="button" data-quick="1">Keep playing</button></div></section>`;
     }
     return `<section class="ct-iqhero"><small>${esc(IQ.name)} Daily · #${dayNumber()}${streak ? ` · 🔥 ${streak}` : ''}</small><h3>${streak ? `Keep the ${streak}-day streak` : `How high is your ${esc(IQ.name)}?`}</h3>
-      <p>${streak ? `Today’s five are up. Play before midnight and the streak lives.` : 'Five real plays. The board freezes at the moment of truth and you make the read. About a minute; the same five for everyone today.'}</p>
+      <p>${streak ? `Today’s five are up. Play before midnight and the streak lives.` : 'Five real plays. The board freezes at the moment of truth and you make the read. About a minute; the same five for everyone today.'}${howChip('iq', 'who writes these?')}</p>
       <div class="ct-iqherorow"><button type="button" class="go" data-daily="1">${icon('play')}<span>Play today's five</span></button><button type="button" data-quick="1">Quick game</button></div></section>`;
   }
   // more ways to play, always there: a quick five on your rating, and Streak Run (until the first miss)
@@ -256,7 +257,7 @@ export function createIQ(ctx) {
     const raw = playFor(q, sport);
     H.verdict.className = 'ct-iqverdict ' + (g.right ? 'yes' : g.partial ? 'half' : 'no');
     H.verdict.innerHTML = g.right ? (g.quick ? 'Quick read! +' : 'Right read! +') + Math.round(g.score * 100) : g.partial ? 'Open too: +50' : given == null ? 'Time!' : 'Not quite';
-    H.tutor.textContent = explain(q, sport, raw, given).replace(/\b([OX][1-9])\b/g, m => ctx.posName(m)); H.tip.textContent = '';
+    H.tutor.textContent = explain(q, sport, raw, given).replace(/\b([OX][1-9])\b/g, m => ctx.posName(m)); H.tip.innerHTML = /^sit-/.test(q.key) ? 'A game situation the engine made up for you' + howChip('iq') : '';
     H.choices.querySelectorAll('button').forEach(b => { b.disabled = true; b.classList.toggle('yes', b.dataset.v === q.answer); b.classList.toggle('no', b.dataset.v === given && given !== q.answer); });
     if (run.mode === 'run' && !g.right && !g.partial) run.over = true;
     H.feed.hidden = false; H.nextLabel.textContent = run.over ? 'See my run' : run.mode === 'run' || run.i + 1 < run.qs.length ? 'Next' : run.daily ? 'See my score' : 'See my ' + sport.iq.name;

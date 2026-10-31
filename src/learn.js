@@ -78,6 +78,8 @@ export function log(row) {
   const m = memory.get(); m.log.push(Object.assign({ at: Date.now() }, row)); m.log = m.log.slice(-300); memory.put(m);
   return m.log.length - 1;
 }
+// the voice log (paths and timings, this device only) for the explainer's numbers
+export const voiceLog = () => memory.get().log || [];
 export function mark(i, patch) { const m = memory.get(); if (m.log[i]) { Object.assign(m.log[i], patch); memory.put(m); } }
 
 // words to bias the recognisers toward, for a sport
