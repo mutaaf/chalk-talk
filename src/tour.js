@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.24.2';
+export const VERSION = '0.25.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.25.0', date: '2026-10-30', title: 'Make a Short', items: [
+    { title: 'Any play, ready for Shorts, TikTok and Reels', call: 'More → Make a Short (or C) records the play on the board as a vertical 1080×1920 video: a title card, the whole play at teaching pace, big captions with the word being said highlighted, and an end card. With a voice key the analyst’s voice is in it too. Save it or share it straight from your phone.', show: 'moreBtn' }
+  ] },
   { version: '0.24.2', date: '2026-10-30', title: 'The booth gets it right', items: [
     { title: 'An analyst who calls what really happens', call: 'The analyst now explains each screen once, on the step it’s used, naming the defender who runs into it and what the screener does next (roll or pop). Handoffs say who becomes the wall. Late defenders are called on the real move (cut, roll, pop), and the lines vary instead of repeating.', show: 'narrate' }
   ] },
