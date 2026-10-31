@@ -151,6 +151,14 @@ export function prefetch(lines, playKey) {
   lines.filter(Boolean).forEach(t => fetchLine(t, p).catch(() => {}));
 }
 
+// a Short (src/shorts.js): is a cloud voice set up (it can be recorded; the device's voice can't), and every line
+// synthesized before recording starts, so no step waits on the network
+export const cloudVoice = playKey => !!provider(playKey);
+export function ready(lines, playKey) {
+  const p = provider(playKey); if (!p) return Promise.resolve(false);
+  return Promise.all(lines.filter(Boolean).map(t => fetchLine(t, p))).then(() => true);
+}
+
 let onError = null;
 export function voiceErrors(fn) { onError = fn; }
 

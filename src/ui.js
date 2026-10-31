@@ -28,6 +28,7 @@ import { strip } from './engine/strip.js';
 import { buildPlaybook, openPlaybook } from './playbook.js';
 import { bestReads } from './engine/reads.js';
 import { createMind } from './mind.js';
+import { createShorts } from './shorts.js';
 import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
@@ -615,6 +616,8 @@ export function mount(root, options) {
   // the mind view (src/mind.js): every player's live read in a translucent layer; costs nothing while it's off
   const mind = createMind({ root, sim: () => state.sim, sport: () => state.sport, nameOf: id => nameOf(id), vision: () => state.vision, marks: () => ink && ink.marks,
     project: (x, y) => proj(x, y, 0), track, onChange: v => { if (!v) toast('Mind view off.'); } });
+  // Make a Short (src/shorts.js): the play as a vertical video with captions; nothing runs until the coach asks
+  const shorts = createShorts({ root, field: () => field, sim: () => state.sim, play: () => state.play, sport: () => state.sport, nameOf: id => nameOf(id), spoken: s => spoken(s, false), analystLine: k => state.booth && ((state.booth.ai && state.booth.ai[k]) || state.booth.lines[k]), style: () => state.style, playKey: () => key.get(), busy: () => !!(state.quiz || state.sketch || state.busy), narrate: v => (v == null ? state.narrate : (state.narrate = v)), hold: waitForVoice, speed: () => state.userSpeed || baseSpeed(), openKey: why => openKey(why), toast: m => toast(m), track });
   let loopErr = false;
   (function loop(now) {
     if (dead) return;
@@ -1459,6 +1462,7 @@ export function mount(root, options) {
     if (k2 === 's') act('sketch');
     if (k2 === 'd') act('defense');
     if (k2 === 'v') mind.toggle();
+    if (k2 === 'c') shorts.open();
     if (k2 === 'l') toggleLock();
     if (k2 === 'n' && names.any()) R.namesBtn.click();
     if (k2 === '=' || k2 === '+') { state.view.zoom = Math.min(2.4, state.view.zoom * 1.15); saveView(); applyView(); }
@@ -1667,6 +1671,7 @@ export function mount(root, options) {
       ...(mini ? [['plays', 'book', 'Plays', state.sport.name], ['film', 'film', 'Film room', 'Every position’s read']] : []),
       ['mine', 'film', 'My plays', 'Everything you’ve drawn'],
       ['playbook', 'book', 'Playbook', 'Print any plays as a PDF'],
+      ['short', 'film', 'Make a Short', 'Vertical video for Shorts, Reels (C)'],
       ['guide', 'book', 'Guide', 'Positions in depth'],
       ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
       ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
@@ -1712,7 +1717,7 @@ export function mount(root, options) {
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
         ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
-          ai: () => openKey(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
+          ai: () => openKey(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
   }
@@ -1989,10 +1994,10 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
-      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
+      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); shorts.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku); unwatchDevice(); if (boxRO) boxRO.disconnect();
       if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle', 'ct-split-x', 'ct-split-y');
     }
