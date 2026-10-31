@@ -37,8 +37,12 @@ function tone(f, at, dur, type, vol) {
   const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + at;
   o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.08, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  o.connect(g).connect(ac.destination); taps.forEach(n => { try { g.connect(n); } catch (e) {} }); o.start(t); o.stop(t + dur + 0.02);
 }
+// a Short (src/shorts.js) records the cues too: it taps them into its mix, on the same audio context
+const taps = new Set();
+export function audioContext() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} return ac; }
+export function tapCues(node) { taps.add(node); return () => taps.delete(node); }
 const CUES = {
   ask: () => tone(880, 0, 0.09, 'sine', 0.088),
   yes: () => { tone(660, 0, 0.14, 'triangle', 0.154); tone(990, 0.08, 0.22, 'triangle', 0.154); },
