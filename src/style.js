@@ -492,6 +492,58 @@ export const CSS = `
 .ct-iqfoot { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; } .ct-iqfoot small { color: var(--mute); font-size: 12px; flex: 1 1 220px; }
 .ct-iqfoot button { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-radius: 19px; border: 1px solid rgba(255, 199, 90, .5) !important; color: var(--gold); font-weight: 700; }
 .ct-iqfoot .ct-i { width: 15px; height: 15px; }
+.ct-iqh { margin: 4px 0 8px; font: 900 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; } .ct-iqh small { font: 400 12px/1.3 inherit; font-family: inherit; letter-spacing: 0; text-transform: none; color: var(--mute); }
+/* the daily: a hero atop the lobby, a card atop the library, the header pill lit until it's played */
+.ct-iqhero { position: relative; overflow: hidden; display: grid; gap: 8px; padding: 18px 18px 16px; margin-bottom: 16px; border-radius: 20px; border: 1px solid rgba(255, 199, 90, .45);
+  background: radial-gradient(120% 90% at 100% 0%, rgba(255, 142, 58, .28), transparent 60%), radial-gradient(90% 80% at 0% 100%, rgba(74, 222, 128, .14), transparent 60%), rgba(10, 16, 30, .7); }
+.ct-iqhero::after { content: ''; position: absolute; right: -30px; top: -30px; width: 150px; height: 150px; border-radius: 50%; border: 2px dashed rgba(255, 199, 90, .22); pointer-events: none; animation: ct-iqspin 40s linear infinite; }
+@keyframes ct-iqspin { to { rotate: 360deg; } }
+.ct-iqhero small { font: 700 12px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.ct-iqhero h3 { margin: 0; font: 900 clamp(26px, 5vw, 34px)/1 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+.ct-iqhero h3 span { font-size: .55em; color: var(--mute); letter-spacing: .04em; }
+.ct-iqhero p { margin: 0; color: var(--mute); font-size: 14px; max-width: 46ch; }
+.ct-iqherorow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.ct-iqherorow button, .ct-iqagain button { display: inline-flex; align-items: center; gap: 7px; height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--line) !important; font-weight: 700; }
+.ct-iqherorow .go, .ct-iqagain .go { background: var(--o); color: var(--night); border-color: transparent !important; box-shadow: 0 8px 24px rgba(255, 142, 58, .35); }
+.ct-iqherorow .ct-i, .ct-iqagain .ct-i { width: 16px; height: 16px; }
+.ct-iqsq { display: flex; gap: 6px; } .ct-iqsq i { width: 22px; height: 22px; border-radius: 6px; background: #2a3346; } .ct-iqsq.big { justify-content: center; } .ct-iqsq.big i { width: 40px; height: 40px; border-radius: 10px; animation: ct-rise .4s both; }
+.ct-iqsq.big i:nth-child(2) { animation-delay: .08s; } .ct-iqsq.big i:nth-child(3) { animation-delay: .16s; } .ct-iqsq.big i:nth-child(4) { animation-delay: .24s; } .ct-iqsq.big i:nth-child(5) { animation-delay: .32s; }
+.ct-iqsq i.g { background: #4ade80; } .ct-iqsq i.y { background: #facc15; } .ct-iqsq i.o { background: #fb923c; } .ct-iqsq i.k { background: #2a3346; box-shadow: inset 0 0 0 1px rgba(140, 188, 255, .25); }
+.ct-iqkick { font: 700 13px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.ct-iqdaily .ct-iqbig span { font: 900 72px/1 var(--display); }
+.ct-iqagain { justify-content: center; }
+.ct-iqcta { position: relative; display: grid !important; gap: 3px; text-align: left; margin: 0 0 12px; padding: 12px 14px 12px !important; border-radius: 16px !important; overflow: hidden;
+  border: 1px solid rgba(255, 199, 90, .5) !important; background: radial-gradient(120% 120% at 100% 0%, rgba(255, 142, 58, .3), transparent 65%), rgba(10, 16, 30, .55) !important; }
+.ct-iqcta small { font: 700 10.5px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.ct-iqcta b { font: 900 19px/1.05 var(--display); text-transform: uppercase; color: var(--paper); }
+.ct-iqcta span { font-size: 12px; color: var(--mute); line-height: 1.3; }
+.ct-iqcta > i { justify-self: start; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 6px 12px; border-radius: 14px; background: var(--o); color: var(--night); font: 700 12.5px/1 inherit; font-style: normal; }
+.ct-iqcta > i .ct-i { width: 12px; height: 12px; }
+.ct-iqcta:hover { border-color: var(--gold) !important; }
+.ct-iqpill.daily { position: relative; background: linear-gradient(90deg, rgba(255, 142, 58, .22), rgba(255, 199, 90, .12)) !important; border-color: rgba(255, 199, 90, .8) !important; }
+.ct-iqpill.daily::after { content: ''; position: absolute; top: 4px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74, 222, 128, .6); animation: ct-iqping 1.8s ease-out infinite; }
+@keyframes ct-iqping { 70% { box-shadow: 0 0 0 9px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+/* while the clip runs: the question is up, the choices wait */
+.ct-iqhud.watch .ct-iqchoices button { opacity: .45; }
+.ct-iqhud.watch .ct-iqclock { opacity: .3; }
+.ct-iqfeed button { position: relative; overflow: hidden; }
+.ct-iqfeed button > i { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: rgba(4, 7, 12, .5); }
+.ct-iqfeed button.auto > i { animation: ct-iqauto var(--auto, 2s) linear forwards; }
+@keyframes ct-iqauto { to { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { .ct-iqhero::after, .ct-iqpill.daily::after, .ct-iqsq.big i { animation: none; } }
+.ct.ct-light .ct-iqhero, .ct.ct-light .ct-iqcta { background: radial-gradient(120% 90% at 100% 0%, rgba(255, 142, 58, .2), transparent 60%), rgba(255, 253, 248, .9) !important; }
+.ct.ct-light .ct-iqhero small, .ct.ct-light .ct-iqcta small, .ct.ct-light .ct-iqkick { color: #b7791f; }
+.ct-iqmodes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -4px 0 16px; }
+.ct-iqmodes button { display: grid; gap: 3px; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line) !important; background: rgba(140, 188, 255, .05); }
+.ct-iqmodes button:hover { border-color: var(--gold) !important; }
+.ct-iqmodes b { display: flex; align-items: center; gap: 6px; font: 900 16px/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; } .ct-iqmodes .ct-i { width: 14px; height: 14px; color: var(--o); }
+.ct-iqmodes small { color: var(--mute); font-size: 12px; line-height: 1.3; }
+.ct-iqbadges { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.ct-iqbadges li { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 0 8px; padding: 7px 9px; border-radius: 12px; border: 1px solid var(--line); opacity: .42; filter: grayscale(1); }
+.ct-iqbadges li.on { opacity: 1; filter: none; border-color: rgba(255, 199, 90, .5); background: rgba(255, 199, 90, .07); }
+.ct-iqbadges i { grid-row: span 2; font-size: 22px; font-style: normal; text-align: center; }
+.ct-iqbadges b { font-size: 12.5px; } .ct-iqbadges small { font-size: 11px; color: var(--mute); line-height: 1.25; }
+@media (max-width: 520px) { .ct-iqmodes { grid-template-columns: 1fr; } }
 .ct-iqend { display: grid; gap: 12px; text-align: center; padding: 6px 4px; }
 .ct-iqbig { display: flex; align-items: baseline; justify-content: center; gap: 10px; }
 .ct-iqcount { font-family: var(--display); font-weight: 900; font-size: 84px; line-height: .9; background: linear-gradient(180deg, #fff, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }

@@ -16,7 +16,8 @@ import { readStroke } from './engine/sketch.js';
 import { icon } from './icons.js';
 import { VERSION, TOUR, RELEASES, SHORTCUTS, seen, hasNews } from './tour.js';
 import { openGuide } from './guide.js';
-import { createIQ } from './iqmode.js';
+import { createIQ, dailyStore } from './iqmode.js';
+import { dayNumber } from './engine/iq.js';
 import { openStats } from './stats.js';
 import { openFilm } from './filmroom.js';
 import { analyze } from './analyst.js';
@@ -191,7 +192,7 @@ const fitR = (w, h, touch, fit) => fit ? Math.min(w * fit[0], h * fit[1]) : (w <
 
 let styled = false;
 export function mount(root, options) {
-  const opts = Object.assign({ upgrade: null, sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
+  const opts = Object.assign({ iq: null, promo: true, upgrade: null, sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
   if (opts.api) setApi(opts.api);
   // Chalk Talk AI is sold through CourtIQ. On the standalone board a coach can connect their CourtIQ account
   // (a link token comes back in the URL fragment), and the upgrade goes to CourtIQ's Chalk Talk AI page.
@@ -783,7 +784,7 @@ export function mount(root, options) {
   const famOf = s => s.id.replace(/\d+$/, ''), FAM = { basketball: 'Hoops', flag: 'Flag', soccer: 'Soccer' };
   const fmt = s => (s.roster && s.roster.perSide ? s.roster.perSide + 'v' + s.roster.perSide : s.short);
   function renderSports() {
-    if (R.iqLabel) R.iqLabel.textContent = state.sport.iq ? state.sport.iq.name : 'IQ';
+    renderIQPill();
     R.sports.hidden = allowed.length < 2;
     // one tab per sport family (Hoops · Flag · Soccer); the current family's formats as a small toggle
     const fams = [...new Set(allowed.map(famOf))], cur = famOf(state.sport), formats = allowed.filter(x => famOf(x) === cur);
@@ -793,8 +794,21 @@ export function mount(root, options) {
     try { localStorage.setItem('chalktalk.format.' + cur, state.sport.id); } catch (e) {}
   }
   R.sports.addEventListener('click', e => { const b = e.target.closest('button'); if (b) setSport(getSport(b.dataset.id)); });
+  // the IQ game, promoted: today's Daily until it's played (the pill in the header, a card atop the library)
+  const dailyOpen = () => !!(state.sport.iq && opts.promo !== false && !dailyStore(state.sport.iq.name).today());
+  function renderIQPill() {
+    if (!R.iqLabel) return;
+    const on = dailyOpen();
+    R.iqLabel.textContent = state.sport.iq ? (on ? 'Daily ' + state.sport.iq.name : state.sport.iq.name) : 'IQ';
+    R.iqBtn.classList.toggle('daily', on);
+  }
+  function iqHero() {
+    if (!dailyOpen()) return '';
+    const d = dailyStore(state.sport.iq.name).get(), streak = d.last === dayNumber() - 1 ? d.streak : 0;
+    return `<button data-daily="1" class="ct-iqcta"><small>${esc(state.sport.iq.name)} Daily · #${dayNumber()}${streak ? ' · 🔥 ' + streak : ''}</small><b>Read 5 real plays</b><span>About a minute. Same five for everyone today.</span><i>${icon('play')}Play</i></button>`;
+  }
   function renderLibrary() {
-    R.lib.innerHTML = `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
+    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
   // your last three plays, one tap away
   function recentHTML() {
@@ -806,7 +820,7 @@ export function mount(root, options) {
     closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null);
     R.status.textContent = 'From My plays · instant, no AI used';
   }
-  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
+  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.daily) { track('iq_cta', { at: 'library' }); iq.open('daily'); return; } if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = !!state.sport.kinds.route, soc = /^soccer/.test(state.sport.id);
@@ -1498,14 +1512,15 @@ export function mount(root, options) {
       const q = state.quiz; state.quiz = null; state.quizStop = null; state.reveal = null; root.classList.remove('ct-quiz');
       if (q) { state.defense = q.defense; renderDefense(); load(q.raw, { key: q.key, quiet: true }); }
     },
-    loadQuiz(raw, speed) { state.defense = true; renderDefense(); load(raw, { quiet: true }); state.reveal = null; state.quizStop = null; state.sim.speed(speed); state.sim.seek(0); state.sim.playing(true); renderDots(); },
+    loadQuiz(raw, speed, from) { state.defense = true; renderDefense(); load(raw, { quiet: true }); state.reveal = null; state.quizStop = null; state.sim.speed(speed); state.sim.seek(from || 0); state.sim.playing(true); renderDots(); },
+    changed() { renderIQPill(); renderLibrary(); },
     reveal(q, given, g) {
       state.reveal = { right: q.type === 'pass' ? [q.answer] : [], wrong: q.type === 'pass' && given && !g.right ? [given] : [], spot: q.type === 'spot' ? q.answer : null, tol: q.tol, tap: q.type === 'spot' ? given : null };
       if (q.type === 'pass' || q.type === 'spot') { state.quizStop = q.beat + (q.type === 'pass' ? 1.2 : 0.99); state.sim.playing(true); }
     },
     hint(q) { if (q.type === 'pass') state.reveal = { hint: [q.answer].concat(q.also) }; else if (q.type === 'spot') state.reveal = { spot: q.answer, tol: q.tol * 1.6 }; }
   });
-  R.iqBtn.onclick = () => iq.open();
+  R.iqBtn.onclick = () => { if (dailyOpen()) track('iq_cta', { at: 'pill' }); iq.open(dailyOpen() ? 'daily' : null); };
   R.ink.addEventListener('pointerdown', e => {   // IQ: tap the spot
     if (!state.quiz || !iq.wantsSpot()) return;   // player taps go on to the player's own handler
     e.stopPropagation(); e.preventDefault();
@@ -1977,6 +1992,8 @@ export function mount(root, options) {
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });
   tipify(root);
+  // a link straight into the game (?iq=daily from a share, a post or a hero): today's five, or the lobby
+  if (opts.iq && state.sport.iq) setTimeout(() => { if (!dead) { track('iq_cta', { at: 'link' }); iq.open(opts.iq === 'daily' ? 'daily' : null); } }, 700);
   refreshLexicon(ownApi());
   // anonymous usage analytics (track.js): never names, words, keys or IPs. Off in development and when the host says so.
   const dev = typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -1994,7 +2011,7 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: () => iq.open(), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); shorts.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
