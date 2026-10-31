@@ -1,6 +1,6 @@
 // Make a Short: the pure parts (frame layout and safe zones, caption words and pages, the timeline, the format).
 import assert from 'node:assert/strict';
-import { OUT, SAFE, CARD, BEAT, frameLayout, inSafe, captionTokens, wrapTokens, pagesOf, wordAt, planShort, pickMime, fileName, speechSec, readSec } from '../src/shorts.js';
+import { OUT, SAFE, CARD, BEAT, frameLayout, stepChips, recapChips, inSafe, captionTokens, wrapTokens, pagesOf, wordAt, planShort, pickMime, fileName, speechSec, readSec } from '../src/shorts.js';
 import { getSport } from '../src/sports/index.js';
 import { normalize, compile } from '../src/engine/sim.js';
 import { analyze } from '../src/analyst.js';
@@ -18,7 +18,10 @@ assert.ok(L.caption.pad * 2 + L.caption.line * L.caption.lines <= L.caption.h + 
 assert.ok(L.field.y * 1920 + L.field.h * 1920 <= L.caption.y + 1, 'the field ends where the captions begin');
 assert.ok(!inSafe({ x: 100, y: 1600, w: 200, h: 50 }), 'the bottom 20% is out');
 assert.ok(!inSafe({ x: 900, y: 600, w: 120, h: 50 }), 'the right 12% is out');
-const half = frameLayout(540, 960); assert.equal(half.u, 0.5); assert.ok(Math.abs(half.caption.size - 27) < 1e-9);
+assert.ok(inSafe(L.chips), 'the action chips in the safe zone');
+assert.ok(L.chips.y >= L.caption.y + L.caption.h && L.art.y >= L.chips.y + L.chips.h, 'captions, then chips, then the diagrams');
+assert.ok(L.art.h >= 300 && L.art.y + L.art.h <= 1920, 'the diagrams fill the rest of the frame');
+const half = frameLayout(540, 960); assert.equal(half.u, 0.5); assert.ok(Math.abs(half.caption.size - L.caption.size / 2) < 1e-9);
 
 // caption words: positions, or names only when the board shows them; punctuation kept
 const pos = id => ({ O1: '1', O5: '5', X5: 'X5' }[id] || id);
@@ -92,3 +95,27 @@ assert.equal(fileName('', 'webm'), 'chalk-talk-play.webm');
 assert.equal(fileName('Spain P&R / 2!', 'mp4'), 'chalk-talk-spain-p-r-2.mp4');
 
 console.log(`ok: shorts (layout, safe zones, captions, timeline, format; ${all - over}/${all} library plans under a minute)`);
+
+// the chips under the captions: each step's actions (offense first, at most three), and the recap's counts
+{
+  const hoops = getSport('basketball');
+  const play = { players: [{ id: 'O1', side: 'O' }, { id: 'O5', side: 'O' }, { id: 'X5', side: 'D' }], beats: [
+    { actions: [{ who: 'X5', kind: 'slide' }, { who: 'O5', kind: 'screen', target: 'O1' }, { who: 'O1', kind: 'dribble' }] },
+    { actions: [{ who: 'O1', kind: 'pass', target: 'O5' }, { who: 'O5', kind: 'roll' }] },
+    { actions: [{ who: 'O1', kind: 'ready' }] }] };
+  const nm = id => id.replace(/^O/, '');
+  let ch = stepChips(play, 0, nm, false);
+  assert.deepEqual(ch.map(c => c.word + ' ' + c.text), ['SCREEN 5 for 1', 'DRIVE 1'], 'no defense on the board: no defense chips');
+  ch = stepChips(play, 0, nm, true);
+  assert.equal(ch[ch.length - 1].side, 'D', 'defense after offense'); assert.equal(ch[ch.length - 1].icon, 'def');
+  assert.deepEqual(stepChips(play, 1, nm, false).map(c => c.icon), ['pass', 'cut']);
+  assert.deepEqual(stepChips(play, 2, nm, false), [], 'standing ready: no chip');
+  const busy = { players: play.players, beats: [{ actions: ['cut', 'cut', 'cut', 'cut', 'cut'].map((k, i) => ({ who: 'O' + (i + 1), kind: k })) }] };
+  ch = stepChips(busy, 0, nm, false); assert.equal(ch.length, 3); assert.equal(ch[2].word, '+3');
+  assert.deepEqual(recapChips(play).map(c => c.word + ' ' + c.text), ['1 screen', '1 drive', '1 pass']);
+  // every library play: chips for every step, the recap never empty when there's offense moving
+  for (const id of ['basketball', 'flag5', 'flag7']) {
+    const sp = getSport(id); if (!sp) continue;
+    for (const raw of sp.plays || []) { const n = normalize(raw, sp); if (!n.ok) continue; n.play.beats.forEach((b, k) => { const c = stepChips(n.play, k, null, true); assert.ok(c.length <= 3, raw.title); c.forEach(x => assert.ok(x.word && x.text && x.icon, raw.title)); }); }
+  }
+}

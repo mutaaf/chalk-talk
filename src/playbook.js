@@ -11,7 +11,7 @@ const namer = (sport, play) => id => { const p = play.players.find(q => q.id ===
 const words = (s, nm) => esc(s).replace(/\b([OX])([1-9])\b/g, m => '<b>' + esc(nm ? nm(m) : m) + '</b>');
 
 // the field window a diagram shows: the half court, or the area around the line of scrimmage
-function frame(sport, play) {
+export function frame(sport, play) {
   const F = sport.field, los = play.los != null ? play.los : sport.los;
   return los == null ? [F.x[0], F.y[0], F.x[1], F.y[1]] : [F.x[0], Math.max(F.y[0], los - 24), F.x[1], Math.min(F.y[1], los + 9)];
 }

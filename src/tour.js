@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.25.0';
+export const VERSION = '0.26.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.26.0', date: '2026-10-30', title: 'Shorts with diagrams', items: [
+    { title: 'Every Short fills the screen with the play', call: 'Under the captions, each step’s actions now show as chips with their own little diagrams (screen, pass, drive, handoff), and the rest of the frame shows the whole play drawn like a playbook page, with this step lit, next to every step as its own small diagram. The end card shows the whole play once more.', show: 'moreBtn' }
+  ] },
   { version: '0.25.0', date: '2026-10-30', title: 'Make a Short', items: [
     { title: 'Any play, ready for Shorts, TikTok and Reels', call: 'More → Make a Short (or C) records the play on the board as a vertical 1080×1920 video: a title card, the whole play at teaching pace, big captions with the word being said highlighted, and an end card. With a voice key the analyst’s voice is in it too. Save it or share it straight from your phone.', show: 'moreBtn' }
   ] },
