@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.27.0';
+export const VERSION = '0.27.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.27.1', date: '2026-10-31', title: 'Plays draw faster', items: [
+    { title: 'No more minute-long waits', call: 'With an OpenAI key, plays used to take over a minute. GPT-5 now thinks just enough to draw them. And with any key, if your AI hasn’t answered in 18 seconds, or it fails, the free AI draws the play too, and you get whichever answer comes first.', show: 'keyBtn' }
+  ] },
   { version: '0.27.0', date: '2026-10-31', title: 'The IQ game, all new', items: [
     { title: 'The Daily: five reads, about a minute', call: 'Every day there are five new reads, the same five for everyone. Keep your streak, see your squares, and share your score. Tap the lit Daily pill up top or the card atop the plays.', show: 'iqBtn' },
     { title: 'A bank that doesn’t run dry', call: 'Thousands of questions now: the playbook (mirrored too), plus game situations the engine builds on the spot, where it finds who is open. New questions too: pass, drive or shoot; what happens next; and what is your job on defense.', show: 'iqBtn' },

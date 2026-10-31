@@ -210,8 +210,10 @@ async function ask(k, sys, messages, signal, schema, lite, task) {
     for (let i = 0; i < models.length; i++) {
       const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', signal,
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + k },
-        body: JSON.stringify({ model: models[i], response_format: { type: 'json_schema', json_schema: { name: 'play', strict: true, schema } },
-          messages: [{ role: 'system', content: sys }].concat(messages) }) });
+        // GPT-5 reasons at "medium" unless told otherwise, and a play took 70 to 160 s that way (measured on coaches'
+        // tablets and phones, 2026-10-30): low for plays, minimal for the small parallel calls, short answers
+        body: JSON.stringify(Object.assign({ model: models[i], response_format: { type: 'json_schema', json_schema: { name: 'play', strict: true, schema } },
+          messages: [{ role: 'system', content: sys }].concat(messages) }, /^(gpt-5|o\d)/.test(models[i]) ? { reasoning_effort: lite ? 'minimal' : 'low', verbosity: 'low' } : {})) });
       const j = await r.json().catch(() => ({})), msg = (j.error && j.error.message) || '';
       if (!r.ok) { if (i + 1 < models.length && (r.status === 404 || /model/i.test(msg)) && r.status !== 401 && r.status !== 429) continue; throw fail(r.status, msg); }
       const u = j.usage || {}, cached = (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0;
@@ -316,8 +318,33 @@ export { solve };
 export async function drawPlay(text, current, opts) {
   opts = opts || {};
   const k = opts.key || key.get(), sport = opts.sport;
-  if (!keyKind(k)) return free('play', { sport: sport.id, text, current, sketch: !!opts.sketch, coach: opts.coach || undefined }, opts.signal);
-  return solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library, coach: opts.coach }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, false, opts.sketch ? 'sketch' : 'play'));
+  const viaFree = () => free('play', { sport: sport.id, text, current, sketch: !!opts.sketch, coach: opts.coach || undefined }, opts.signal);
+  if (!keyKind(k)) return viaFree();
+  const own = solve(playRequest({ sport, text, current, sketch: opts.sketch, glossary: opts.glossary, library: opts.library, coach: opts.coach }), (sys, m, schema) => ask(k, sys, m, opts.signal, schema, false, opts.sketch ? 'sketch' : 'play'));
+  // a coach is waiting: if their own key hasn't answered in time, or fails, the free AI draws it too and the first good answer wins
+  return firstOf(own, viaFree, BACKUP_MS);
+}
+export const BACKUP_MS = 18000;
+// the first of two answers: `p` now, `backup()` after `after` ms or as soon as `p` fails (a cancel stops both). If both
+// fail, the first one's error.
+export function firstOf(p, backup, after) {
+  return new Promise((resolve, reject) => {
+    let done = false, started = false, pErr = null, bErr = null, bDone = false;
+    const win = v => { if (!done) { done = true; clearTimeout(t); resolve(v); } };
+    const lose = () => { if (!done && pErr && (!started || bDone)) { done = true; clearTimeout(t); reject(pErr); } };
+    const start = () => {
+      if (started || done) return; started = true;
+      let q; try { q = backup(); } catch (e) { q = Promise.reject(e); }
+      q.then(win, e => { bErr = e; bDone = true; if (pErr) lose(); });
+    };
+    const t = setTimeout(start, after);
+    p.then(win, e => {
+      pErr = e;
+      if (e && e.name === 'AbortError') { if (!done) { done = true; clearTimeout(t); reject(e); } return; }
+      if (!started) start(); else lose();
+      if (bDone) lose();
+    });
+  });
 }
 // smart players: each position gets its own brain (a persona on a lite model), all thinking in
 // parallel; their moves are merged one by one and any that break the play are dropped

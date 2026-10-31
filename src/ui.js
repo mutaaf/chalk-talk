@@ -1076,7 +1076,7 @@ export function mount(root, options) {
       }, 20000);
     } catch (e) {
       live.hide();
-      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey' || e.code === 'upgrade' || (e.status === 429 && opts.upgrade)) openKey(e.message); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); track('voice', { path: o.sketch ? 'sketch' : 'ai', ok: 0, status: e.status || e.code || 'err' }); }
+      if (e.name !== 'AbortError') { toast(e.message); if (e.code === 'nokey' || e.code === 'upgrade' || (e.status === 429 && opts.upgrade)) openKey(e.message); R.status.textContent = ''; logVoice({ sport: state.sport.id, path: o.sketch ? 'sketch' : 'ai', ms: performance.now() - t0, ok: false, error: String(e.message).slice(0, 120) }); track('voice', { path: o.sketch ? 'sketch' : 'ai', ok: 0, status: e.status || e.code || 'err', why: /hold together|doesn.t make sense|invalid|schema|JSON/i.test(e.message) ? 'invalid' : /fetch|network|load failed/i.test(e.message) ? 'network' : /wouldn.t draw/i.test(e.message) ? 'refused' : 'other', ms: Math.round(performance.now() - t0) }); }
     } finally {
       clearInterval(pulse);
       if (ctl === state.busy) { state.busy = null; root.classList.remove('ct-drawing'); }
