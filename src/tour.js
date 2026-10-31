@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.28.0';
+export const VERSION = '0.29.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.29.0', date: '2026-10-31', title: 'The mini map', items: [
+    { title: 'The whole play at a glance', call: 'A mini map of the play now sits in the corner for every sport: every route drawn, the step playing now lit, and the players and the ball moving on it live. Tap a step number to jump there, or fold it away with the arrow.', show: null }
+  ] },
   { version: '0.28.0', date: '2026-10-31', title: 'Under the hood', items: [
     { title: 'How Chalk Talk uses AI', call: 'More → Under the hood shows how it works: the ears, the draft, the engine, the booth, the minds and the game. It also shows your own numbers and what stays private. Look for the ✦ how chips around the board; each one opens the part you just saw.', show: 'moreBtn' }
   ] },

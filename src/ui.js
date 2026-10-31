@@ -31,6 +31,7 @@ import { bestReads } from './engine/reads.js';
 import { createMind } from './mind.js';
 import { createShorts } from './shorts.js';
 import { createHow, howChip } from './howai.js';
+import { createMinimap } from './minimap.js';
 import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
@@ -289,7 +290,7 @@ export function mount(root, options) {
     state.loads++;
     state.play = sim.play; state.raw = raw; state.sim = sim; state.readsOn = false; state.libKey = o.key || null;
     state.booth = { lines: analyze(sim, sport, posName), ai: null }; state.focus = null; state.reveal = null; R.focusChip.hidden = true;
-    buildInk(); mind.rebuild(); renderPlay(); renderDots(); renderFootball(); renderPresent();
+    buildInk(); mind.rebuild(); minimap.rebuild(); renderPlay(); renderDots(); renderFootball(); renderPresent();
     if (!o.quiet && state.narrate && state.style === 'analyst' && !state.quiz) boothAI();
     R.lib.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === o.key));
     if (o.at != null) { sim.seek(o.at); sim.playing(false); renderDots(); }
@@ -616,6 +617,9 @@ export function mount(root, options) {
     };
   })();
   // the mind view (src/mind.js): every player's live read in a translucent layer; costs nothing while it's off
+  // the mini map (src/minimap.js): the active play top-down in a corner, live, collapsible
+  const minimap = createMinimap({ root, sim: () => state.sim, sport: () => state.sport, track, line: t => String(t).replace(/\b([OX][1-9])\b/g, m => nameOf(m)),
+    seek: k => { if (!state.sim || state.quiz) return; state.sim.seek(k); state.sim.playing(true); renderDots(); } });
   const mind = createMind({ root, sim: () => state.sim, sport: () => state.sport, nameOf: id => nameOf(id), vision: () => state.vision, marks: () => ink && ink.marks,
     project: (x, y) => proj(x, y, 0), track, onChange: v => { if (!v) toast('Mind view off.'); } });
   // Make a Short (src/shorts.js): the play as a vertical video with captions; nothing runs until the coach asks
@@ -635,6 +639,7 @@ export function mount(root, options) {
         else if (q != null && t >= q) { state.sim.seek(q); state.sim.playing(false); state.quizStop = null; renderDots(); }
       }
       drawInk();
+      minimap.tick(t);
       if (mind.on) mind.tick(now);
     } catch (err) { if (!loopErr) { loopErr = true; console.error('[chalk-talk] frame', err); } }   // one bad frame never stops the board
     raf = requestAnimationFrame(loop);
@@ -2017,10 +2022,10 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), minimap: on => minimap.fold(on === false), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
-      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
+      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); minimap.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku); unwatchDevice(); if (boxRO) boxRO.disconnect();
       if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle', 'ct-split-x', 'ct-split-y');
     }
