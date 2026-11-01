@@ -35,7 +35,7 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 ## Drawing speed (target: a play on the board in under 20 s)
 - Measured 2026-10-30/31 from `voice` events (D1, `path: 'ai'`): Claude key 9–10 s, free path (Haiku) 8–19 s, OpenAI key 72–157 s (GPT-5 at its default "medium" reasoning). Fix: GPT-5 gets `reasoning_effort: 'low'` for plays, `'minimal'` for lite calls, `verbosity: 'low'` (only on gpt-5/o-series; older fallbacks unchanged). Not measured end to end yet (no OpenAI key here): check the next week's `voice` events by `ai`.
 - Safety net for every key (`firstOf` in ai.js, `BACKUP_MS` 18 s): if the coach's own key hasn't answered, or fails (not a cancel), the same request goes to the free AI and the first good answer wins. X's and O's only, the same body the free path always sends. `test/race.test.mjs`.
-- Haiku's output is mostly thinking (~500 tokens of play vs 1.7–2.4k out); thinking off would roughly halve the free path but lost accuracy in the eval (see Drawing accuracy) — the owner's call.
+- Free path: Haiku with thinking off (owner decision 2026-10-31; the eval had 98.1% with thinking, 96.2% without). Measured live right after: 3.3–7.0 s (was 8.6–12.3 s). Per-IP daily caps raised to 120 plays/sketches and 30 smart-player calls (a coach testing on one tablet hit 40). `settle` now always gives back the open-model estimate when Haiku answered (it used to keep 85 neurons a play against the global budget).
 - Failed draws now say why in the `voice` event (`why`: invalid / network / refused / other, plus `ms`).
 
 ## The IQ game (I, the Daily pill, ?iq=daily)

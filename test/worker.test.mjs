@@ -79,7 +79,7 @@ for (let i = 0; i < LIMITS.perIp.brain; i++) await worker.fetch(req('/brain', { 
 assert.equal((await worker.fetch(req('/brain', { sport: 'basketball', play: canned, id: 'O1', mode: 'film' }), eb)).status, 429);
 // per-IP cap → 429; the global neuron cap → 429
 const e = env(JSON.stringify(canned));
-for (let i = 0; i < LIMITS.perIp.play; i++) assert.equal((await worker.fetch(req('/play', { sport: 'flag5', text: 'slant' }), e)).status === 429, false);
+for (let i = 0; i < LIMITS.perIp.play; i++) { e.DB.rows.set('neurons:' + new Date().toISOString().slice(0, 10), 0); assert.equal((await worker.fetch(req('/play', { sport: 'flag5', text: 'slant' }), e)).status === 429, false); }   // the per-IP cap alone (the global budget kept clear)
 assert.equal((await worker.fetch(req('/play', { sport: 'flag5', text: 'slant' }), e)).status, 429);
 const e2 = env(JSON.stringify(canned)); e2.DB.rows.set('neurons:' + new Date().toISOString().slice(0, 10), LIMITS.neuronsPerDay);
 assert.equal((await worker.fetch(req('/play', { sport: 'basketball', text: 'x' }), e2)).status, 429);
@@ -164,7 +164,7 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
     if (String(url).startsWith('https://api.anthropic.com/')) {
       claudeCalls++;
       if (claudeFails) return new Response(JSON.stringify({ error: { message: 'overloaded' } }), { status: 529 });
-      const body = JSON.parse(init.body); assert.equal(body.model, 'claude-haiku-5-5'); assert.equal(body.output_config.format.type, 'json_schema');
+      const body = JSON.parse(init.body); assert.equal(body.model, 'claude-haiku-5-5'); assert.equal(body.output_config.format.type, 'json_schema'); assert.deepEqual(body.thinking, { type: 'disabled' }, 'free plays: thinking off');
       return new Response(JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(canned) }], stop_reason: 'end_turn', usage: { input_tokens: 5000, output_tokens: 1100 } }), { status: 200 });
     }
     return realFetch(url, init);
@@ -174,6 +174,7 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
   let r = await draw();
   assert.equal(r.status, 200); assert.equal(r.headers.get('x-ct-model'), 'claude-haiku-5-5'); assert.equal(r.headers.get('x-ct-usd'), '0.00105');
   assert.equal(sq.prepare("SELECT n FROM ai_usage WHERE bucket LIKE 'usd:%'").get().n, 1050);
+  assert.equal(sq.prepare("SELECT n FROM ai_usage WHERE bucket LIKE 'neurons:%'").get().n, 0, 'a Haiku play gives its open-model estimate back');
   claudeFails = true; r = await draw();
   assert.equal(r.status, 200); assert.notEqual(r.headers.get('x-ct-model'), 'claude-haiku-5-5');   // Anthropic down: the open models answer
   claudeFails = false; sq.prepare("UPDATE ai_usage SET n = ? WHERE bucket LIKE 'usd:%'").run(LIMITS.claudeMicrosPerDay);

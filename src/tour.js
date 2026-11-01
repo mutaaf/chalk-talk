@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.30.0';
+export const VERSION = '0.30.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.30.1', date: '2026-10-31', title: 'The free AI, twice as fast', items: [
+    { title: 'Plays in about five seconds', call: 'Plays from your own words now draw in about 3 to 7 seconds on the free AI, down from about 10, and you can draw three times as many a day.', show: null }
+  ] },
   { version: '0.30.0', date: '2026-10-31', title: 'Every sport, endless reads', items: [
     { title: 'Flag and soccer get the deep bank too', call: 'FieldIQ now makes up situations: routes for every receiver against a real coverage, and the quarterback’s own read finds who’s open. In soccer, real plays branch at a moment and the engine finds the open pass. That’s thousands of fresh questions in every sport.', show: 'iqBtn' }
   ] },

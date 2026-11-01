@@ -36,7 +36,7 @@ export const MODELS = {
 // Per hashed IP per UTC day, and for everyone together, so this stays inside the free Workers AI
 // allowance (10k neurons a day, shared with COLD GAS and Hearth).
 export const LIMITS = {
-  perIp: { event: 400, learn: 300, play: 40, smart: 20, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
+  perIp: { event: 400, learn: 300, play: 120, smart: 30, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
   neuronsPerDay: 3500,
   // charged up front, then corrected to what the call really cost (tokens × price, below)
   lexiconMin: 3,
@@ -128,8 +128,9 @@ async function bump(d, bucket, by) {
 async function peek(d, bucket) { const r = d ? await d.prepare('SELECT n FROM ai_usage WHERE bucket = ?').bind(bucket).first() : null; return r ? r.n : 0; }
 // one more call of this kind for this caller, if today's caps allow it
 async function settle(env, task, actual) {   // correct today's estimate to the real cost
-  const d = await db(env); if (!d || !actual) return;
-  await bump(d, `neurons:${day()}`, actual - LIMITS.estNeurons[task]);
+  // always, also when Haiku answered and the open models cost nothing: the estimate comes back off the day's budget
+  const d = await db(env); if (!d || !LIMITS.estNeurons[task]) return;
+  await bump(d, `neurons:${day()}`, (actual || 0) - LIMITS.estNeurons[task]);
 }
 async function allow(req, env, task) {
   const d = await db(env); if (!d) return true;
@@ -167,7 +168,8 @@ export function claudeAsker(env, usage) {
   return async (sys, messages, schema) => {
     const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: HAIKU, max_tokens: 6000, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }],
+      // thinking off (owner decision 2026-10-31): about twice as fast; the eval had 98.1% with it, 96.2% without
+      body: JSON.stringify({ model: HAIKU, max_tokens: 6000, thinking: { type: 'disabled' }, system: [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }],
         output_config: { effort: 'low', format: { type: 'json_schema', schema } }, messages }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw Object.assign(new Error((j.error && j.error.message) || 'Claude answered ' + r.status), { status: r.status });
