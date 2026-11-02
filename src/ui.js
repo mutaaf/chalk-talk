@@ -32,6 +32,8 @@ import { createMind } from './mind.js';
 import { createShorts } from './shorts.js';
 import { createHow, howChip } from './howai.js';
 import { createMinimap } from './minimap.js';
+import { createLesson } from './lesson.js';
+import { conceptsFor } from './concepts/index.js';
 import { kidLines } from './engine/kids.js';
 import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
@@ -308,6 +310,7 @@ export function mount(root, options) {
 
   function setSport(s) {
     if (s === state.sport) return;
+    if (lesson.on) lesson.close();
     state.sport = s; toShape = view(s); state.sketch = null; root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on');
     state.routeMode = false; state.vision.mode = 'off'; state.view = loadView();
     renderSports(); renderLibrary(); renderLegend(); renderHints();
@@ -624,6 +627,18 @@ export function mount(root, options) {
   // the mini map (src/minimap.js): the active play top-down in a corner, live, collapsible
   const minimap = createMinimap({ root, sim: () => state.sim, sport: () => state.sport, track, line: t => String(t).replace(/\b([OX][1-9])\b/g, m => nameOf(m)),
     seek: k => { if (!state.sim || state.quiz) return; state.sim.seek(k); state.sim.playing(true); renderDots(); } });
+  // concept lessons (src/lesson.js): a concept from src/concepts drawn on the court, level by level, with a quiz
+  const lesson = createLesson({ root, stage: () => root.querySelector('.ct-stage'), proj: (x, y, h) => { const p = proj(x, y, h); return { x: p.x, y: p.y }; }, unproject: (sx, sy) => unproject(sx, sy),
+    kids: () => !!state.kids, narrate: () => !!state.narrate, speak: t => speak(t, true), chime, track,
+    enter: () => { closePanel(); if (state.sim) state.sim.playing(false); renderDots(); if (field) field.setPose({ yaw: 0, pitch: 0.55, roll: 0 }); },
+    leave: () => applyView() });
+  function openConcepts(id, level) {
+    const list = conceptsFor(state.sport.id); if (!list.length) return;
+    if (id || list.length === 1) { lesson.open(id || list[0].id, level); return; }
+    openPanel(R.moreBtn, 'Concepts', `<div class="ct-playgrid">${list.map(c => `<button type="button" data-c="${esc(c.id)}"><small>${esc(c.kind)}</small><b>${esc(c.title)}</b></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => { const b = e.target.closest('[data-c]'); if (b) { closePanel(); lesson.open(b.dataset.c); } };
+    }, 'ct-xl');
+  }
   const mind = createMind({ root, sim: () => state.sim, sport: () => state.sport, nameOf: id => nameOf(id), vision: () => state.vision, marks: () => ink && ink.marks,
     project: (x, y) => proj(x, y, 0), track, onChange: v => { if (!v) toast('Mind view off.'); } });
   // Make a Short (src/shorts.js): the play as a vertical video with captions; nothing runs until the coach asks
@@ -643,6 +658,7 @@ export function mount(root, options) {
         else if (q != null && t >= q) { state.sim.seek(q); state.sim.playing(false); state.quizStop = null; renderDots(); }
       }
       drawInk();
+      if (lesson.on) lesson.tick();
       minimap.tick(t);
       if (mind.on) mind.tick(now);
     } catch (err) { if (!loopErr) { loopErr = true; console.error('[chalk-talk] frame', err); } }   // one bad frame never stops the board
@@ -835,7 +851,8 @@ export function mount(root, options) {
     return `<button data-daily="1" class="ct-iqcta"><small>${esc(state.sport.iq.name)} Daily · #${dayNumber()}${streak ? ' · 🔥 ' + streak : ''}</small><b>Read 5 real plays</b><span>About a minute. Same five for everyone today.</span><i>${icon('play')}Play</i></button>`;
   }
   function renderLibrary() {
-    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
+    const cs = conceptsFor(state.sport.id);
+    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + cs.map(c => `<button data-concept="${esc(c.id)}" class="ct-mine">${icon('shield')}<span>Teach a concept</span>${esc(c.title)}</button>`).join('') + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
   // your last three plays, one tap away
   function recentHTML() {
@@ -847,7 +864,7 @@ export function mount(root, options) {
     closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null);
     R.status.innerHTML = 'From My plays · instant, no AI used' + howChip('ears');
   }
-  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.daily) { track('iq_cta', { at: 'library' }); iq.open('daily'); return; } if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
+  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.daily) { track('iq_cta', { at: 'library' }); iq.open('daily'); return; } if (b.dataset.concept) { track('lesson_cta', { at: 'library' }); openConcepts(b.dataset.concept); return; } if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = !!state.sport.kinds.route, soc = /^soccer/.test(state.sport.id);
@@ -1474,6 +1491,7 @@ export function mount(root, options) {
     if (e.key === 'ArrowLeft') act('back');
     if (e.key === 'Escape') {
       if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel:not(.out)')) { closePanel(); return; }
+      if (lesson.on) { lesson.close(); return; }
       if (state.coach) { endCoach(false); return; } if (state.quiz) { iq.stop(); return; } if (state.focus) { R.focusChip.click(); return; }
       if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) { finishSketch(); return; } if (root.classList.contains('ct-board')) boardOnly(false);
     }
@@ -1717,7 +1735,8 @@ export function mount(root, options) {
     playbook: ['book', 'Print a playbook', 'Pick your plays and get a clean PDF for the clipboard.'],
     iq: ['trophy', 'Test your players’ IQ', 'Freeze a real play and ask who’s open. Thousands of questions.'],
     how: ['brain', 'How the AI works', 'Most of what you say never reaches an AI. Here’s what does.'],
-    guide: ['names', 'Know every position', 'What each spot does, where they stand and what they read.']
+    guide: ['names', 'Know every position', 'What each spot does, where they stand and what they read.'],
+    concepts: ['shield', 'Teach a concept', 'Guard the space: the alleys drawn on your court, for kids to varsity.']
   };
   function menuSpot() {
     if (dailyOpen()) {
@@ -1725,11 +1744,11 @@ export function mount(root, options) {
       return { k: 'iq', ic: 'trophy', tag: `${state.sport.iq.name} Daily · #${dayNumber()}${streak ? ' · 🔥 ' + streak : ''}`, t: 'Read 5 real plays', s: 'About a minute. Same five for everyone today.', go: 'Play' };
     }
     if (hasNews()) return { k: 'help', ic: 'sparkle', tag: 'New in v' + VERSION, t: RELEASES[0].title, s: RELEASES[0].items[0].title, go: 'See it' };
-    const t = tried.get(), k = Object.keys(PITCH).find(x => t.indexOf(x) < 0 && (x !== 'iq' || state.sport.iq));
+    const t = tried.get(), k = Object.keys(PITCH).find(x => t.indexOf(x) < 0 && (x !== 'iq' || state.sport.iq) && (x !== 'concepts' || conceptsFor(state.sport.id).length));
     return k ? { k, ic: PITCH[k][0], tag: 'Try this', t: PITCH[k][1], s: PITCH[k][2], go: 'Open' } : null;
   }
   function menuHTML() {
-    const fb = !!state.sport.kinds.route, mine = history.all().filter(e => e.sport === state.sport.id).length;
+    const fb = !!state.sport.kinds.route, mine = history.all().filter(e => e.sport === state.sport.id).length, hasConcepts = conceptsFor(state.sport.id).length > 0;
     const cw = root.clientWidth, mini = cw <= 300 || (cw <= 420 && root.clientHeight <= 360);
     const light = root.classList.contains('ct-light');
     // the eight switches worth a thumb; the 8th is routes in football, the view lock elsewhere
@@ -1748,7 +1767,8 @@ export function mount(root, options) {
     const groups = [
       mini ? ['board', 'The board', [['plays', 'book', 'Plays', state.sport.name], ['film', 'film', 'Film room', 'Every position’s read']]] : null,
       ['make', 'Make', [['mine', 'draw', 'My plays', 'Everything you’ve drawn', mine || ''], ['playbook', 'book', 'Playbook', 'Print plays as a PDF'], ['short', 'film', 'Short', 'Vertical video for Reels']]],
-      ['learn', 'Learn', [['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ game', 'Read plays, level up', iqMeta], ['guide', 'names', 'Guide', 'Positions in depth'], ['how', 'brain', 'Under the hood', 'How the AI works']]],
+      ['learn', 'Learn', [['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ game', 'Read plays, level up', iqMeta], ['guide', 'names', 'Guide', 'Positions in depth'],
+        hasConcepts ? ['concepts', 'shield', 'Concepts', 'Teach it, any age'] : ['how', 'brain', 'Under the hood', 'How the AI works']]],
       ['show', 'Show', [['present', 'cast', 'Present', 'TV, AirPlay, Cast'], ['view', 'view', 'Angles', 'Coach, top-down, sideline'], ['stats', 'chart', 'Stats', 'Plays, AI cost']]]
     ].filter(Boolean);
     const settings = [
@@ -1758,6 +1778,7 @@ export function mount(root, options) {
       names.any() ? ['sw', 'names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
       ['sw', 'sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
       ['sw', 'share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()],
+      hasConcepts ? ['link', 'how', 'brain', 'How the AI works', ''] : null,
       ['link', 'help', 'info', 'Help & tour', hasNews() ? 'New' : 'Shortcuts']
     ].filter(Boolean);
     const sp = menuSpot();
@@ -1804,7 +1825,7 @@ export function mount(root, options) {
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
         tried.add(k); track('menu', { k, spot: !!b.dataset.spot });
         ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
-          ai: () => openKey(), how: () => how.open(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
+          ai: () => openKey(), how: () => how.open(), concepts: () => openConcepts(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
   }
@@ -2069,6 +2090,7 @@ export function mount(root, options) {
   // the IQ bank (thousands of questions) is built when the board is idle, for this sport and each one switched to
   const idle = f => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 4000 }) : setTimeout(f, 1500));
   idle(() => { if (!dead && state.sport.iq) try { warmIQ(state.sport); } catch (e) {} });
+  if (opts.concept) setTimeout(() => { if (!dead) { track('lesson_cta', { at: 'link' }); openConcepts(opts.concept, opts.level); } }, 700);
   if (opts.iq && state.sport.iq) setTimeout(() => { if (!dead) { track('iq_cta', { at: 'link' }); iq.open(opts.iq === 'daily' ? 'daily' : null); } }, 700);
   refreshLexicon(ownApi());
   // anonymous usage analytics (track.js): never names, words, keys or IPs. Off in development and when the host says so.
@@ -2087,10 +2109,10 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), minimap: on => minimap.fold(on === false), kids: on => setKids(on == null ? !state.kids : on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), concept: (id, level) => openConcepts(id, level), minimap: on => minimap.fold(on === false), kids: on => setKids(on == null ? !state.kids : on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
-      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); minimap.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
+      dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); minimap.destroy(); lesson.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();
       removeEventListener('keydown', kd); removeEventListener('keyup', ku); unwatchDevice(); if (boxRO) boxRO.disconnect();
       if (field) field.destroy(); root.innerHTML = ''; root.classList.remove('ct-touch', 'ct-board', 'ct-laser', 'ct-light', 'ct', 'ct-full', 'ct-info', 'ct-drawing', 'ct-sketch', 'ct-quiz', 'ct-present-on', 'ct-idle', 'ct-split-x', 'ct-split-y');
     }

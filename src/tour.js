@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.32.0';
+export const VERSION = '0.33.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.33.0', date: '2026-11-02', title: 'Teach a concept: Guard the space', items: [
+    { title: 'Defense as geometry, drawn on your court', call: 'Open Guard the space (top of the plays list, or More → Concepts) and the court splits into alleys: the split line, the middle, the force lanes, the sideline, the elbows, the post and the red zone, one idea at a time with a little clip. Pick Kids, Starter, Varsity or Coach for the words that fit your team, then Quiz me for endless questions: which way do you push it, what’s the rule here, where do you help from.' }
+  ] },
   { version: '0.32.0', date: '2026-11-02', title: 'A clearer More menu', items: [
     { title: 'Everything in one calm sheet', call: 'More now opens with eight quick switches (tap one and it tells you what it does), one thing worth trying today, and the rest in three small groups: Make, Learn and Show. Settings fold away until you need them.', show: 'moreBtn' }
   ] },
