@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.34.0';
+export const VERSION = '0.34.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.34.1', date: '2026-11-02', title: 'Always the latest', items: [
+    { title: 'Updates arrive when you open the app', call: 'Chalk Talk on your home screen now checks for a new version every time you come back to it, and switches to it right away instead of one launch later.' }
+  ] },
   { version: '0.34.0', date: '2026-11-02', title: 'Concepts everywhere', items: [
     { title: 'The defense plays your system', call: 'Turn Defense on in basketball and every X now plays Guard the space: the ball gets pushed to the sideline, the far side sinks to the split line, and posts get fronted. The analyst calls it out too, like when the ball gets into the middle alley. Turn it off in More → Settings.' },
     { title: 'New concepts for every sport', call: 'Space the floor (five spots, drive a gap, kick it out) for basketball offense, Keep it in front for flag football, and Show them outside for soccer, each at four levels with clips and a quiz.' },

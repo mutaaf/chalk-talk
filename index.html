@@ -60,7 +60,22 @@
     }
   }).observe(appEl, { childList: true, subtree: true });
   // installable and offline (not on localhost, where it would cache the code under development)
-  if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) navigator.serviceWorker.register('sw.js');
+  // offline + updates: a home-screen app resumed from the background never navigates, so it checks for a new
+  // version every time it comes back on screen; when one takes over just after opening (or resuming), the page
+  // reloads into it at once instead of a launch later. Mid-session it waits for the next time the app is hidden.
+  if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    const had = !!navigator.serviceWorker.controller; let shown = Date.now(), pending = false;
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') { shown = Date.now(); reg.update().catch(() => {}); }
+        else if (pending) location.reload();
+      });
+    }).catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!had) return;   // the very first install: nothing old on screen
+      if (Date.now() - shown < 20000) location.reload(); else pending = true;
+    });
+  }
 </script>
 </body>
 </html>
