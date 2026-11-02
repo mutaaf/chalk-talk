@@ -32,6 +32,7 @@ import { createMind } from './mind.js';
 import { createShorts } from './shorts.js';
 import { createHow, howChip } from './howai.js';
 import { createMinimap } from './minimap.js';
+import { kidLines } from './engine/kids.js';
 import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
 import { ROUTE_TREE, routeNamed, applyRoute, applyCoverage, coverages, coverageNamed, zoneRect, progression, readStart, READ_STEP, separation, openness, findOpen, throwTo } from './engine/football.js';
@@ -44,6 +45,7 @@ const TEMPLATE = `
   <div class="ct-word">Chalk <i>Talk</i> <small>Say the play. Watch it draw.</small></div>
   <div class="ct-sports" data-r="sports" role="tablist" aria-label="Sport"></div>
   <span class="ct-sp"></span>
+  <button class="ct-pill ct-kidspill" data-r="kidsBtn" aria-pressed="false" title="Kids view: big, slow and simple, for little players"><i class="ct-kidsico" aria-hidden="true">★</i><span data-r="kidsLabel">Kids</span></button>
   <button class="ct-pill" data-r="viewBtn" title="Orbit, zoom and lock the view (L locks)">${icon('view')}<span>View</span></button>
   <button class="ct-pill" data-r="namesBtn" title="Show your players' names (saved on this device only)" hidden>${icon('names')}<span>Names</span></button>
   <button class="ct-pill" data-r="sketchBtn" title="Draw it yourself (or just use a pencil), then let the AI take over (S)">${icon('sketch')}<span>Sketch</span></button>
@@ -194,7 +196,7 @@ const fitR = (w, h, touch, fit) => fit ? Math.min(w * fit[0], h * fit[1]) : (w <
 
 let styled = false;
 export function mount(root, options) {
-  const opts = Object.assign({ iq: null, promo: true, upgrade: null, sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
+  const opts = Object.assign({ kids: null, iq: null, promo: true, upgrade: null, sport: 'basketball', sports: null, play: null, narrate: false, fullscreen: false, title: true, glossary: '', api: null, team: 'default' }, options || {});
   if (opts.api) setApi(opts.api);
   // Chalk Talk AI is sold through CourtIQ. On the standalone board a coach can connect their CourtIQ account
   // (a link token comes back in the URL fragment), and the upgrade goes to CourtIQ's Chalk Talk AI page.
@@ -226,12 +228,13 @@ export function mount(root, options) {
   // the play read aloud: cloud voices only ever hear positions; the on-device voice may use names
   // the booth: the analyst explains the read (default), or straight play-by-play
   try { state.style = localStorage.getItem('chalktalk.voiceStyle') || 'analyst'; } catch (e) { state.style = 'analyst'; }
-  const lineFor = (k, text) => state.style === 'analyst' && state.booth ? ((state.booth.ai && state.booth.ai[k]) || state.booth.lines[k] || text) : text;
+  // Kids view: one plain sentence per step, from the step's own actions (engine/kids.js)
+  const lineFor = (k, text) => state.kids && state.kidLines ? state.kidLines[k] || text : state.style === 'analyst' && state.booth ? ((state.booth.ai && state.booth.ai[k]) || state.booth.lines[k] || text) : text;
   // the play's opening words lead into step 1 rather than being cut off by it
   const speakBeat = (text, k) => { let t = k == null ? text : lineFor(k, text); if (k === 0 && state.intro) t = state.intro + ' ' + t; state.intro = null; speak(spoken(t, false), state.showNames ? spoken(t, true) : null); };
   // the analyst explains at half speed (unless the coach picked a speed), and the play waits at the end of a
   // step for the line to finish (at most 15 s, in case a device never reports the end)
-  const baseSpeed = () => (state.narrate && state.style === 'analyst' ? 0.5 : 1);
+  const baseSpeed = () => (state.kids ? 0.6 : state.narrate && state.style === 'analyst' ? 0.5 : 1);
   const applySpeed = () => { if (state.sim && !state.quiz) { state.sim.speed(state.userSpeed || baseSpeed()); renderDots(); } };
   let holdAt = 0;
   const waitForVoice = () => {
@@ -289,7 +292,7 @@ export function mount(root, options) {
     else { field.add([name]); field.setShape(name, { pin: 1e9 }); }
     state.loads++;
     state.play = sim.play; state.raw = raw; state.sim = sim; state.readsOn = false; state.libKey = o.key || null;
-    state.booth = { lines: analyze(sim, sport, posName), ai: null }; state.focus = null; state.reveal = null; R.focusChip.hidden = true;
+    state.booth = { lines: analyze(sim, sport, posName), ai: null }; state.kidLines = kidLines(sim.play, sport, id => nameOf(id)); state.focus = null; state.reveal = null; R.focusChip.hidden = true;
     buildInk(); mind.rebuild(); minimap.rebuild(); renderPlay(); renderDots(); renderFootball(); renderPresent();
     if (!o.quiet && state.narrate && state.style === 'analyst' && !state.quiz) boothAI();
     R.lib.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === o.key));
@@ -316,8 +319,8 @@ export function mount(root, options) {
   function onBeat(k) {
     const sim = state.sim; if (!sim || state.sketch) return;
     const info = sim.beatInfo(k);
-    if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speakBeat(info.say, k); }
-    else { R.caption.innerHTML = `<span class="ct-n">✓</span>${state.play.reads.length ? 'Options on this play' : 'That\'s the play.'}`; R.caption.classList.add('end'); }
+    if (info) { R.caption.innerHTML = `<span class="ct-n">${k + 1}</span>${mark(state.kids ? lineFor(k, info.say) : info.say)}`; R.caption.classList.remove('end'); if (sim.playing()) speakBeat(info.say, k); }
+    else { R.caption.innerHTML = state.kids ? '<span class="ct-n">★</span>That’s the play! Great job.' : `<span class="ct-n">✓</span>${state.play.reads.length ? 'Options on this play' : 'That\'s the play.'}`; R.caption.classList.add('end'); }
     state.readsOn = !info;
     renderDots(); renderReads(); renderThoughts(k); renderPresent(); if (root.classList.contains('ct-board')) renderRail();
   }
@@ -750,6 +753,20 @@ export function mount(root, options) {
   }
 
   // ---- controls ----
+  // Kids view: the same board, big, slow and simple. Defense off while it's on (fewer marks), back as it was after.
+  function setKids(on, quiet) {
+    on = !!on; if (on === !!state.kids && !quiet) return;
+    state.kids = on; root.classList.toggle('ct-kids', on);
+    R.kidsBtn.setAttribute('aria-pressed', String(on)); R.kidsLabel.textContent = on ? 'Grown-up view' : 'Kids';
+    try { localStorage.setItem('chalktalk.kids', on ? '1' : '0'); } catch (e) {}
+    if (on) { state.defenseBeforeKids = state.defense; state.defense = false; }
+    else if (state.defenseBeforeKids != null) { state.defense = state.defenseBeforeKids; state.defenseBeforeKids = null; }
+    renderDefense(); closePanel();
+    if (state.raw && !state.quiz) load(state.raw, { key: state.libKey, quiet: true, keepAI: true });
+    applySpeed();
+    if (!quiet) { track('kids', { on: on ? 1 : 0 }); toast(on ? 'Kids view: big and slow. Tap ▶ to watch, ▶︎ for the next step.' : 'Back to the grown-up view.'); }
+  }
+  R.kidsBtn.onclick = () => setKids(!state.kids);
   function act(c) {
     const sim = state.sim; if (!sim) return;
     const k = sim.beatAt();
@@ -1713,6 +1730,7 @@ export function mount(root, options) {
       ['voice', 'speaker', 'Analyst voice', 'Explains the read as the play runs', state.narrate],
       fb ? ['fb', 'draw', 'Routes & coverage', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')] : null,
       names.any() ? ['names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      ['kids', 'sparkle', 'Kids view', 'Big, slow and simple, for little players', !!state.kids],
       ['beacon', 'sparkle', 'Best read', 'A flashing green marker on the open option, live', !!state.beacon],
       ['mind', 'brain', 'Mind view', 'Every player’s live read, for the nerds (V)', mind.on],
       ['board', 'expand', 'Whiteboard only', 'Full screen, panels away, icons only', root.classList.contains('ct-board')],
@@ -1729,6 +1747,7 @@ export function mount(root, options) {
         if (sw) {
           const k = sw.dataset.sw;
           if (k === 'defense') act('defense');
+          if (k === 'kids') { setKids(!state.kids); return; }
           if (k === 'voice') { state.narrate = !state.narrate; if (state.narrate) { state.style = 'analyst'; saveStyle(); boothAI(); } else hush(); renderNarrate(); renderPresent(); }
           if (k === 'fb') root.classList.toggle('ct-fbopen');
           if (k === 'names') R.namesBtn.click();
@@ -2003,6 +2022,7 @@ export function mount(root, options) {
   renderSports(); renderLibrary(); renderLegend(); renderHints();
   const first = state.sport.plays.find(p => p.key === opts.play) || state.sport.plays[0];
   load(first, { key: first.key, quiet: true });
+  { let k0 = opts.kids; if (k0 == null) try { k0 = localStorage.getItem('chalktalk.kids') === '1'; } catch (e) {} if (k0) setKids(true, true); }
   tipify(root);
   // a link straight into the game (?iq=daily from a share, a post or a hero): today's five, or the lobby
   // the IQ bank (thousands of questions) is built when the board is idle, for this sport and each one switched to
@@ -2026,7 +2046,7 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), minimap: on => minimap.fold(on === false), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), minimap: on => minimap.fold(on === false), kids: on => setKids(on == null ? !state.kids : on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); minimap.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();

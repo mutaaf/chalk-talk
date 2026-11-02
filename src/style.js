@@ -1272,4 +1272,38 @@ export const CSS = `
   .ct { --glass-clear: #0a1220; --glass-regular: #0a1220; --glass-blur: none; --glass-edge: inset 0 0 0 1px rgba(238, 244, 255, .7); }
   .ct.ct-light { --glass-clear: #fffdf8; --glass-regular: #fffdf8; --glass-edge: inset 0 0 0 1px rgba(16, 26, 43, .7); }
 }
+
+/* ---- Kids view (.ct-kids): the same board, big, slow and simple. Everything a 6-year-old doesn't need goes away;
+   the caption, the play's name and its kid summary get big; back / play / next become big round buttons. ---- */
+.ct-kidspill { border-color: rgba(255, 199, 90, .5) !important; }
+.ct-kidspill .ct-kidsico { font-style: normal; color: var(--gold); font-size: 14px; line-height: 1; }
+.ct.ct-kids .ct-top > .ct-pill:not(.ct-kidspill), .ct.ct-kids .ct-top .ct-sports .ct-formats { display: none !important; }
+.ct.ct-kids .ct-top .ct-pill.ct-kidspill { display: inline-flex !important; background: var(--o) !important; color: var(--night) !important; border-color: transparent !important; font-weight: 800; backdrop-filter: none !important; box-shadow: 0 6px 18px rgba(255, 142, 58, .35) !important; }
+.ct.ct-kids .ct-kidspill .ct-kidsico { color: var(--night); }
+.ct.ct-kids .ct-top .ct-kidspill span { display: inline !important; }
+@container (max-width: 520px) { .ct.ct-kids .ct-top .ct-sports { display: none !important; } .ct.ct-kids .ct-top .ct-kidspill { margin-left: auto; } }
+.ct.ct-kids .ct-lib, .ct.ct-kids .ct-edge, .ct.ct-kids .ct-legend, .ct.ct-kids .ct-talk, .ct.ct-kids .ct-speed, .ct.ct-kids .ct-sketchbar, .ct.ct-kids .ct-fb,
+.ct.ct-kids .ct-think, .ct.ct-kids .ct-lbl:not(.name), .ct.ct-kids .ct-mm, .ct.ct-kids .beacon, .ct.ct-kids .ct-reads, .ct.ct-kids [data-r=readsHead],
+.ct.ct-kids .ct-filmbtn, .ct.ct-kids .ct-film, .ct.ct-kids .ct-ai, .ct.ct-kids .ct-eyebrow, .ct.ct-kids .ct-playchip, .ct.ct-kids .ct-focus { display: none !important; }
+.ct.ct-kids .ct-card { width: 340px; }
+.ct.ct-kids .ct-card h1 { font-size: 40px; }
+.ct.ct-kids .ct-card p[data-r=summary] { font-size: 19px; line-height: 1.45; color: var(--paper); }
+.ct.ct-kids .ct-cues li { font-size: 18px; padding: 8px 14px; }
+.ct.ct-kids .ct-caption { font-size: clamp(22px, 3.2vw, 32px); line-height: 1.3; font-weight: 800; max-width: min(820px, 92%); text-align: center; }
+.ct.ct-kids .ct-caption .ct-n { width: 1.4em; height: 1.4em; font-size: .8em; }
+.ct.ct-kids .ct-caption.end { color: var(--gold); }
+.ct.ct-kids .ct-transport { gap: 18px; }
+.ct.ct-kids .ct-transport > button { flex: none; aspect-ratio: 1; padding: 0; width: 76px; height: 76px; min-height: 0; border-radius: 50%; font-size: 28px; background: rgba(140, 188, 255, .12); border: 2px solid rgba(140, 188, 255, .35) !important; }
+.ct.ct-kids .ct-transport > button[data-r=playBtn] { width: 96px; height: 96px; font-size: 36px; background: var(--o); color: var(--night); border-color: transparent !important; box-shadow: 0 10px 30px rgba(255, 142, 58, .45); }
+.ct.ct-kids .ct-dots button { width: 22px; height: 22px; border-radius: 50%; }
+.ct.ct-kids .ct-dots { gap: 10px; }
+@container (max-width: 900px) {
+  .ct.ct-kids .ct-tabbar, .ct.ct-kids .ct-fab { display: none !important; }
+  .ct.ct-kids .ct-dots { max-width: 40vw; overflow: hidden; flex-wrap: nowrap; }
+  .ct.ct-kids .ct-dots button { flex: none; width: 14px; height: 14px; }
+  .ct.ct-kids .ct-dock { bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .ct.ct-kids .ct-card { translate: 0 0 !important; max-height: 30cqh; top: auto; bottom: auto; position: absolute; top: 64px; left: 12px; right: 12px; width: auto; border-radius: 16px; padding: 12px 14px; }
+  .ct.ct-kids .ct-card h1 { font-size: 26px; } .ct.ct-kids .ct-card p[data-r=summary] { font-size: 16px; } .ct.ct-kids .ct-card h2, .ct.ct-kids .ct-cues, .ct.ct-kids .ct-cardx { display: none !important; }
+  .ct.ct-kids .ct-transport > button { width: 64px; height: 64px; } .ct.ct-kids .ct-transport > button[data-r=playBtn] { width: 80px; height: 80px; }
+}
 `;
