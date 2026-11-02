@@ -25,10 +25,55 @@ for (const c of allConcepts()) {
       assert.equal(q.options.length, 4); assert.equal(new Set(q.options).size, 4); assert.ok(q.options.includes(q.answer));
       assert.equal(zoneAt(c, q.ball).rule, q.answer, 'the answer is the rule where the ball is');
     }
-    if (q.kind === 'way') { assert.equal(Math.sign(q.ball[0]), q.side); assert.ok(Math.abs(q.ball[0]) >= 2.5, 'never on the split line'); }
+    if (q.kind === 'way') { assert.equal(Math.sign(q.ball[0]), q.side); assert.ok(Math.abs(q.ball[0]) >= c.way.x[0] - 0.05, 'never on the middle line'); }
     if (q.kind === 'help') { assert.ok(q.ok(q.spot), 'the shown answer passes'); assert.ok(!q.ok(q.man), 'staying home fails'); }
-    if (L.id === 'kids') assert.equal(q.kind, 'way', 'kids only get which-way');
+    assert.ok(c.quiz[L.id].includes(q.kind), 'only the kinds this level gets');
+    if (c.id === 'space' && L.id === 'kids') assert.equal(q.kind, 'way', 'little ones only get which-way');
   }
   for (const d of Object.values(c.demos)) for (const a of d.actors) { assert.deepEqual(actorAt(a, 0), a.path[0]); const e = actorAt(a, 1); assert.ok(Math.hypot(e[0] - a.path.at(-1)[0], e[1] - a.path.at(-1)[1]) < 1e-9); }
 }
-console.log(`ok: concepts pass the gate, cover the court, and ${asked} quiz questions answer themselves`);
+console.log(`ok: ${allConcepts().length} concepts (${allConcepts().map(c => c.sport + ' ' + c.title).join(', ')}) pass the gate, cover the field, and ${asked} quiz questions answer themselves`);
+
+// the defense follows the concept: in real library plays, compiled with the system on
+{
+  const { compile, normalize } = await import('../src/engine/sim.js');
+  const { defenseSystem } = await import('../src/engine/space.js');
+  const { concept } = await import('../src/concepts/index.js');
+  const sport = getSport('basketball'), sys = defenseSystem(concept('space'));
+  // the rules on their own
+  const base = [5, 20];
+  assert.ok(sys({ o: [-10, 30], ball: [-10, 30], onBall: true, base: [-9, 27] })[0] > -9, 'on the ball: a step to the middle side');
+  assert.ok(sys({ o: [12, 30], ball: [12, 30], onBall: true, base: [11, 27] })[0] < 11, 'mirrored');
+  assert.equal(Math.abs(sys({ o: [19, 19], ball: [-19, 22], onBall: false, base })[0]), 1.5, 'far side sinks to the split line');
+  const f = sys({ o: [-9, 7], ball: [-20, 22], onBall: false, base: [-8, 6] });
+  assert.ok(Math.hypot(f[0] - -9, f[1] - 7) < 2.3 && f[1] > 7, 'the post is fronted, toward the ball');
+  assert.deepEqual(sys({ o: [-9, 7], ball: [-20, 22], onBall: false, help: true, base }), base, 'help rotation is left alone');
+  // in every library play: some moment shows the split line and no defender ends up off the court
+  let split = 0, plays = 0;
+  for (const p of sport.plays) {
+    const n = normalize(p, sport); if (!n || !n.play) continue;
+    const a = compile(n.play, sport, { defense: true }), b = compile(n.play, sport, { defense: true, system: sys });
+    plays++;
+    for (let t = 0; t <= b.play.beats.length; t += 0.25) {
+      const P = b.posAt(t), h = b.holderAt(t), ball = h >= 0 ? P[h] : null;
+      b.play.players.forEach((q, i) => {
+        assert.ok(Math.abs(P[i][0]) <= 25.01 && P[i][1] >= -0.01 && P[i][1] <= 47.01, `${p.key}: ${q.id} off the court`);
+        if (q.side === 'D' && ball && Math.abs(P[i][0]) <= 2 && Math.abs(ball[0]) > 6) split++;
+      });
+    }
+    assert.equal(a.play.beats.length, b.play.beats.length);
+  }
+  assert.ok(split > 0, 'somebody sits on the split line somewhere');
+  // the booth's call-outs: one string per step, and the system has something to say about most plays
+  const { systemNotes } = await import('../src/engine/space.js');
+  let said = 0, kinds = new Set();
+  for (const p of sport.plays) {
+    const n = normalize(p, sport); if (!n || !n.play) continue;
+    const b = compile(n.play, sport, { defense: true, system: sys }), notes = systemNotes(b, concept('space'));
+    assert.equal(notes.length, b.play.beats.length);
+    notes.forEach(t => { assert.equal(typeof t, 'string'); if (t) { said++; kinds.add(t.split(' ').slice(0, 3).join(' ')); } });
+  }
+  assert.ok(said >= 10 && kinds.size >= 3, `the system calls out plays (${said} lines, ${kinds.size} kinds)`);
+  console.log(`ok: ${said} system call-outs across the library, ${kinds.size} kinds`);
+  console.log(`ok: the defense follows Guard the space in ${plays} plays (${split} split-line moments)`);
+}

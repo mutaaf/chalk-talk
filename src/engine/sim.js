@@ -181,7 +181,12 @@ export function compile(play, sport, options) {
     else if (c && c.type === 'rush') {   // get to the ball, at a sprint from a start 7 yards off
       const tgt = toward(ball, [ball[0], ball[1] - 3], 1.2), o = origin[d], reach = Math.max(0, (time == null ? 9 : time) - 0.15) * 3.2;
       const dd = Math.hypot(tgt[0] - o[0], tgt[1] - o[1]); g = dd <= reach ? tgt : toward(o, tgt, reach);
-    } else g = sport.guard({ o: P[match[d]], ball, onBall: holder === match[d], sport, los: play.los, help: holder >= 0 && helperOf(P, holder, time) === d, carrier: holder >= 0 && holder !== qbIdx && settled(holder, time) ? P[holder] : null });
+    } else {
+      const onBall = holder === match[d], help = holder >= 0 && helperOf(P, holder, time) === d;
+      g = sport.guard({ o: P[match[d]], ball, onBall, sport, los: play.los, help, carrier: holder >= 0 && holder !== qbIdx && settled(holder, time) ? P[holder] : null });
+      // a defensive system (a concept's rules, src/engine/space.js) moves the man defender from there
+      if (options.system && match[d] >= 0) g = options.system({ o: P[match[d]], ball: holder >= 0 ? P[holder] : null, onBall, help, base: g, goal });
+    }
     return [clamp(g[0], F.x[0] + 0.5, F.x[1] - 0.5), clamp(g[1], F.y[0] + 0.5, F.y[1] - 0.5)];
   };
   // the help: when the ball gets deep (sport.help.at from the goal), the man defender whose man is

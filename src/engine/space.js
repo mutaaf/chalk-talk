@@ -45,9 +45,9 @@ export function question(concept, level, r = Math.random, kind) {
   const kinds = concept.quiz[level] || concept.quiz.starter;
   kind = kind || pick(kinds, r);
   if (kind === 'way') {
-    const s = r() < 0.5 ? -1 : 1, ball = round([s * (2.5 + r() * 12), 22 + r() * 21]);
-    return { kind, ball, side: s, ask: 'You’re guarding the ball. Which way do you push it?',
-      why: level === 'kids' ? 'Push it to the side lane, the one closest to the ball. The sideline helps you!' : Math.abs(ball[0]) < 7 ? 'Turn it out of the middle, toward the nearest sideline.' : 'Force it to the nearest sideline: it’s the extra defender.' };
+    // where the ball can be (concept.way.x is the distance from the middle, .y the depth) and what to say about it
+    const W = concept.way, s = r() < 0.5 ? -1 : 1, ball = round([s * (W.x[0] + r() * (W.x[1] - W.x[0])), W.y[0] + r() * (W.y[1] - W.y[0])]);
+    return { kind, ball, side: s, ask: W.ask, why: level === 'kids' ? W.kids : Math.abs(ball[0]) < W.mid ? W.middle : W.why };
   }
   if (kind === 'help') {
     const s = r() < 0.5 ? -1 : 1, ball = round([s * (15 + r() * 6), 17 + r() * 10]), man = round([-s * (17 + r() * 4), 15 + r() * 8]);
@@ -87,7 +87,69 @@ export function check(concept, sport) {
       if (s.demo && !concept.demos[s.demo]) errs.push(`${L.id} ${i + 1}: unknown demo ${s.demo}`);
     });
     if (!concept.quiz[L.id] || !concept.quiz[L.id].length) errs.push('no quiz for ' + L.id);
+    if ((concept.quiz[L.id] || []).includes('way') && !(concept.way && concept.way.ask && concept.way.why && concept.way.kids)) errs.push('way questions need concept.way');
+    if ((concept.quiz[L.id] || []).includes('help') && concept.sport !== 'basketball') errs.push('help questions are basketball only');
   }
   for (const [k, d] of Object.entries(concept.demos || {})) d.actors.forEach(a => a.path.forEach(p => { if (!inCourt(p)) errs.push(`demo ${k}: off the court at ${p}`); }));
   return errs;
+}
+
+// ---- a concept's defense, played by the engine: the rules a concept declares (concept.defense) applied to where
+// the basic defense would stand. Basketball rules: forceSideline (on the ball, a step to its middle side, so the
+// only way is out), splitLine (the far side, two passes away, sinks to the split line), frontPost (a post on the
+// ball side gets fronted, between the ball and the post). Each rule is a number: how far, in feet.
+export function defenseSystem(concept) {
+  const D = concept && concept.defense; if (!D) return null;
+  const sign = v => v < 0 ? -1 : 1;
+  return function ({ o, ball, onBall, help, base, goal }) {
+    if (help || !o || !ball) return base;
+    const g = goal || [0, 5.25];
+    if (onBall) {
+      if (D.forceSideline && Math.abs(o[0]) > 0.6) return [base[0] - sign(o[0]) * D.forceSideline, base[1]];
+      return base;
+    }
+    const toRim = Math.hypot(o[0] - g[0], o[1] - g[1]), ballDeep = Math.hypot(ball[0] - g[0], ball[1] - g[1]) < 9;
+    // the post, ball side, ball above it and outside the paint: in front of the post, toward the ball
+    if (D.frontPost && toRim < 11 && o[1] < 13 && !ballDeep && ball[1] > o[1] + 2 && (sign(o[0]) === sign(ball[0]) || Math.abs(o[0]) < 3)) {
+      const dx = ball[0] - o[0], dy = ball[1] - o[1], L = Math.hypot(dx, dy) || 1;
+      return [o[0] + dx / L * D.frontPost, o[1] + dy / L * D.frontPost];
+    }
+    // two passes away: ball on one side of the split line, my man well over on the other
+    if (D.splitLine && Math.abs(ball[0]) > 4 && Math.abs(o[0]) > 7 && sign(o[0]) !== sign(ball[0])) {
+      const y = Math.max(6, Math.min(24, (o[1] + ball[1]) / 2 - 2));
+      return [sign(o[0]) * D.splitLine, y];
+    }
+    return base;
+  };
+}
+
+// ---- what the concept would say about a play: one call-out per step, from where the ball really went in the
+// engine (the booth adds it when the system is on). Only what a coach of this system would point at.
+export function systemNotes(sim, concept, nameOf) {
+  const nm = nameOf || (id => id), K = sim.sport ? sim.sport.kinds : null, play = sim.play, out = [];
+  let farSaid = false;
+  const ballAt = t => { const h = sim.holderAt(t); return h >= 0 ? { h, p: sim.posAt(t)[h] } : null; };
+  const zid = p => { const z = zoneAt(concept, p); return z ? z.id.replace(/[LR]$/, '') : null; };
+  play.beats.forEach((b, k) => {
+    const a = ballAt(k + 0.05), e = ballAt(k + 0.95);
+    let say = '';
+    if (a && e) {
+      const z0 = zid(a.p), z1 = zid(e.p), same = a.h === e.h;
+      const catchPost = !same && z1 === 'post';
+      if (catchPost) say = `${nm(sim.players[e.h].id)} catches it in the post. Against a full front that pass shouldn’t get there; it has to be a lob over the top.`;
+      else if (z1 !== z0) {
+        if (z1 === 'middle') say = 'The ball gets into the middle alley. That’s the one place this defense says to take away.';
+        else if (z1 === 'red') say = 'The ball is in the red zone now. No easy baskets: somebody has to be there.';
+        else if (z1 === 'elbow') say = 'Penetration at the elbow: the defender has to beat the ball to that spot.';
+        else if (z1 === 'pp') say = 'That’s a pressure point: the sideline and half court do half the guarding. Trap chance.';
+        else if ((z1 === 'force' || z1 === 'side') && z0 === 'middle') say = 'Good: the ball’s been turned out of the middle, toward the sideline.';
+      }
+    }
+    if (!say && !farSaid && e && Math.abs(e.p[0]) > 6) {
+      const P = sim.posAt(k + 0.95), d = sim.players.findIndex((p, i) => p.side === 'D' && sim.match && sim.match[i] >= 0 && Math.abs(P[i][0]) <= 2 && Math.sign(P[sim.match[i]][0]) !== Math.sign(e.p[0]) && Math.abs(P[sim.match[i]][0]) > 7);
+      if (d >= 0) { say = `Watch the far side: ${nm(sim.players[d].id)} sinks to the split line, ready to help.`; farSaid = true; }
+    }
+    out.push(say);
+  });
+  return out;
 }

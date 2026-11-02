@@ -108,7 +108,8 @@ export function createIQ(ctx) {
   function modes(sport) {
     const best = dailyStore(fam()).get().bestRun || 0;
     return `<div class="ct-iqmodes"><button type="button" data-quick="1"><b>${icon('play')}Quick five</b><small>Five fresh reads on your rating</small></button>
-      <button type="button" data-run="1"><b>⚡ Streak Run</b><small>${best ? `Best: ${best} in a row. Beat it.` : 'How many in a row? One miss ends it.'}</small></button></div>`;
+      <button type="button" data-run="1"><b>⚡ Streak Run</b><small>${best ? `Best: ${best} in a row. Beat it.` : 'How many in a row? One miss ends it.'}</small></button>${(ctx.concepts ? ctx.concepts() : []).map(c => `
+      <button type="button" data-cq="${esc(c.id)}"><b>${icon('shield')}${esc(c.title)}</b><small>Concept quiz · ${esc(c.sub)}</small></button>`).join('')}</div>`;
   }
   // the badge shelf: what's earned, what's next
   function stats() {
@@ -158,7 +159,8 @@ export function createIQ(ctx) {
     ctx.openPanel(IQ.name, body, pb => {
       const tk = pb.querySelector('[data-tick]'); if (tk) { const iv = setInterval(() => { if (!tk.isConnected) clearInterval(iv); else tk.textContent = untilTomorrow(); }, 30000); }
       pb.onclick = e => {
-        const t = e.target.closest('[data-play],[data-del],[data-daily],[data-quick],[data-share],[data-run]'); if (!t) return;
+        const t = e.target.closest('[data-play],[data-del],[data-daily],[data-quick],[data-share],[data-run],[data-cq]'); if (!t) return;
+        if (t.dataset.cq) { ctx.conceptQuiz(t.dataset.cq); return; }
         if (t.dataset.run) { streakRun(); return; }
         if (t.dataset.del != null) { const v = db.get(); v.players.splice(+t.dataset.del, 1); db.put(v); open(); return; }
         if (t.dataset.daily) { daily(); return; }

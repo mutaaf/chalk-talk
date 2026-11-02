@@ -33,7 +33,8 @@ import { createShorts } from './shorts.js';
 import { createHow, howChip } from './howai.js';
 import { createMinimap } from './minimap.js';
 import { createLesson } from './lesson.js';
-import { conceptsFor } from './concepts/index.js';
+import { conceptsFor, concept as conceptById } from './concepts/index.js';
+import { defenseSystem, systemNotes } from './engine/space.js';
 import { kidLines } from './engine/kids.js';
 import { watchDevice } from './devices.js';
 import { history, hash as hashOf } from './history.js';
@@ -280,12 +281,28 @@ export function mount(root, options) {
     applyView();
   }
 
+  // ---- the defensive system: a concept's rules played by every X (src/engine/space.js); per sport, on by default
+  // when the sport has one, 'basic' turns it off ----
+  const systems = () => conceptsFor(state.sport.id).filter(c => c.defense);
+  function systemId() {
+    const all = systems(); if (!all.length) return null;
+    let v = null; try { v = localStorage.getItem('chalktalk.system.' + state.sport.id); } catch (e) {}
+    return v === 'basic' ? null : (all.find(c => c.id === v) || all[0]).id;
+  }
+  const sysCache = {};
+  const systemFn = () => { const id = systemId(); return id ? (sysCache[id] = sysCache[id] || defenseSystem(conceptById(id, state.sport.id))) : null; };
+  function setSystem(id) {
+    try { localStorage.setItem('chalktalk.system.' + state.sport.id, id || 'basic'); } catch (e) {}
+    track('system', { id: id || 'basic' });
+    if (state.raw) load(state.raw, { key: state.libKey, quiet: true, keepAI: true });
+  }
+
   // ---- loading a play onto the board ----
   function load(raw, o) {
     o = o || {};
     const sport = state.sport, n = normalize(raw, sport);
     if (!n.ok) { toast(n.errors[0] || 'That play did not make sense.'); return false; }
-    const play = n.play, sim = compile(play, sport, { defense: state.defense });
+    const play = n.play, sim = compile(play, sport, { defense: state.defense, system: state.defense ? systemFn() : null });
     const name = 'chalk:' + sport.id + ':' + Math.random().toString(36).slice(2);
     sim.onBeat(onBeat); sim.hold(waitForVoice); sim.speed(state.userSpeed || baseSpeed());
     AuroraField.register(name, playShape(sim, { trace: !field }));
@@ -294,7 +311,9 @@ export function mount(root, options) {
     else { field.add([name]); field.setShape(name, { pin: 1e9 }); }
     state.loads++;
     state.play = sim.play; state.raw = raw; state.sim = sim; state.readsOn = false; state.libKey = o.key || null;
-    state.booth = { lines: analyze(sim, sport, posName), ai: null }; state.kidLines = kidLines(sim.play, sport, id => nameOf(id)); state.focus = null; state.reveal = null; R.focusChip.hidden = true;
+    state.booth = { lines: analyze(sim, sport, posName), ai: null };
+    // the defensive system's call-outs ride along with the analyst's lines, one sentence a step at most
+    if (state.defense && systemId()) { const extra = systemNotes(sim, conceptById(systemId(), state.sport.id), posName); state.booth.lines = state.booth.lines.map((l, k) => extra[k] ? (l ? l + ' ' + extra[k] : extra[k]) : l); } state.kidLines = kidLines(sim.play, sport, id => nameOf(id)); state.focus = null; state.reveal = null; R.focusChip.hidden = true;
     buildInk(); mind.rebuild(); minimap.rebuild(); renderPlay(); renderDots(); renderFootball(); renderPresent();
     if (!o.quiet && state.narrate && state.style === 'analyst' && !state.quiz) boothAI();
     R.lib.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.key === o.key));
@@ -628,14 +647,33 @@ export function mount(root, options) {
   const minimap = createMinimap({ root, sim: () => state.sim, sport: () => state.sport, track, line: t => String(t).replace(/\b([OX][1-9])\b/g, m => nameOf(m)),
     seek: k => { if (!state.sim || state.quiz) return; state.sim.seek(k); state.sim.playing(true); renderDots(); } });
   // concept lessons (src/lesson.js): a concept from src/concepts drawn on the court, level by level, with a quiz
-  const lesson = createLesson({ root, stage: () => root.querySelector('.ct-stage'), proj: (x, y, h) => { const p = proj(x, y, h); return { x: p.x, y: p.y }; }, unproject: (sx, sy) => unproject(sx, sy),
+  const lesson = createLesson({ root, sport: () => state.sport, stage: () => root.querySelector('.ct-stage'), proj: (x, y, h) => { const p = proj(x, y, h); return { x: p.x, y: p.y }; }, unproject: (sx, sy) => unproject(sx, sy),
     kids: () => !!state.kids, narrate: () => !!state.narrate, speak: t => speak(t, true), chime, track,
-    enter: () => { closePanel(); if (state.sim) state.sim.playing(false); renderDots(); if (field) field.setPose({ yaw: 0, pitch: 0.55, roll: 0 }); },
-    leave: () => applyView() });
+    enter: () => { closePanel(); if (state.sim) state.sim.playing(false); renderDots(); if (field) { field.setPose({ yaw: 0, pitch: 0.55, roll: 0 }); fitLesson(); } },
+    leave: () => { lessonK = 1; if (field) field.set({ radius: board.r }); applyView(); },
+    print: id => { const c = conceptById(id, state.sport.id); if (!openPlaybook(buildPlaybook(state.sport, [], { concepts: [c], title: c.title }))) toast('Allow pop-ups to print it.'); },
+    // from a lesson to the real thing: the system on, the defense on, the play from the top
+    watch: id => { try { localStorage.setItem('chalktalk.system.' + state.sport.id, id); } catch (e) {} if (!state.defense) act('defense-on'); else load(state.raw, { key: state.libKey, quiet: true, keepAI: true }); if (state.sim) { state.sim.seek(0); state.sim.playing(true); renderDots(); } } });
+  // a long field (flag, soccer) is shrunk until all of it fits beside the lesson panel (or above it on a phone)
+  let lessonK = 1;
+  function fitLesson() {
+    lessonK = 1; field.set({ radius: (w, h) => board.r(w, h) * lessonK });
+    let n = 0;
+    const step = () => {
+      if (!lesson.on || !field || n++ > 5) return;
+      const F = state.sport.field, pts = [[F.x[0], F.y[0]], [F.x[1], F.y[0]], [F.x[0], F.y[1]], [F.x[1], F.y[1]]].map(([x, y]) => proj(x, y, 0));
+      const bw = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x)), bh = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y));
+      const W = root.clientWidth, H = root.clientHeight, phone = W <= 700;
+      const k = Math.min(1, (phone ? W * 0.94 : W * 0.6) / bw, (phone ? H * 0.46 : H * 0.84) / bh);
+      if (Math.abs(k - 1) > 0.02) { lessonK = Math.max(0.35, Math.min(1, lessonK * k)); field.set({ radius: (w, h) => board.r(w, h) * lessonK }); }
+      setTimeout(step, 160);
+    };
+    setTimeout(step, 520);
+  }
   function openConcepts(id, level) {
     const list = conceptsFor(state.sport.id); if (!list.length) return;
     if (id || list.length === 1) { lesson.open(id || list[0].id, level); return; }
-    openPanel(R.moreBtn, 'Concepts', `<div class="ct-playgrid">${list.map(c => `<button type="button" data-c="${esc(c.id)}"><small>${esc(c.kind)}</small><b>${esc(c.title)}</b></button>`).join('')}</div>`, pb => {
+    openPanel(R.moreBtn, 'Concepts', `<div class="ct-playgrid">${list.map(c => `<button type="button" data-c="${esc(c.id)}"><small>${esc(c.kind)}</small><b>${esc(c.title)}</b><small>${esc(c.sub)}</small></button>`).join('')}</div>`, pb => {
       pb.onclick = e => { const b = e.target.closest('[data-c]'); if (b) { closePanel(); lesson.open(b.dataset.c); } };
     }, 'ct-xl');
   }
@@ -798,7 +836,7 @@ export function mount(root, options) {
       state.defense = c === 'defense' ? !state.defense : c === 'defense-on'; track('defense', { on: state.defense ? 1 : 0 });
       renderDefense(); if (R.rlDef) R.rlDef.classList.toggle('on', state.defense);
       load(state.raw, { key: state.libKey, quiet: true, keepAI: true });
-      toast(state.defense ? 'Defense on: each X guards its man on its own.' : 'Defense off.');
+      toast(state.defense ? (systemId() ? `Defense on, playing ${conceptById(systemId(), state.sport.id).title}: force to the sideline, sink to the split line, front the post.` : 'Defense on: each X guards its man on its own.') : 'Defense off.');
       return;
     }
     if (c === 'sketch') { toggleSketch(); return; }
@@ -852,7 +890,7 @@ export function mount(root, options) {
   }
   function renderLibrary() {
     const cs = conceptsFor(state.sport.id);
-    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + cs.map(c => `<button data-concept="${esc(c.id)}" class="ct-mine">${icon('shield')}<span>Teach a concept</span>${esc(c.title)}</button>`).join('') + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
+    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + cs.map(c => `<button data-concept="${esc(c.id)}" class="ct-mine">${icon(c.kind === 'offense' ? 'ball' : 'shield')}<span>Teach ${c.kind === 'offense' ? 'offense' : 'defense'}</span>${esc(c.title)}</button>`).join('') + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
   // your last three plays, one tap away
   function recentHTML() {
@@ -1551,6 +1589,7 @@ export function mount(root, options) {
 
   const iq = createIQ({
     root, team: opts.team, track, sport: () => state.sport, openPanel: panelAt(R.iqBtn), closePanel, toast, posName, strip,
+    concepts: () => conceptsFor(state.sport.id), conceptQuiz: id => { closePanel(); track('lesson_cta', { at: 'iq' }); lesson.open(id, null, { quiz: true }); },
     speak: t => speak(spoken(t)),
     enter() { closePanel(); hush(); state.quiz = { defense: state.defense, raw: state.raw, key: state.libKey }; root.classList.add('ct-quiz'); },
     exit() {
@@ -1776,6 +1815,7 @@ export function mount(root, options) {
       ['link', 'voicestyle', 'speaker', 'Voice style', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
       fb ? ['sw', 'lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked] : null,
       names.any() ? ['sw', 'names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      systems().length ? ['sw', 'system', 'shield', systems()[0].title + ' defense', 'X’s force sideline, sink to the split line, front the post', !!systemId()] : null,
       ['sw', 'sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
       ['sw', 'share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()],
       hasConcepts ? ['link', 'how', 'brain', 'How the AI works', ''] : null,
@@ -1812,6 +1852,7 @@ export function mount(root, options) {
           if (k === 'board') { closePanel(); boardOnly(); return; }
           if (k === 'light') setTheme(root.classList.contains('ct-light') ? 'dark' : 'light');
           if (k === 'sound') { setSound(!soundOn()); if (soundOn()) chime('yes'); }
+          if (k === 'system') setSystem(systemId() ? null : systems()[0].id);
           if (k === 'share') setSharing(!sharing());
           // flip in place: the sheet stays open, and the hint line says what the switch just did
           const say = sw.dataset.say, label = sw.querySelector('b') ? sw.querySelector('b').textContent : '';

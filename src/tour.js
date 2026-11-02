@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.33.0';
+export const VERSION = '0.34.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.34.0', date: '2026-11-02', title: 'Concepts everywhere', items: [
+    { title: 'The defense plays your system', call: 'Turn Defense on in basketball and every X now plays Guard the space: the ball gets pushed to the sideline, the far side sinks to the split line, and posts get fronted. The analyst calls it out too, like when the ball gets into the middle alley. Turn it off in More → Settings.' },
+    { title: 'New concepts for every sport', call: 'Space the floor (five spots, drive a gap, kick it out) for basketball offense, Keep it in front for flag football, and Show them outside for soccer, each at four levels with clips and a quiz.' },
+    { title: 'Quiz it, print it', call: 'Concept quizzes sit in the IQ game next to Streak Run, and every lesson prints all four levels on one page for the clipboard.' }
+  ] },
   { version: '0.33.0', date: '2026-11-02', title: 'Teach a concept: Guard the space', items: [
     { title: 'Defense as geometry, drawn on your court', call: 'Open Guard the space (top of the plays list, or More → Concepts) and the court splits into alleys: the split line, the middle, the force lanes, the sideline, the elbows, the post and the red zone, one idea at a time with a little clip. Pick Kids, Starter, Varsity or Coach for the words that fit your team, then Quiz me for endless questions: which way do you push it, what’s the rule here, where do you help from.' }
   ] },

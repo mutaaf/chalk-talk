@@ -114,7 +114,12 @@ export default {
   line: 'Defense is geometry. Where the ball is tells every defender where to be.',
   credit: 'After Mike Dunlap’s defensive system',
   zones: Z, demos: DEMOS, levels: L,
+  // the defense on every play, when this system is on: feet of shade, sink and front (engine/space.js defenseSystem)
+  defense: { forceSideline: 1.3, splitLine: 1.5, frontPost: 2.2 },
   // which questions each level gets: way (which way do you push it), rule (what's the job here), help (tap your help spot)
+  way: { x: [2.5, 14.5], y: [22, 43], mid: 7, ask: 'You’re guarding the ball. Which way do you push it?',
+    kids: 'Push it to the side lane, the one closest to the ball. The sideline helps you!',
+    middle: 'Turn it out of the middle, toward the nearest sideline.', why: 'Force it to the nearest sideline: it’s the extra defender.' },
   quiz: { kids: ['way'], starter: ['way', 'rule'], varsity: ['rule', 'way', 'help'], coach: ['rule', 'way', 'help'] },
   cues: ['Middle side!', 'Side lane!', 'Wall!', 'Front!', 'Nothing easy!']
 };

@@ -60,6 +60,10 @@ const CSS = `
 .ct-lsnb h3 { margin: 6px 0 6px; font: 900 22px/1.02 var(--display); text-transform: uppercase; letter-spacing: .01em; }
 .ct-lsnb p { margin: 0; font-size: 15px; line-height: 1.42; }
 .ct-lsnb .cue { display: inline-block; margin-top: 10px; padding: 5px 12px; border-radius: 12px; background: rgba(255, 142, 58, .14); color: var(--o); font: 800 15px/1.2 var(--marker, cursive); }
+.ct-lsnlinks { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px; }
+.ct-lsnwatch { display: flex; align-items: center; gap: 7px; padding: 0; font-size: 13.5px; font-weight: 700; color: var(--ice, #8cbcff); }
+.ct-lsnwatch .ct-i { width: 16px; height: 16px; }
+.ct.ct-light .ct-lsnwatch { color: #2f6fca; }
 .ct-lsnb .opts { display: grid; gap: 7px; margin-top: 10px; }
 .ct-lsnb .opts button { padding: 11px 14px; border-radius: 13px; text-align: left; font-size: 14.5px; font-weight: 700; background: rgba(140, 188, 255, .07); border: 1px solid rgba(140, 188, 255, .16) !important; }
 .ct-lsnb .opts.way { grid-template-columns: 1fr 1fr; } .ct-lsnb .opts.way button { text-align: center; font-size: 17px; padding: 14px; }
@@ -126,7 +130,9 @@ export function createLesson(ctx) {
   function setActors(list) {
     actors.forEach(a => a.g.remove());
     actors = list.map(a => {
-      const g = el('g', { class: 'la' }, svg), shape = a.side === 'D' ? el('path', { class: 'x' }, g) : el('circle', { class: 'o' }, g), t = el('text', { class: a.side === 'D' ? 'xt' : '' }, g);
+      const g = el('g', { class: 'la' }, svg);
+      if (a.side === 'ball') return { a, g, shape: null, t: null };   // a pass: the ball on its own path
+      const shape = a.side === 'D' ? el('path', { class: 'x' }, g) : el('circle', { class: 'o' }, g), t = el('text', { class: a.side === 'D' ? 'xt' : '' }, g);
       t.textContent = a.label || ''; return { a, g, shape, t };
     });
     svg.appendChild(ball); svg.appendChild(mark);
@@ -165,13 +171,14 @@ export function createLesson(ctx) {
     }
     const s = mode === 'learn' ? C.levels[level][step] : null, d = s && s.demo ? C.demos[s.demo] : null;
     const u = d ? Math.min(1, ((performance.now() - t0) / 1000 % (d.dur + 1.2)) / d.dur) : 1;
-    const U = 1.5, r0 = P(0, 30), r1 = P(U, 30), rpx = Math.max(8, Math.hypot(r1.x - r0.x, r1.y - r0.y));
+    const [cx, cy] = mid(), U = ctx.sport().mark || 1.5, r0 = P(cx, cy), r1 = P(cx + U, cy), rpx = Math.max(8, Math.hypot(r1.x - r0.x, r1.y - r0.y));
     let bAt = null;
     actors.forEach(A => {
       const [x, y] = actorAt(A.a, u), c = P(x, y);
+      if (A.a.side === 'ball') { bAt = c; return; }
       if (A.a.side === 'D') { const k = rpx * 0.75; A.shape.setAttribute('d', `M${c.x - k} ${c.y - k}L${c.x + k} ${c.y + k}M${c.x - k} ${c.y + k}L${c.x + k} ${c.y - k}`); A.t.setAttribute('x', c.x + k + 6); A.t.setAttribute('y', c.y + k); }
       else { A.shape.setAttribute('cx', c.x); A.shape.setAttribute('cy', c.y); A.shape.setAttribute('r', rpx); A.t.setAttribute('x', c.x); A.t.setAttribute('y', c.y); }
-      if (A.a.ball) bAt = P(x + 1.1, y - 0.9);
+      if (A.a.ball && !bAt) bAt = P(x + U * 0.7, y - U * 0.6);
     });
     if (bAt) { ball.setAttribute('cx', bAt.x); ball.setAttribute('cy', bAt.y); ball.setAttribute('r', Math.max(4.5, rpx * 0.45)); } else ball.setAttribute('r', 0);
     if (answered && answered.tap) { const c = P(answered.tap[0], answered.tap[1]), k = 8; mark.setAttribute('d', `M${c.x - k} ${c.y - k}L${c.x + k} ${c.y + k}M${c.x - k} ${c.y + k}L${c.x + k} ${c.y - k}`); mark.setAttribute('class', 'lmark ' + (answered.ok ? 'ok' : 'no')); } else mark.setAttribute('d', '');
@@ -179,13 +186,15 @@ export function createLesson(ctx) {
   }
 
   // ---- the panel ----
-  const leftIsNeg = () => P(-20, 30).x < P(20, 30).x;   // which way "left" is on screen, wherever the camera is
+  const mid = () => { const F = ctx.sport().field; return [(F.x[0] + F.x[1]) / 2, (F.y[0] + F.y[1]) / 2, (F.x[1] - F.x[0]) * 0.35]; };
+  const leftIsNeg = () => { const [cx, cy, w] = mid(); return P(cx - w, cy).x < P(cx + w, cy).x; };   // which way "left" is on screen, wherever the camera is
   function render() {
     const steps = C.levels[level], s = steps[step];
     const lv = `<div class="ct-lsnlv" role="tablist">${LEVELS.map(L => `<button type="button" role="tab" aria-selected="${L.id === level}" data-lv="${L.id}" class="${L.id === level ? 'on' : ''}">${esc(L.name)}<small>${esc(L.age)}</small></button>`).join('')}</div>`;
     let body, foot;
     if (mode === 'learn') {
-      body = `<small>Step ${step + 1} of ${steps.length}</small><h3>${esc(s.t)}</h3><p>${esc(s.say)}</p>${s.cue ? `<span class="cue">“${esc(s.cue)}”</span>` : ''}`;
+      body = `<small>Step ${step + 1} of ${steps.length}</small><h3>${esc(s.t)}</h3><p>${esc(s.say)}</p>${s.cue ? `<span class="cue">“${esc(s.cue)}”</span>` : ''}`
+        + `<div class="ct-lsnlinks">${C.defense && ctx.watch ? `<button type="button" class="ct-lsnwatch" data-watch>${icon('play')}Watch it in a real play</button>` : ''}${ctx.print ? `<button type="button" class="ct-lsnwatch" data-print>${icon('book')}Print all four levels</button>` : ''}</div>`;
       foot = `<button type="button" class="nav" data-nav="-1" aria-label="Previous step"${step ? '' : ' disabled'}>◀︎</button><div class="dots">${steps.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>`
         + (step < steps.length - 1 ? `<button type="button" class="nav" data-nav="1" aria-label="Next step">▶︎</button><button type="button" class="go ghost" data-quiz>Quiz me</button>` : `<button type="button" class="go" data-quiz>Quiz me</button>`);
     } else {
@@ -202,11 +211,13 @@ export function createLesson(ctx) {
       body = `<small>Quiz · ${streak ? streak + ' in a row' : 'start a streak'}${best ? ' · best ' + best : ''}</small><h3>${esc(Q.ask)}</h3>${opts}${fb}`;
       foot = `<button type="button" class="go ghost" data-learn>Back to the lesson</button><div class="dots"></div>${answered ? '<button type="button" class="go" data-next>Next ›</button>' : ''}`;
     }
-    panel.innerHTML = `<header><span><small>${esc(C.kind === 'defense' ? 'Defense concept' : 'Concept')}</small><b>${esc(C.title)}</b></span><button type="button" data-close aria-label="Close the lesson">${icon('close')}</button></header>${lv}<div class="ct-lsnb" aria-live="polite">${body}</div><footer>${foot}</footer>${C.credit ? `<p class="credit">${esc(C.credit)}</p>` : ''}`;
+    panel.innerHTML = `<header><span><small>${esc(C.kind === 'defense' ? 'Defense concept' : C.kind === 'offense' ? 'Offense concept' : 'Concept')}</small><b>${esc(C.title)}</b></span><button type="button" data-close aria-label="Close the lesson">${icon('close')}</button></header>${lv}<div class="ct-lsnb" aria-live="polite">${body}</div><footer>${foot}</footer>${C.credit ? `<p class="credit">${esc(C.credit)}</p>` : ''}`;
   }
   function onPanel(e) {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.close != null) { close(); return; }
+    if (b.dataset.print != null) { ctx.track('lesson_print', { id: C.id }); ctx.print(C.id); return; }
+    if (b.dataset.watch != null) { const id = C.id; ctx.track('lesson_watch', { id, level }); close(); ctx.watch(id); return; }
     if (b.dataset.lv) { level = b.dataset.lv; store.set(LV, level); step = 0; if (mode === 'quiz') ask(); else show(); ctx.track('lesson_level', { id: C.id, level }); return; }
     if (b.dataset.nav) { step = Math.max(0, Math.min(C.levels[level].length - 1, step + +b.dataset.nav)); show(); return; }
     if (b.dataset.quiz != null) { mode = 'quiz'; streak = 0; ask(); ctx.track('lesson_quiz', { id: C.id, level }); return; }
@@ -234,15 +245,16 @@ export function createLesson(ctx) {
   function ask() { answered = null; Q = question(C, level); scene(); render(); }
   function show() { const s = C.levels[level][step]; scene(); render(); if (ctx.narrate()) ctx.speak(s.t + '. ' + s.say); }
 
-  function open(id, lv) {
-    const c = getConcept(id); if (!c) return false;
+  function open(id, lv, o) {
+    const c = getConcept(id, ctx.sport().id); if (!c) return false;
     style(); C = c; mode = 'learn'; Q = null; answered = null; step = 0;
     level = lv && LEVELS.some(L => L.id === lv) ? lv : ctx.kids() ? 'kids' : store.get(LV, 'starter');
     build();
     panel && panel.remove(); panel = document.createElement('div'); panel.className = 'ct-lsn'; panel.setAttribute('role', 'region'); panel.setAttribute('aria-label', C.title + ' lesson');
     panel.addEventListener('click', onPanel); ctx.root.appendChild(panel);
     ctx.root.classList.add('ct-lessonon'); ctx.enter();
-    show(); ctx.track('lesson_open', { id, level });
+    if (o && o.quiz) { mode = 'quiz'; streak = 0; ask(); } else show();
+    ctx.track('lesson_open', { id, level, quiz: o && o.quiz ? 1 : 0 });
     return true;
   }
   function close() {

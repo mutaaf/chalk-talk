@@ -52,9 +52,41 @@ export function diagram(sport, sim, o) {
     ${lines}${routes.replace(/class="rt pass/g, `marker-end="url(#${id})" class="rt pass`)}${marks}</svg>`;
 }
 
+// a concept on paper (src/concepts/*): the zones on the court in ink, then what to say at every level
+const TONE = { ice: '#2f6fca', good: '#138a52', warn: '#c25e0c', red: '#c62f2f', hot: '#c62f2f', gold: '#a86a00', o: '#f97316' };
+export function conceptDiagram(sport, c) {
+  const F = sport.field, [x0, y0, x1, y1] = [F.x[0], F.y[0], F.x[1], F.y[1]], pad = 1.5;
+  const lines = sport.field.lines({}).map(l => { const pts = l.p.map(p => [p[0], p[1]]); return pts.length < 2 ? '' : `<path class="fl" d="${pathD(pts)}" stroke-width="${(0.12 + (l.w || 1) * 0.1).toFixed(2)}"/>`; }).join('');
+  const id = 'c' + Math.random().toString(36).slice(2, 7);
+  const zones = c.zones.map(z => {
+    const col = TONE[z.tone] || '#111';
+    if (z.kind === 'rect') return `<rect x="${z.x[0]}" y="${z.y[0]}" width="${z.x[1] - z.x[0]}" height="${z.y[1] - z.y[0]}" fill="${col}" fill-opacity=".08" stroke="${col}" stroke-width=".22" stroke-dasharray=".8 .5"/>`;
+    if (z.kind === 'circle') return `<circle cx="${z.c[0]}" cy="${z.c[1]}" r="${z.r}" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width=".25"/>`;
+    if (z.kind === 'line') return `<path d="${pathD(z.pts)}" fill="none" stroke="${col}" stroke-width=".3" stroke-dasharray="1 .7"/>`;
+    return `<path d="${pathD(z.pts)}" fill="none" stroke="${col}" stroke-width=".42" marker-end="url(#${id})"/>`;
+  }).join('');
+  const labels = c.zones.filter(z => z.label && z.at).map(z => `<text x="${z.at[0]}" y="${z.at[1]}" fill="${TONE[z.tone] || '#111'}" font-size="1.25">${z.label.map((w, i) => `<tspan x="${z.at[0]}" dy="${i ? 1.4 : 0}">${esc(w)}</tspan>`).join('')}</text>`).join('');
+  return `<svg class="dg cdg" viewBox="${x0 - pad} ${y0 - pad} ${x1 - x0 + pad * 2} ${y1 - y0 + pad * 2}" role="img" aria-label="${esc(c.title)} diagram">
+    <defs><marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f97316"/></marker></defs>${lines}${zones}<g class="zl">${labels}</g></svg>`;
+}
+const LEVEL_NAMES = { kids: 'Kids · 6–9', starter: 'Starter · 10–13', varsity: 'Varsity · 14+', coach: 'Coach' };
+function conceptPage(sport, c) {
+  const lv = k => `<div class="lv"><h3>${LEVEL_NAMES[k]}</h3><ol class="steps">${c.levels[k].map((s, i) => `<li><span>${i + 1}</span><p><b>${esc(s.t)}.</b> ${esc(s.say)}${s.cue ? ` <em>“${esc(s.cue)}”</em>` : ''}</p></li>`).join('')}</ol></div>`;
+  return `<section class="play concept">
+    <header><div class="num">★</div><div><small>${esc(c.kind === 'defense' ? 'Defense concept' : c.kind === 'offense' ? 'Offense concept' : 'Concept')}</small><h2>${esc(c.title)}</h2></div></header>
+    <div class="main">${conceptDiagram(sport, c)}
+      <div class="side"><p class="kid">${esc(c.line)}</p>
+        ${c.cues && c.cues.length ? `<h3>Say it</h3><ul class="cues">${c.cues.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+        ${lv('kids')}</div></div>
+    <div class="levels">${lv('starter')}${lv('varsity')}</div>
+    <div class="levels one">${lv('coach')}</div>
+    ${c.credit ? `<p class="foot">${esc(c.credit)} · Made with Chalk Talk</p>` : ''}
+  </section>`;
+}
+
 // the whole book: a cover with the contents, then one page per play
 export function buildPlaybook(sport, raws, opts) {
-  opts = Object.assign({ title: 'Playbook', team: '', steps: true, defense: false }, opts);
+  opts = Object.assign({ title: 'Playbook', team: '', steps: true, defense: false, concepts: [] }, opts);
   const pages = raws.map((raw, n) => {
     const nrm = normalize(raw, sport); if (!nrm.ok) return '';
     const sim = compile(nrm.play, sport, { defense: !!opts.defense }), play = sim.play;
@@ -73,6 +105,7 @@ export function buildPlaybook(sport, raws, opts) {
       ${frames}
     </section>`;
   }).join('');
+  const cpages = opts.concepts.map(c => conceptPage(sport, c)).join('');
   const toc = raws.map((r, n) => `<li><span>${n + 1}</span>${esc(r.title || 'Untitled play')}<em>${esc(r.concept || '')}</em></li>`).join('');
   const legend = sport.kinds.route
     ? '<li><i class="lg mv"></i>Route or run</li><li><i class="lg pass"></i>Throw</li><li><i class="lg o"></i>Offense by position (Q, C, X, Z, Y/H, RB)</li><li><i class="lg x"></i>Defense</li>'
@@ -130,13 +163,18 @@ body { margin: 0; font: 11pt/1.4 'Atkinson Hyperlegible', system-ui, sans-serif;
 .frames { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; break-inside: avoid; }
 figure { margin: 0; break-inside: avoid; } figcaption { display: flex; gap: 6px; font-size: 8.5pt; margin-top: 4px; line-height: 1.3; }
 .foot { margin-top: 28px; font-size: 9pt; color: #777; }
+.cdg text { font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 700; text-anchor: middle; text-transform: uppercase; letter-spacing: .06em; paint-order: stroke; stroke: #fff; stroke-width: .35; }
+.levels { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 14px; break-inside: avoid; } .levels.one { grid-template-columns: 1fr; }
+.lv h3 { font: 900 11pt 'Big Shoulders Display', sans-serif; letter-spacing: .14em; text-transform: uppercase; margin: 12px 0 6px; color: #f97316; }
+.lv .steps p { font-size: 9.5pt; } .lv em { font-style: normal; font-weight: 700; color: #f97316; }
+.concept .foot { margin-top: 14px; }
 </style></head><body>
-<div class="bar"><span>${raws.length} play${raws.length === 1 ? '' : 's'} · on a computer, choose “Save as PDF” in the print dialog; on iPhone or iPad, tap Share, then Print or Save to Files</span><button onclick="print()">Save as PDF</button></div>
+<div class="bar"><span>${raws.length ? raws.length + ' play' + (raws.length === 1 ? '' : 's') : opts.concepts.map(c => c.title).join(', ')} · on a computer, choose “Save as PDF” in the print dialog; on iPhone or iPad, tap Share, then Print or Save to Files</span><button onclick="print()">Save as PDF</button></div>
 <div class="page">
-  <section class="cover"><small>${esc(sport.name)}</small><h1>${esc(opts.team || opts.title)}</h1><div class="meta">${opts.team ? esc(opts.title) + ' · ' : ''}${esc(date)} · ${raws.length} play${raws.length === 1 ? '' : 's'}</div>
+  ${raws.length ? '' : cpages}${raws.length ? `<section class="cover"><small>${esc(sport.name)}</small><h1>${esc(opts.team || opts.title)}</h1><div class="meta">${opts.team ? esc(opts.title) + ' · ' : ''}${esc(date)} · ${raws.length} play${raws.length === 1 ? '' : 's'}</div>
     <ol class="toc">${toc}</ol><ul class="legend">${legend}</ul>
-    <p class="foot">Made with Chalk Talk · mutaafaziz.com/chalktalk</p></section>
-  ${pages}
+    <p class="foot">Made with Chalk Talk · mutaafaziz.com/chalktalk</p></section>` : ''}
+  ${raws.length ? cpages : ''}${pages}
 </div>
 <script>document.fonts && document.fonts.ready.then(() => { if (location.hash === '#print') setTimeout(() => print(), 300); });</script>
 </body></html>`;
