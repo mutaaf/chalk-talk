@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.34.1';
+export const VERSION = '0.35.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.35.0', date: '2026-11-02', title: 'Real names, both sides of the ball', items: [
+    { title: 'Every sport teaches offense and defense', call: 'Flag 5v5 teaches Cover 2 and Flood, flag 7v7 Cover 3 and Flood, soccer Pressure, cover, balance and Five lanes, basketball Guard the space and 5-out drive and kick.' },
+    { title: 'The words coaches actually use', call: 'Deep thirds, curl-flat, hook-curl, the honey hole and the seams; go, sail and flat; Zone 14, half-spaces, the cutback zone; drift, lift and backfill.' },
+    { title: 'Spots on real lines', call: 'The 5-out spots sit behind the three-point line and the dunker spot just outside the lane, and the soccer areas follow the real thirds of the pitch.' }
+  ] },
   { version: '0.34.1', date: '2026-11-02', title: 'Always the latest', items: [
     { title: 'Updates arrive when you open the app', call: 'Chalk Talk on your home screen now checks for a new version every time you come back to it, and switches to it right away instead of one launch later.' }
   ] },

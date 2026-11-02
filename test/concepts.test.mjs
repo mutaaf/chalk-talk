@@ -18,6 +18,13 @@ for (const c of allConcepts()) {
     assert.equal(zoneAt(c, [-8, 19]).id, 'elbowL'); assert.equal(zoneAt(c, [11.5, 42]).id, 'ppR');
     assert.equal(zoneAt(c, [0, 40]).id, 'middle'); assert.equal(zoneAt(c, [-21, 30]).id, 'sideL'); assert.equal(zoneAt(c, [0, 6]).id, 'red');
   }
+  // real floor: 5-out spots sit behind the arc (23.75 ft, 22 in the corners), the dunker spot outside the lane
+  if (c.id === 'spacing') for (const z of c.zones.filter(z => z.kind === 'circle')) {
+    const [x, y] = z.c, d = Math.hypot(x, y - 5.25);
+    if (/^dunk/.test(z.id)) assert.ok(Math.abs(x) - z.r >= 8, z.id + ' is outside the lane');
+    else assert.ok(Math.abs(x) >= 22 || d >= 23.75, z.id + ' is behind the three-point line');
+  }
+  // every concept has a real name and both sides of the ball exist for every sport
   for (const L of LEVELS) for (let i = 0; i < 300; i++) {
     const q = question(c, L.id, r); asked++;
     assert.ok(q.ask && q.why, 'every question explains itself');
@@ -31,6 +38,11 @@ for (const c of allConcepts()) {
     if (c.id === 'space' && L.id === 'kids') assert.equal(q.kind, 'way', 'little ones only get which-way');
   }
   for (const d of Object.values(c.demos)) for (const a of d.actors) { assert.deepEqual(actorAt(a, 0), a.path[0]); const e = actorAt(a, 1); assert.ok(Math.hypot(e[0] - a.path.at(-1)[0], e[1] - a.path.at(-1)[1]) < 1e-9); }
+}
+for (const sp of ['basketball', 'flag5', 'flag7', 'soccer7', 'soccer9']) {
+  const { conceptsFor } = await import('../src/concepts/index.js');
+  const kinds = new Set(conceptsFor(sp).map(c => c.kind));
+  assert.ok(kinds.has('offense') && kinds.has('defense'), sp + ' teaches offense and defense');
 }
 console.log(`ok: ${allConcepts().length} concepts (${allConcepts().map(c => c.sport + ' ' + c.title).join(', ')}) pass the gate, cover the field, and ${asked} quiz questions answer themselves`);
 

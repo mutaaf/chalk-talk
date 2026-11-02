@@ -3,16 +3,18 @@
 // own geometry). Adding one is a file plus a line here; test/concepts.test.mjs checks it before it ships.
 import space from './basketball-space.js';
 import spacing from './basketball-spacing.js';
-import { keepInFront } from './flag-front.js';
+import { cover2, cover3 } from './flag-coverage.js';
+import { flood } from './flag-flood.js';
 import { showOutside } from './soccer-outside.js';
+import { fiveLanes } from './soccer-lanes.js';
 import { getSport } from '../sports/index.js';
 
 const BUILD = {
   basketball: () => [space, spacing],
-  flag5: s => [keepInFront('flag5', s.field.x[1] * 2, s.los, s.field.y[1], s.noRush ? 0 : s.rush.depth)],
-  flag7: s => [keepInFront('flag7', s.field.x[1] * 2, s.los, s.field.y[1], s.noRush ? 0 : s.rush.depth)],
-  soccer7: s => [showOutside('soccer7', s.pitch)],
-  soccer9: s => [showOutside('soccer9', s.pitch)]
+  flag5: s => [cover2('flag5', s.field.x[1] * 2, s.los, s.field.y[1], s.noRush ? 0 : s.rush.depth), flood('flag5', s.field.x[1] * 2, s.los, s.field.y[1])],
+  flag7: s => [cover3('flag7', s.field.x[1] * 2, s.los, s.field.y[1], s.noRush ? 0 : s.rush.depth), flood('flag7', s.field.x[1] * 2, s.los, s.field.y[1])],
+  soccer7: s => [showOutside('soccer7', s.pitch), fiveLanes('soccer7', s.pitch)],
+  soccer9: s => [showOutside('soccer9', s.pitch), fiveLanes('soccer9', s.pitch)]
 };
 const cache = {};
 export const conceptsFor = sportId => BUILD[sportId] ? (cache[sportId] = cache[sportId] || BUILD[sportId](getSport(sportId))) : [];

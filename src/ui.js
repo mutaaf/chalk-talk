@@ -660,7 +660,7 @@ export function mount(root, options) {
     lessonK = 1; field.set({ radius: (w, h) => board.r(w, h) * lessonK });
     let n = 0;
     const step = () => {
-      if (!lesson.on || !field || n++ > 5) return;
+      if (!lesson.on || !field || n++ > 14) return;   // the pose eases in over ~1 s: keep measuring until it settles
       const F = state.sport.field, pts = [[F.x[0], F.y[0]], [F.x[1], F.y[0]], [F.x[0], F.y[1]], [F.x[1], F.y[1]]].map(([x, y]) => proj(x, y, 0));
       const bw = Math.max(...pts.map(p => p.x)) - Math.min(...pts.map(p => p.x)), bh = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y));
       const W = root.clientWidth, H = root.clientHeight, phone = W <= 700;
