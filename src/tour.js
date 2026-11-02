@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.35.1';
+export const VERSION = '0.36.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.36.0', date: '2026-11-02', title: 'Trace: walk your path in light', items: [
+    { title: 'Be the player', call: 'More → Trace. Pick your position and the play is projected around you: your path glows on the floor, light runs along the move you make now, and the step card tells you your job. Your eyes, or just above and behind you.' },
+    { title: 'On AR and VR glasses', call: 'On glasses or headsets with a WebXR browser (Snap Spectacles, Quest, Vision Pro, Android XR), Trace goes life size or fits your room. The play waits at the end of each move until you walk to the ring.' },
+    { title: 'Meta Ray-Ban Display', call: 'mutaafaziz.com/chalktalk/glasses is a heads-up version: pick a sport, a play and your position, step with the band, and hear your job.' }
+  ] },
   { version: '0.35.1', date: '2026-11-02', title: 'Bigger map, always a way back', items: [
     { title: 'Expand the mini map', call: 'Tap the map, or ⤢, and it opens big across the screen with the step’s line under it. Tap again to shrink it. Step numbers still jump to that step.' },
     { title: 'Leaving Kids view on a phone', call: 'The Grown-up view button now always shows at the top, so you can get back to the regular board.' }

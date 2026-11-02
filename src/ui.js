@@ -32,6 +32,7 @@ import { createMind } from './mind.js';
 import { createShorts } from './shorts.js';
 import { createHow, howChip } from './howai.js';
 import { createMinimap } from './minimap.js';
+import { createTrace } from './trace.js';
 import { createLesson } from './lesson.js';
 import { conceptsFor, concept as conceptById } from './concepts/index.js';
 import { defenseSystem, systemNotes } from './engine/space.js';
@@ -329,6 +330,7 @@ export function mount(root, options) {
 
   function setSport(s) {
     if (s === state.sport) return;
+    if (tracer.on) tracer.close();
     if (lesson.on) lesson.close();
     state.sport = s; toShape = view(s); state.sketch = null; root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on');
     state.routeMode = false; state.vision.mode = 'off'; state.view = loadView();
@@ -646,6 +648,16 @@ export function mount(root, options) {
   // the mini map (src/minimap.js): the active play top-down in a corner, live, collapsible
   const minimap = createMinimap({ root, sim: () => state.sim, sport: () => state.sport, track, line: t => String(t).replace(/\b([OX][1-9])\b/g, m => nameOf(m)),
     seek: k => { if (!state.sim || state.quiz) return; state.sim.seek(k); state.sim.playing(true); renderDots(); } });
+  // trace (src/trace.js): pick a position, the play is projected around you as light (first person, or WebXR glasses)
+  const tracer = createTrace({ root, sim: () => state.sim, sport: () => state.sport, name: id => nameOf(id), track, chime: k => chime(k === 'ok' ? 'yes' : k),
+    speak: t => { if (state.narrate) speak(t, true); }, onClose: () => { if (state.sim && tracePaused) state.sim.playing(true); tracePaused = false; } });
+  let tracePaused = false;
+  function openTrace(who) {
+    if (!state.sim || state.quiz) return;
+    closePanel(); if (lesson.on) lesson.close();
+    if (state.sim) { tracePaused = true; state.sim.playing(false); renderDots(); }
+    tracer.open(who);
+  }
   // concept lessons (src/lesson.js): a concept from src/concepts drawn on the court, level by level, with a quiz
   const lesson = createLesson({ root, sport: () => state.sport, stage: () => root.querySelector('.ct-stage'), proj: (x, y, h) => { const p = proj(x, y, h); return { x: p.x, y: p.y }; }, unproject: (sx, sy) => unproject(sx, sy),
     kids: () => !!state.kids, narrate: () => !!state.narrate, speak: t => speak(t, true), chime, track,
@@ -1529,6 +1541,7 @@ export function mount(root, options) {
     if (e.key === 'ArrowLeft') act('back');
     if (e.key === 'Escape') {
       if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel:not(.out)')) { closePanel(); return; }
+      if (tracer.on) { tracer.close(); return; }
       if (lesson.on) { lesson.close(); return; }
       if (state.coach) { endCoach(false); return; } if (state.quiz) { iq.stop(); return; } if (state.focus) { R.focusChip.click(); return; }
       if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) { finishSketch(); return; } if (root.classList.contains('ct-board')) boardOnly(false);
@@ -1775,6 +1788,7 @@ export function mount(root, options) {
     iq: ['trophy', 'Test your players’ IQ', 'Freeze a real play and ask who’s open. Thousands of questions.'],
     how: ['brain', 'How the AI works', 'Most of what you say never reaches an AI. Here’s what does.'],
     guide: ['names', 'Know every position', 'What each spot does, where they stand and what they read.'],
+    trace: ['laser', 'Walk your path in light', 'Pick your position and the play glows around you, first person or life size on AR glasses.'],
     concepts: ['shield', 'Teach a concept', 'Guard the space: the alleys drawn on your court, for kids to varsity.']
   };
   function menuSpot() {
@@ -1808,7 +1822,7 @@ export function mount(root, options) {
       ['make', 'Make', [['mine', 'draw', 'My plays', 'Everything you’ve drawn', mine || ''], ['playbook', 'book', 'Playbook', 'Print plays as a PDF'], ['short', 'film', 'Short', 'Vertical video for Reels']]],
       ['learn', 'Learn', [['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ game', 'Read plays, level up', iqMeta], ['guide', 'names', 'Guide', 'Positions in depth'],
         hasConcepts ? ['concepts', 'shield', 'Concepts', 'Teach it, any age'] : ['how', 'brain', 'Under the hood', 'How the AI works']]],
-      ['show', 'Show', [['present', 'cast', 'Present', 'TV, AirPlay, Cast'], ['view', 'view', 'Angles', 'Coach, top-down, sideline'], ['stats', 'chart', 'Stats', 'Plays, AI cost']]]
+      ['show', 'Show', [['present', 'cast', 'Present', 'TV, AirPlay, Cast'], ['trace', 'laser', 'Trace', 'Your path in light, AR glasses'], ['view', 'view', 'Angles', 'Coach, top-down, sideline']]]
     ].filter(Boolean);
     const settings = [
       ['link', 'ai', 'key', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : opts.api ? 'Included' : 'Free AI'],
@@ -1819,6 +1833,7 @@ export function mount(root, options) {
       ['sw', 'sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
       ['sw', 'share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()],
       hasConcepts ? ['link', 'how', 'brain', 'How the AI works', ''] : null,
+      ['link', 'stats', 'chart', 'Stats', 'Plays, AI cost'],
       ['link', 'help', 'info', 'Help & tour', hasNews() ? 'New' : 'Shortcuts']
     ].filter(Boolean);
     const sp = menuSpot();
@@ -1865,7 +1880,7 @@ export function mount(root, options) {
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
         tried.add(k); track('menu', { k, spot: !!b.dataset.spot });
-        ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
+        ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), trace: () => openTrace(), stats: () => R.statsBtn.click(),
           ai: () => openKey(), how: () => how.open(), concepts: () => openConcepts(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };
     }, 'ct-xl ct-ccp');
@@ -2131,6 +2146,7 @@ export function mount(root, options) {
   // the IQ bank (thousands of questions) is built when the board is idle, for this sport and each one switched to
   const idle = f => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 4000 }) : setTimeout(f, 1500));
   idle(() => { if (!dead && state.sport.iq) try { warmIQ(state.sport); } catch (e) {} });
+  if (opts.trace) setTimeout(() => { if (!dead) { track('trace_cta', { at: 'link' }); openTrace(opts.trace === '1' || opts.trace === true ? null : String(opts.trace).toUpperCase()); } }, 900);
   if (opts.concept) setTimeout(() => { if (!dead) { track('lesson_cta', { at: 'link' }); openConcepts(opts.concept, opts.level); } }, 700);
   if (opts.iq && state.sport.iq) setTimeout(() => { if (!dead) { track('iq_cta', { at: 'link' }); iq.open(opts.iq === 'daily' ? 'daily' : null); } }, 700);
   refreshLexicon(ownApi());
@@ -2150,7 +2166,7 @@ export function mount(root, options) {
   }
 
   return {
-    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), concept: (id, level) => openConcepts(id, level), minimap: on => minimap.fold(on === false), kids: on => setKids(on == null ? !state.kids : on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
+    load: raw => load(raw), teach, heard, act, guide: start => guide(start), playbook: () => playbookBuilder(), film: id => openFilmRoom(id), iq: mode => iq.open(mode), stats: () => R.statsBtn.click(), present: on => present(on), mind: on => mind.toggle(on), short: () => shorts.open(), how: at => how.open(at), concept: (id, level) => openConcepts(id, level), trace: who => (who === false ? tracer.close() : openTrace(who)), minimap: on => minimap.fold(on === false), kids: on => setKids(on == null ? !state.kids : on), setSport: id => setSport(sportFor(id)), tour: () => startTour(), whatsNew: () => whatsNew(),
     get field() { return field; }, get sim() { return state.sim; }, get play() { return state.play; }, get sport() { return state.sport.id; },
     destroy() {
       dead = true; cancelAnimationFrame(raf); hush(); closeEditor(); mind.destroy(); minimap.destroy(); lesson.destroy(); shorts.destroy(); how.destroy(); iq.destroy(); clearTimeout(state.keepT); try { wake && wake.release(); } catch (e) {} if (ear) ear.stop(); if (state.busy) state.busy.abort();

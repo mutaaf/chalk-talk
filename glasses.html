@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+<meta name="mrbd-web-app-capable" content="yes">
+<title>Chalk Talk Trace</title>
+<meta name="description" content="Pick a sport, a play and your position, and Chalk Talk shows your path step by step as light: where to go, what to do, where the ball is.">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<style>
+  /* Meta Ray-Ban Display: a 600 × 600 additive display (black is see-through), arrow keys + Enter from the Neural Band */
+  html, body { margin: 0; width: 600px; height: 600px; overflow: hidden; background: #000; color: #fff; touch-action: none; font-family: system-ui, -apple-system, sans-serif; }
+  #app { position: relative; width: 600px; height: 600px; }
+  h1 { margin: 0; padding: 26px 32px 6px; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; color: #ffc75a; }
+  .sub { margin: 0 32px 12px; font-size: 18px; color: #c7d6ee; }
+  .list { margin: 0 24px; display: grid; gap: 8px; max-height: 470px; overflow: hidden; }
+  .list button { display: flex; align-items: center; gap: 14px; min-height: 88px; padding: 0 22px; border-radius: 22px; border: 2px solid rgba(140, 188, 255, .35); background: #000; color: #fff; font: 700 26px/1.15 system-ui, sans-serif; text-align: left; }
+  .list button small { display: block; font-size: 17px; font-weight: 500; color: #9fb4d4; }
+  .list button:focus { outline: none; border-color: #ffc75a; color: #ffc75a; box-shadow: 0 0 0 2px #ffc75a; }
+  .list button.d { border-color: rgba(169, 212, 255, .35); }
+  canvas { position: absolute; inset: 0; }
+  .hint { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 16px; color: #8aa0c0; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="src/glasses.js"></script>
+</body>
+</html>
