@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.35.0';
+export const VERSION = '0.35.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.35.1', date: '2026-11-02', title: 'Bigger map, always a way back', items: [
+    { title: 'Expand the mini map', call: 'Tap the map, or ⤢, and it opens big across the screen with the step’s line under it. Tap again to shrink it. Step numbers still jump to that step.' },
+    { title: 'Leaving Kids view on a phone', call: 'The Grown-up view button now always shows at the top, so you can get back to the regular board.' }
+  ] },
   { version: '0.35.0', date: '2026-11-02', title: 'Real names, both sides of the ball', items: [
     { title: 'Every sport teaches offense and defense', call: 'Flag 5v5 teaches Cover 2 and Flood, flag 7v7 Cover 3 and Flood, soccer Pressure, cover, balance and Five lanes, basketball Guard the space and 5-out drive and kick.' },
     { title: 'The words coaches actually use', call: 'Deep thirds, curl-flat, hook-curl, the honey hole and the seams; go, sail and flat; Zone 14, half-spaces, the cutback zone; drift, lift and backfill.' },

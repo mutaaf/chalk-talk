@@ -1344,6 +1344,8 @@ export const CSS = `
 .ct.ct-kids .ct-kidspill .ct-kidsico { color: var(--night); }
 .ct.ct-kids .ct-top .ct-kidspill span { display: inline !important; }
 @container (max-width: 520px) { .ct.ct-kids .ct-top .ct-sports { display: none !important; } .ct.ct-kids .ct-top .ct-kidspill { margin-left: auto; } }
+/* the way out must always show: the touch header hides every pill but the key and help ones, so this beats it */
+.ct.ct-kids.ct-touch .ct-top > .ct-pill.ct-kidspill[data-r="kidsBtn"], .ct.ct-kids .ct-top > .ct-pill.ct-kidspill[data-r="kidsBtn"] { display: inline-flex !important; visibility: visible !important; min-height: 40px; }
 .ct.ct-kids .ct-lib, .ct.ct-kids .ct-edge, .ct.ct-kids .ct-legend, .ct.ct-kids .ct-talk, .ct.ct-kids .ct-speed, .ct.ct-kids .ct-sketchbar, .ct.ct-kids .ct-fb,
 .ct.ct-kids .ct-think, .ct.ct-kids .ct-lbl:not(.name), .ct.ct-kids .ct-mm, .ct.ct-kids .beacon, .ct.ct-kids .ct-reads, .ct.ct-kids [data-r=readsHead],
 .ct.ct-kids .ct-filmbtn, .ct.ct-kids .ct-film, .ct.ct-kids .ct-ai, .ct.ct-kids .ct-eyebrow, .ct.ct-kids .ct-playchip, .ct.ct-kids .ct-focus { display: none !important; }

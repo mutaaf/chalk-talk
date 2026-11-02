@@ -1,7 +1,8 @@
 // The mini map: the active play, top-down like a playbook page, always in a corner of the board for every sport.
 // Every route is there (the step playing now lit, the ones done dimmed, the ones to come faint), with the players
 // and the ball moving on it live, so a glance says what's happening and what should happen next. Tap a step
-// number to jump there; collapse it to a pill (remembered on this device). Hidden in the IQ game (it would give
+// number to jump there; expand it (⤢, or tap the map) to a big view, which is how a phone reads it; collapse it
+// to a pill (remembered on this device). Hidden in the IQ game (it would give
 // the answers away), while a Short records, in presenter mode and in whiteboard-only.
 // Pure parts (the window, the route layers, the classes) are exported for test/minimap.test.mjs.
 
@@ -45,6 +46,7 @@ const CSS = `
 .ct-mm header b { flex: 1; min-width: 0; font: 900 11.5px/1.1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-mm header b span { color: var(--o, #ff8e3a); }
 .ct-mm header button { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; border: 0; background: transparent; color: var(--mute); cursor: pointer; font: 700 14px/1 system-ui; }
+.ct-mm header button[data-m=grow] { font-size: 15px; }
 .ct-mm header button:hover { color: var(--paper); background: rgba(140, 188, 255, .1); }
 .ct-mm .mm-box { padding: 0 8px 8px; }
 .ct-mm svg { display: block; width: 100%; height: auto; max-height: 230px; }
@@ -71,6 +73,14 @@ const CSS = `
 }
 @container (max-width: 640px) { .ct-mm { top: 104px; width: 132px; } .ct-mm svg { max-height: 96px; } }
 @container (max-width: 300px) { .ct-mm { display: none; } }
+/* expanded: big enough to read on a phone, the step line back on; tap the map or ⤢ again to shrink it */
+.ct-mm.big { width: min(520px, 46cqw); } .ct-mm.big svg { max-height: min(460px, 52cqh); } .ct-mm.big header b { font-size: 12px; }
+@container (max-width: 900px) {
+  .ct-mm.big { left: 10px; right: 10px; width: auto; z-index: 30; border-radius: 16px; box-shadow: 0 18px 60px rgba(0, 0, 0, .55); }
+  .ct-mm.big svg { max-height: 58cqh; } .ct-mm.big .mm-cap { display: -webkit-box; font-size: 14px; margin: 6px 6px 2px; } .ct-mm.big .mm-box { padding: 0 8px 10px; }
+  .ct-mm.big header { padding: 8px 8px 4px 12px; } .ct-mm.big header button { width: 40px; height: 40px; font-size: 18px; }
+  .ct-mm header button { width: 34px; height: 30px; }
+}
 .ct.ct-light .ct-mm .mm-l { stroke: rgba(16, 26, 43, .28); } .ct.ct-light .ct-mm .mm-p.o circle { fill: #fffdf8; } .ct.ct-light .ct-mm .mm-p.o text { fill: #101a2b; } .ct.ct-light .ct-mm .mm-r.p { stroke: #101a2b; } .ct.ct-light .ct-mm .mm-ah { fill: #101a2b; }
 @media (prefers-reduced-motion: reduce) { .ct-mm, .ct-mm .mm-r { transition: none; } }
 `;
@@ -80,14 +90,18 @@ export function createMinimap(ctx) {
   const el = document.createElement('aside'); el.className = 'ct-mm'; el.setAttribute('aria-label', 'Mini map of the play');
   let off = false; try { off = localStorage.getItem(KEY) === 'off'; } catch (e) {}
   el.classList.toggle('off', off);
-  el.innerHTML = `<header><b data-m="title">The play</b><button type="button" data-m="fold" aria-label="Collapse the mini map" aria-expanded="${!off}">${off ? '▸' : '▾'}</button></header><div class="mm-box"><div data-m="svg"></div><p class="mm-cap" data-m="cap"></p></div>`;
+  el.innerHTML = `<header><b data-m="title">The play</b><button type="button" data-m="grow" aria-label="Expand the mini map" aria-pressed="false">⤢</button><button type="button" data-m="fold" aria-label="Collapse the mini map" aria-expanded="${!off}">${off ? '▸' : '▾'}</button></header><div class="mm-box"><div data-m="svg"></div><p class="mm-cap" data-m="cap"></p></div>`;
   ctx.root.appendChild(el);
   const M = {}; el.querySelectorAll('[data-m]').forEach(e => { M[e.dataset.m] = e; });
   let sim = null, marks = [], routes = [], tags = [], ball = null, lastK = -2, lastHold = -2;
   const fold = v => { off = v; el.classList.toggle('off', off); M.fold.textContent = off ? '▸' : '▾'; M.fold.setAttribute('aria-expanded', String(!off)); M.fold.setAttribute('aria-label', off ? 'Show the mini map' : 'Collapse the mini map'); try { localStorage.setItem(KEY, off ? 'off' : 'on'); } catch (e) {} };
   M.fold.onclick = e => { e.stopPropagation(); fold(!off); ctx.track && ctx.track('minimap', { on: off ? 0 : 1 }); };
-  el.querySelector('header b').onclick = () => { if (off) fold(false); };
-  el.addEventListener('click', e => { const t = e.target.closest('[data-seek]'); if (t && ctx.seek) ctx.seek(+t.dataset.seek); });
+  let big = false;
+  const grow = v => { big = v; el.classList.toggle('big', big); M.grow.textContent = big ? '⤡' : '⤢'; M.grow.setAttribute('aria-pressed', String(big)); M.grow.setAttribute('aria-label', big ? 'Shrink the mini map' : 'Expand the mini map'); if (big && off) fold(false); };
+  M.grow.onclick = e => { e.stopPropagation(); grow(!big); ctx.track && ctx.track('minimap', { big: big ? 1 : 0 }); };
+  el.querySelector('header b').onclick = () => { if (off) fold(false); else grow(!big); };
+  // a step number seeks; anywhere else on the map grows or shrinks it
+  el.addEventListener('click', e => { const t = e.target.closest('[data-seek]'); if (t && ctx.seek) ctx.seek(+t.dataset.seek); else if (e.target.closest('.mm-box')) grow(!big); });
   // a new play (or the same one with defense on/off): draw it once; the frame loop only moves the marks
   function rebuild() {
     sim = ctx.sim(); const sport = ctx.sport(); if (!sim || !sport) return;
@@ -112,5 +126,5 @@ export function createMinimap(ctx) {
     const h = sim.holderAt(t);
     if (h !== lastHold) { lastHold = h; marks.forEach(g => g.classList.toggle('ball', +g.dataset.i === h)); }
   }
-  return { rebuild, tick, fold, el, destroy() { el.remove(); style.remove(); } };
+  return { rebuild, tick, fold, grow, get big() { return big; }, el, destroy() { el.remove(); style.remove(); } };
 }

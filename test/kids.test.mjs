@@ -24,3 +24,13 @@ const L = kidLines(pnr, hoops, id => id.slice(1));
 assert.ok(L.some(l => /like a wall/.test(l)), 'a screen is a wall'); assert.ok(L.some(l => /shoots!/.test(l)), 'a shot is a shot');
 assert.deepEqual(kidLines({ players: [], beats: [{ actions: [] }] }, hoops), ['Everybody gets ready.']);
 console.log(`ok: kids view lines for ${n} steps across ${sports().length} sports (longest ${longest} words)`);
+
+// the way out of Kids view shows on phones too (2026-11-02: a coach was stuck in it; the touch header hid every pill)
+{
+  const fs = await import('node:fs');
+  const css = fs.readFileSync(new URL('../src/style.js', import.meta.url), 'utf8');
+  assert.ok(css.includes('.ct.ct-kids.ct-touch .ct-top > .ct-pill.ct-kidspill[data-r="kidsBtn"]'), 'the Grown-up view pill outranks the touch header rule');
+  const mm = fs.readFileSync(new URL('../src/minimap.js', import.meta.url), 'utf8');
+  assert.ok(/data-m="grow"/.test(mm) && /\.ct-mm\.big/.test(mm), 'the mini map can be expanded');
+  console.log('ok: Kids view always has its way out, and the mini map expands');
+}
