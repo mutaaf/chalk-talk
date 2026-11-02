@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.31.0';
+export const VERSION = '0.32.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,8 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.32.0', date: '2026-11-02', title: 'A clearer More menu', items: [
+    { title: 'Everything in one calm sheet', call: 'More now opens with eight quick switches (tap one and it tells you what it does), one thing worth trying today, and the rest in three small groups: Make, Learn and Show. Settings fold away until you need them.', show: 'moreBtn' }
+  ] },
   { version: '0.31.0', date: '2026-11-02', title: 'Kids view', items: [
-    { title: 'Big, slow and simple for little players', call: 'Tap Kids up top (or More → Kids view) and the board turns into something a six-year-old can follow. Each step is one short sentence, like “5 stands still like a wall” or “1 passes to 2.” Buttons are big and round, the play is slower and the clutter is gone. Tap Grown-up view to come back.', show: 'kidsBtn' }
+    { title: 'Big, slow and simple for little players', call: 'Tap Kids up top (or More → Kids) and the board turns into something a six-year-old can follow. Each step is one short sentence, like “5 stands still like a wall” or “1 passes to 2.” Buttons are big and round, the play is slower and the clutter is gone. Tap Grown-up view to come back.', show: 'kidsBtn' }
   ] },
   { version: '0.30.1', date: '2026-10-31', title: 'The free AI, twice as fast', items: [
     { title: 'Plays in about five seconds', call: 'Plays from your own words now draw in about 3 to 7 seconds on the free AI, down from about 10, and you can draw three times as many a day.', show: null }

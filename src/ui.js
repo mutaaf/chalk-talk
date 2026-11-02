@@ -1705,49 +1705,83 @@ export function mount(root, options) {
       pb.onclick = e => { if (e.target.closest('[data-mine]')) { myPlays(); return; } const hb = e.target.closest('[data-hist]'); if (hb) { runHistory(hb.dataset.hist); return; } const b = e.target.closest('[data-k]'); if (b) { closePanel(); teach(b.dataset.k); } };
     }, 'ct-xl');
   }
-  // the control center: destinations as tiles, and every on/off as a stock switch row that flips in place
-  function controlCenter() {
-    const fb = !!state.sport.kinds.route;
-    // a flip's cover screen keeps only the mic and More in the dock (style.js): the plays and the film room move in here
+  // More: the menu in three layers, so it informs without a wall of buttons. Up top, the board's quick switches
+  // (a tap flips one and says what it does); then one spotlight on something you haven't tried yet (today's Daily,
+  // what's new, or a feature you've never opened); then everything else as three small groups, Make / Learn / Show;
+  // and the rarely-touched settings folded away. Pure render in menuHTML; controlCenter wires it.
+  const tried = { get() { try { return JSON.parse(localStorage.getItem('chalktalk.tried') || '[]'); } catch (e) { return []; } },
+    add(k) { const t = this.get(); if (t.indexOf(k) < 0) { t.push(k); try { localStorage.setItem('chalktalk.tried', JSON.stringify(t)); } catch (e) {} } } };
+  const PITCH = {
+    short: ['film', 'Turn a play into a Short', 'A vertical video with diagrams and captions, ready for Reels and TikTok.'],
+    present: ['cast', 'Put it on the big screen', 'Cast or AirPlay the board to a TV so the whole team can see.'],
+    playbook: ['book', 'Print a playbook', 'Pick your plays and get a clean PDF for the clipboard.'],
+    iq: ['trophy', 'Test your players’ IQ', 'Freeze a real play and ask who’s open. Thousands of questions.'],
+    how: ['brain', 'How the AI works', 'Most of what you say never reaches an AI. Here’s what does.'],
+    guide: ['names', 'Know every position', 'What each spot does, where they stand and what they read.']
+  };
+  function menuSpot() {
+    if (dailyOpen()) {
+      const d = dailyStore(state.sport.iq.name).get(), streak = d.last === dayNumber() - 1 ? d.streak : 0;
+      return { k: 'iq', ic: 'trophy', tag: `${state.sport.iq.name} Daily · #${dayNumber()}${streak ? ' · 🔥 ' + streak : ''}`, t: 'Read 5 real plays', s: 'About a minute. Same five for everyone today.', go: 'Play' };
+    }
+    if (hasNews()) return { k: 'help', ic: 'sparkle', tag: 'New in v' + VERSION, t: RELEASES[0].title, s: RELEASES[0].items[0].title, go: 'See it' };
+    const t = tried.get(), k = Object.keys(PITCH).find(x => t.indexOf(x) < 0 && (x !== 'iq' || state.sport.iq));
+    return k ? { k, ic: PITCH[k][0], tag: 'Try this', t: PITCH[k][1], s: PITCH[k][2], go: 'Open' } : null;
+  }
+  function menuHTML() {
+    const fb = !!state.sport.kinds.route, mine = history.all().filter(e => e.sport === state.sport.id).length;
     const cw = root.clientWidth, mini = cw <= 300 || (cw <= 420 && root.clientHeight <= 360);
-    const tiles = [
-      ...(mini ? [['plays', 'book', 'Plays', state.sport.name], ['film', 'film', 'Film room', 'Every position’s read']] : []),
-      ['mine', 'film', 'My plays', 'Everything you’ve drawn'],
-      ['playbook', 'book', 'Playbook', 'Print any plays as a PDF'],
-      ['short', 'film', 'Make a Short', 'Vertical video for Shorts, Reels (C)'],
-      ['guide', 'book', 'Guide', 'Positions in depth'],
-      ['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ', 'Read plays, level up'],
-      ['present', 'cast', 'Present', 'TV, AirPlay, Cast'],
-      ['stats', 'chart', 'Stats', 'Play numbers, AI cost'],
-      ['view', 'view', 'Angles', 'Coach, top-down, sideline'],
-      ['how', 'brain', 'Under the hood', 'How the AI works'],
-      ['ai', 'sparkle', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : opts.api ? 'Included' : 'Free AI'],
-      ['voicestyle', 'speaker', 'Voice', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
-      ['help', 'info', 'Help', hasNews() ? 'What’s new' : 'Tour, shortcuts']
-    ];
-    const switches = () => [
+    const light = root.classList.contains('ct-light');
+    // the eight switches worth a thumb; the 8th is routes in football, the view lock elsewhere
+    const quick = [
       ['defense', 'shield', 'Defense', 'X’s guard, help and react on their own', state.defense],
-      ['voice', 'speaker', 'Analyst voice', 'Explains the read as the play runs', state.narrate],
-      fb ? ['fb', 'draw', 'Routes & coverage', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')] : null,
-      names.any() ? ['names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
-      ['kids', 'sparkle', 'Kids view', 'Big, slow and simple, for little players', !!state.kids],
-      ['beacon', 'sparkle', 'Best read', 'A flashing green marker on the open option, live', !!state.beacon],
+      ['voice', 'speaker', 'Voice', 'The analyst explains the read as the play runs', state.narrate],
+      ['beacon', 'laser', 'Best read', 'A flashing green marker on the open option', !!state.beacon],
+      ['kids', 'sparkle', 'Kids', 'Big, slow and simple, for little players', !!state.kids],
       ['mind', 'brain', 'Mind view', 'Every player’s live read, for the nerds (V)', mind.on],
-      ['board', 'expand', 'Whiteboard only', 'Full screen, panels away, icons only', root.classList.contains('ct-board')],
-      ['lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked],
-      ['light', 'sun', 'Light mode', 'For a bright sideline', root.classList.contains('ct-light')],
-      ['sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
-      ['share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()]
+      ['board', 'expand', 'Board only', 'Full screen, panels away, icons only', root.classList.contains('ct-board')],
+      ['light', 'sun', 'Light mode', 'For a bright sideline', light],
+      fb ? ['fb', 'draw', 'Routes', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')]
+        : ['lock', state.view.locked ? 'lock' : 'unlock', 'Lock view', 'Keeps the court where you set it', !!state.view.locked]
+    ];
+    const iqMeta = !state.sport.iq || dailyOpen() ? '' : (() => { const d = dailyStore(state.sport.iq.name).get(); return d.last >= dayNumber() - 1 && d.streak ? '🔥 ' + d.streak : ''; })();
+    const groups = [
+      mini ? ['board', 'The board', [['plays', 'book', 'Plays', state.sport.name], ['film', 'film', 'Film room', 'Every position’s read']]] : null,
+      ['make', 'Make', [['mine', 'draw', 'My plays', 'Everything you’ve drawn', mine || ''], ['playbook', 'book', 'Playbook', 'Print plays as a PDF'], ['short', 'film', 'Short', 'Vertical video for Reels']]],
+      ['learn', 'Learn', [['iq', 'trophy', state.sport.iq ? state.sport.iq.name : 'IQ game', 'Read plays, level up', iqMeta], ['guide', 'names', 'Guide', 'Positions in depth'], ['how', 'brain', 'Under the hood', 'How the AI works']]],
+      ['show', 'Show', [['present', 'cast', 'Present', 'TV, AirPlay, Cast'], ['view', 'view', 'Angles', 'Coach, top-down, sideline'], ['stats', 'chart', 'Stats', 'Plays, AI cost']]]
     ].filter(Boolean);
-    const rows = () => switches().map(([k, ic, t, sub, on]) => `<button type="button" class="ct-row" role="switch" aria-checked="${!!on}" data-sw="${k}">${icon(ic)}<span><b>${esc(t)}</b><small>${esc(sub)}</small></span><i class="ct-ios${on ? ' on' : ''}"></i></button>`).join('');
-    openPanel(isTouchLayout() ? R.playChip : R.moreBtn, 'Control center', `<div class="ct-cc">${tiles.map(([k, ic, t, sub], i) => `<button type="button" data-cc="${k}" style="--i:${i}">${icon(ic)}<b>${esc(t)}</b><small>${esc(sub)}</small></button>`).join('')}</div>
-      <div class="ct-rows" data-r="ccRows">${rows()}</div>`, pb => {
+    const settings = [
+      ['link', 'ai', 'key', 'AI', keyKind(key.get()) ? NAMES[keyKind(key.get())] : opts.api ? 'Included' : 'Free AI'],
+      ['link', 'voicestyle', 'speaker', 'Voice style', state.narrate ? (state.style === 'analyst' ? 'Analyst' : 'Play-by-play') : 'Off'],
+      fb ? ['sw', 'lock', 'lock', 'Lock the view', 'Keep the field where you set it', !!state.view.locked] : null,
+      names.any() ? ['sw', 'names', 'names', 'Show names', 'Kept on this device only', !!state.showNames] : null,
+      ['sw', 'sound', 'speaker', 'Sound effects', 'Quiet chimes for reads and levels', soundOn()],
+      ['sw', 'share', 'brain', 'Help the voice learn', 'Share kept plays and fixed words, names removed', sharing()],
+      ['link', 'help', 'info', 'Help & tour', hasNews() ? 'New' : 'Shortcuts']
+    ].filter(Boolean);
+    const sp = menuSpot();
+    return `<div class="ct-mn">
+      <section class="ct-mnq" aria-label="Quick switches"><div class="ct-mnqg">${quick.map(([k, ic, t, sub, on], i) => `<button type="button" role="switch" aria-checked="${!!on}" data-sw="${k}" data-say="${esc(sub)}" class="${on ? 'on' : ''}" style="--i:${i}"><i>${icon(ic)}</i><b>${esc(t)}</b></button>`).join('')}</div>
+        <p class="ct-mnhint" data-r="mnHint" aria-live="polite">Tap a switch to flip it. What it does shows here.</p></section>
+      ${sp ? `<button type="button" class="ct-mnspot" data-cc="${sp.k}" data-spot="1"><i>${icon(sp.ic)}</i><span><small>${esc(sp.tag)}</small><b>${esc(sp.t)}</b><em>${esc(sp.s)}</em></span><u>${esc(sp.go)} ›</u></button>` : ''}
+      <div class="ct-mngs">${groups.map(([g, title, tiles], gi) => `<section class="ct-mng" data-g="${g}"><h5>${esc(title)}</h5><div>${tiles.map(([k, ic, t, sub, meta], i) => `<button type="button" data-cc="${k}" style="--i:${gi * 3 + i + 8}"><i>${icon(ic)}</i><b>${esc(t)}</b><small>${esc(sub)}</small>${meta ? `<em>${esc(String(meta))}</em>` : ''}</button>`).join('')}</div></section>`).join('')}</div>
+      <details class="ct-mnset"${state.menuSettings ? ' open' : ''}><summary>${icon('grid')}<span><b>Settings</b><small>AI, voice, sound${names.any() ? ', names' : ''} and more</small></span><i>›</i></summary>
+        <div class="ct-rows">${settings.map(r => r[0] === 'sw'
+          ? `<button type="button" class="ct-row" role="switch" aria-checked="${!!r[5]}" data-sw="${r[1]}">${icon(r[2])}<span><b>${esc(r[3])}</b><small>${esc(r[4])}</small></span><i class="ct-ios${r[5] ? ' on' : ''}"></i></button>`
+          : `<button type="button" class="ct-row ct-rowlink" data-cc="${r[1]}">${icon(r[2])}<span><b>${esc(r[3])}</b></span><em>${esc(r[4])}</em><i>›</i></button>`).join('')}</div></details>
+    </div>`;
+  }
+  function controlCenter() {
+    openPanel(isTouchLayout() ? R.playChip : R.moreBtn, 'More', menuHTML(), pb => {
+      const set = pb.querySelector('.ct-mnset');
+      set.addEventListener('toggle', () => { state.menuSettings = set.open; });
       pb.onclick = e => {
         const sw = e.target.closest('[data-sw]');
         if (sw) {
           const k = sw.dataset.sw;
           if (k === 'defense') act('defense');
-          if (k === 'kids') { setKids(!state.kids); return; }
+          if (k === 'kids') setKids(!state.kids);
           if (k === 'voice') { state.narrate = !state.narrate; if (state.narrate) { state.style = 'analyst'; saveStyle(); boothAI(); } else hush(); renderNarrate(); renderPresent(); }
           if (k === 'fb') root.classList.toggle('ct-fbopen');
           if (k === 'names') R.namesBtn.click();
@@ -1758,10 +1792,17 @@ export function mount(root, options) {
           if (k === 'light') setTheme(root.classList.contains('ct-light') ? 'dark' : 'light');
           if (k === 'sound') { setSound(!soundOn()); if (soundOn()) chime('yes'); }
           if (k === 'share') setSharing(!sharing());
-          pb.querySelector('[data-r=ccRows]').innerHTML = rows();   // flip in place, the sheet stays open
+          // flip in place: the sheet stays open, and the hint line says what the switch just did
+          const say = sw.dataset.say, label = sw.querySelector('b') ? sw.querySelector('b').textContent : '';
+          const fresh = document.createElement('div'); fresh.innerHTML = menuHTML();
+          pb.querySelector('.ct-mnqg').replaceWith(fresh.querySelector('.ct-mnqg'));
+          pb.querySelector('.ct-mnset .ct-rows').replaceWith(fresh.querySelector('.ct-mnset .ct-rows'));
+          pb.querySelectorAll('.ct-mnqg button').forEach(b => { b.style.animation = 'none'; });
+          if (say) { const on = pb.querySelector(`.ct-mnqg [data-sw="${k}"]`); pb.querySelector('[data-r=mnHint]').innerHTML = `<b>${esc(label)} ${on && on.classList.contains('on') ? 'on' : 'off'}</b> · ${esc(say)}`; }
           return;
         }
         const b = e.target.closest('[data-cc]'); if (!b) return; const k = b.dataset.cc; closePanel();
+        tried.add(k); track('menu', { k, spot: !!b.dataset.spot });
         ({ plays: () => playsSheet(), film: () => openFilmRoom(), playbook: () => playbookBuilder(), mine: () => myPlays(), guide: () => guide(), iq: () => iq.open(), view: () => R.viewBtn.click(), present: () => present(true), stats: () => R.statsBtn.click(),
           ai: () => openKey(), how: () => how.open(), short: () => shorts.open(), help: () => R.helpBtn.click(), voicestyle: () => voiceMenu() })[k]();
       };

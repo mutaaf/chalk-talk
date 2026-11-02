@@ -691,6 +691,67 @@ export const CSS = `
 .ct-cc button .ct-i { width: 26px; height: 26px; margin-bottom: 6px; color: var(--ice); }
 .ct-cc button b { font-size: 15.5px; } .ct-cc button small { color: var(--mute); font-size: 12.5px; line-height: 1.25; }
 .ct-cc button.on { background: linear-gradient(160deg, rgba(255, 142, 58, .32), rgba(255, 142, 58, .1)); border-color: rgba(255, 142, 58, .55) !important; } .ct-cc button.on .ct-i { color: var(--o); }
+/* More: quick switches, one spotlight, three small groups, settings folded away (controlCenter in ui.js) */
+.ct-mn { container-type: inline-size; display: grid; gap: 14px; padding: 12px 14px 16px; }
+.ct-mnqg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 6px; }
+.ct-mnqg button { display: grid; justify-items: center; gap: 6px; padding: 2px 0; font-size: 11.5px; color: var(--mute); -webkit-tap-highlight-color: transparent; animation: ct-rise .28s both; animation-delay: calc(var(--i) * 18ms); }
+.ct-mnqg button i { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 18px; background: rgba(140, 188, 255, .08); border: 1px solid rgba(140, 188, 255, .14); color: var(--paper); transition: background .2s, border-color .2s, transform .12s; }
+.ct-mnqg button .ct-i { width: 24px; height: 24px; }
+.ct-mnqg button:active i { transform: scale(.92); }
+.ct-mnqg button b { font-weight: 700; line-height: 1.15; text-align: center; }
+.ct-mnqg button.on { color: var(--paper); }
+.ct-mnqg button.on i { background: var(--o); border-color: var(--o); color: var(--night); box-shadow: 0 6px 18px rgba(255, 142, 58, .35); }
+.ct-mnhint { margin: 12px 2px 0; min-height: 2.6em; text-align: center; font-size: 12.5px; line-height: 1.3; color: var(--mute); }
+.ct-mnhint b { color: var(--paper); }
+.ct-mnspot { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border-radius: 20px; text-align: left; background: radial-gradient(120% 140% at 0% 0%, rgba(255, 142, 58, .3), rgba(255, 142, 58, .06) 60%), rgba(10, 18, 32, .6); border: 1px solid rgba(255, 142, 58, .45) !important; animation: ct-rise .3s .12s both; }
+.ct-mnspot > i { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: var(--o); color: var(--night); }
+.ct-mnspot > i .ct-i { width: 24px; height: 24px; }
+.ct-mnspot span { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.ct-mnspot small { font: 700 11px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.ct-mnspot b { font: 900 21px/1.05 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+.ct-mnspot em { font-style: normal; font-size: 12.5px; line-height: 1.3; color: var(--paper); opacity: .78; }
+.ct-mnspot u { flex: none; align-self: center; text-decoration: none; padding: 7px 12px; border-radius: 12px; background: rgba(4, 7, 12, .45); color: var(--o); font-weight: 700; font-size: 13px; }
+.ct-mngs { display: grid; gap: 14px; }
+.ct-mng { --h: var(--ice); }
+.ct-mng[data-g=make] { --h: var(--o); } .ct-mng[data-g=learn] { --h: var(--gold); } .ct-mng[data-g=show] { --h: var(--ice); } .ct-mng[data-g=board] { --h: var(--good); }
+.ct-mng h5 { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font: 800 12px/1 var(--display); letter-spacing: .2em; text-transform: uppercase; color: var(--h); }
+.ct-mng h5::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--h) 40%, transparent), transparent); }
+.ct-mng > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.ct-mng[data-g=board] > div { grid-template-columns: 1fr 1fr; }
+.ct-mng button { position: relative; display: grid; align-content: start; justify-items: start; gap: 3px; min-height: 92px; padding: 10px 10px 9px; border-radius: 16px; text-align: left; background: linear-gradient(165deg, color-mix(in srgb, var(--h) 13%, transparent), rgba(140, 188, 255, .02)); border: 1px solid color-mix(in srgb, var(--h) 22%, transparent) !important; animation: ct-rise .3s both; animation-delay: calc(var(--i) * 18ms); transition: transform .12s; -webkit-tap-highlight-color: transparent; }
+.ct-mng button:active { transform: scale(.97); }
+.ct-mng button > i { display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 4px; border-radius: 10px; background: color-mix(in srgb, var(--h) 18%, transparent); color: var(--h); }
+.ct-mng button > i .ct-i { width: 19px; height: 19px; }
+.ct-mng button b { font-size: 14px; line-height: 1.15; }
+.ct-mng button small { font-size: 11.5px; line-height: 1.25; color: var(--mute); }
+.ct-mng button em { position: absolute; top: 10px; right: 9px; padding: 2px 7px; border-radius: 9px; font: 700 11px/1.4 var(--body); font-style: normal; background: color-mix(in srgb, var(--h) 22%, transparent); color: var(--h); }
+.ct-mnset { border-radius: 16px; background: rgba(140, 188, 255, .05); border: 1px solid rgba(140, 188, 255, .12); overflow: hidden; }
+.ct-mnset summary { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 9px 14px; cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; }
+.ct-mnset summary::-webkit-details-marker { display: none; }
+.ct-mnset summary > .ct-i { width: 22px; height: 22px; color: var(--ice); flex: none; }
+.ct-mnset summary span { flex: 1; display: grid; gap: 1px; } .ct-mnset summary b { font-size: 15px; } .ct-mnset summary small { font-size: 12px; color: var(--mute); }
+.ct-mnset summary > i { font-style: normal; font-size: 20px; color: var(--mute); transition: transform .2s; }
+.ct-mnset[open] summary > i { transform: rotate(90deg); }
+.ct-mnset .ct-rows { margin: 0; border-radius: 0; border: 0; border-top: 1px solid rgba(140, 188, 255, .1); background: none; }
+.ct .ct-rowlink em { font-style: normal; font-size: 13.5px; color: var(--mute); }
+.ct .ct-rowlink > i { font-style: normal; font-size: 20px; color: var(--mute); margin-left: 2px; }
+/* wide (the desktop More panel): the groups sit side by side, their tiles as rows */
+@container (min-width: 620px) {
+  .ct-mnqg { grid-template-columns: repeat(8, 1fr); }
+  .ct-mngs { grid-template-columns: repeat(3, 1fr); }
+  .ct-mngs:has(> [data-g=board]) { grid-template-columns: repeat(4, 1fr); }
+  .ct-mng > div, .ct-mng[data-g=board] > div { grid-template-columns: 1fr; }
+  .ct-mng button { min-height: 0; grid-template-columns: 32px 1fr; column-gap: 10px; align-items: center; padding: 10px; }
+  .ct-mng button > i { grid-row: span 2; margin: 0; }
+  .ct-mnspot { padding: 16px 18px; }
+}
+@container (max-width: 290px) { .ct-mng > div { grid-template-columns: 1fr 1fr; } .ct-mnqg button i { width: 48px; height: 48px; } }
+.ct.ct-light .ct-mnqg button i { background: rgba(16, 26, 43, .05); border-color: var(--line); }
+.ct.ct-light .ct-mnqg button.on i { background: var(--o); border-color: var(--o); }
+.ct.ct-light .ct-mnspot { background: radial-gradient(120% 140% at 0% 0%, rgba(255, 142, 58, .22), rgba(255, 142, 58, .04) 60%), #fff; }
+.ct.ct-light .ct-mnspot small { color: #b7791f; } .ct.ct-light .ct-mnspot u { background: rgba(255, 142, 58, .12); }
+.ct.ct-light .ct-mng[data-g=learn] { --h: #b7791f; } .ct.ct-light .ct-mng[data-g=show] { --h: #2f6fca; }
+@media (prefers-reduced-motion: reduce) { .ct-mnqg button, .ct-mng button, .ct-mnspot { animation: none; } }
 .ct-playgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 14px; }
 .ct-playgrid button { display: grid; gap: 2px; padding: 12px 14px; min-height: 64px; border-radius: 14px; text-align: left; background: rgba(140, 188, 255, .05); border: 1px solid rgba(140, 188, 255, .12) !important; }
 .ct-playgrid button small { color: var(--o); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
@@ -1257,7 +1318,8 @@ export const CSS = `
 .ct :is(.ct-panel, .ct-card, .ct-iqhud, .ct-fb, .ct-coach, .ct-sketchbar) {
   background: var(--glass-regular) !important; backdrop-filter: var(--glass-blur) !important; -webkit-backdrop-filter: var(--glass-blur) !important; box-shadow: var(--glass-edge), var(--glass-depth);
 }
-.ct .ct-panel > header { background: transparent; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+/* a blur nested in the panel's own blur doesn't blur its siblings, so the sticky header gets a near-solid tint instead */
+.ct .ct-panel > header { background: color-mix(in srgb, var(--deep) 90%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
 .ct .ct-toast { color: var(--paper) !important; }
 /* no blur available, less transparency asked for, or more contrast: the same surfaces, near-solid */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
