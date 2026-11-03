@@ -32,7 +32,7 @@ function glyph(sport, side, label, x, y, cls, square) {
   const shape = square ? `<rect x="${x - 0.85 * U}" y="${y - 0.85 * U}" width="${1.7 * U}" height="${1.7 * U}"/>` : `<circle cx="${x}" cy="${y}" r="${U}"/>`;
   return `<g class="mb-p O ${cls}">${shape}<text x="${x}" y="${y}" font-size="${fs}">${esc(label)}</text></g>`;
 }
-const mateLabel = (sport, id) => sport.los == null ? (id[0] === 'O' ? id.slice(1) : 'X') : id === 'QB' ? 'Q' : id;
+const mateLabel = (sport, id) => sport.rally ? sport.notation.inside({ id, side: id[0] === 'X' ? 'D' : 'O' }) : sport.los == null ? (id[0] === 'O' ? id.slice(1) : 'X') : id === 'QB' ? 'Q' : id;
 
 // one position, drawn: lines, teammates faint, this position lit, its move animated
 export function miniBoard(sport, pos, o) {

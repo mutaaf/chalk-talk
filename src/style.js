@@ -1370,4 +1370,9 @@ export const CSS = `
   .ct.ct-kids .ct-card h1 { font-size: 26px; } .ct.ct-kids .ct-card p[data-r=summary] { font-size: 16px; } .ct.ct-kids .ct-card h2, .ct.ct-kids .ct-cues, .ct.ct-kids .ct-cardx { display: none !important; }
   .ct.ct-kids .ct-transport > button { width: 64px; height: 64px; } .ct.ct-kids .ct-transport > button[data-r=playBtn] { width: 80px; height: 80px; }
 }
+/* a net sport (pickleball): the other side always plays, so there is no Defense switch; the first-visit welcome */
+.ct.ct-rally [data-r=defBtn], .ct.ct-rally [data-r=rlDef], .ct.ct-rally [data-r=pDef] { display: none !important; }
+.ct .ct-wlede { margin: 14px 16px 0; color: var(--ink2, #c7d6ee); font-size: 14.5px; line-height: 1.45; max-width: 560px; }
+.ct .ct-welcome { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); max-width: 620px; }
+.ct .ct-welcome button { min-height: 84px; }
 `;

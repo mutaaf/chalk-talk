@@ -191,7 +191,8 @@ const HINTS = {
   flag5: ['Tap the mic (or hold space) and say a play: “Z runs a slant, Y runs to the flat, QB reads the flat defender…”', '…or type it: show me mesh'],
   flag7: ['Tap the mic (or hold space) and say a play: “Trips right, X runs a post, the slot runs a dig…”', '…or type it: show me four verticals'],
   soccer7: ['Tap the mic (or hold space) and say a play: “The 8 plays it to the 11, gets it back and runs in behind…”', '…or type it: show me a wall pass'],
-  soccer9: ['Tap the mic (or hold space) and say a play: “Switch it to the 7, the 2 overlaps, cross it low to the 9…”', '…or type it: show me a third-man run']
+  soccer9: ['Tap the mic (or hold space) and say a play: “Switch it to the 7, the 2 overlaps, cross it low to the 9…”', '…or type it: show me a third-man run'],
+  pickleball: ['Tap the mic (or hold space) and say a point: “A serves to C, C returns deep and runs in, B drops it into the kitchen…”', '…or type it: show me an Erne']
 };
 
 // how big the field is drawn: the whole field fits with every player on screen, leaving room for the header and dock.
@@ -328,6 +329,22 @@ export function mount(root, options) {
     return true;
   }
 
+  // quick start for a sport someone may never have played (pickleball): the first time it opens, three ways in
+  function welcome(s) {
+    const W = s.welcome; if (!W) return;
+    try { if (localStorage.getItem('chalktalk.met.' + s.id)) return; localStorage.setItem('chalktalk.met.' + s.id, '1'); } catch (e) { return; }
+    track('welcome', { sport: s.id });
+    openPanel(R.moreBtn, W.title, `<p class="ct-wlede">${esc(W.line)}</p><div class="ct-playgrid ct-welcome">${W.steps.map((x, i) => `<button type="button" data-w="${i}"><small>${esc(x.k)}</small><b>${esc(x.t)}</b><small>${esc(x.s)}</small></button>`).join('')}</div>`, pb => {
+      pb.onclick = e => {
+        const b = e.target.closest('[data-w]'); if (!b) return;
+        const x = W.steps[+b.dataset.w]; closePanel(); track('welcome_go', { sport: s.id, to: x.go });
+        if (x.go === 'lesson') openConcepts(x.id, x.level);
+        else if (x.go === 'trace') openTrace(x.who || null);
+        else if (x.go === 'iq') iq.open();
+        else if (x.go === 'play') { const raw = s.plays.find(p => p.key === x.key) || s.plays[0]; load(raw, { key: raw.key }); }
+      };
+    }, 'ct-xl');
+  }
   function setSport(s) {
     if (s === state.sport) return;
     if (tracer.on) tracer.close();
@@ -337,6 +354,7 @@ export function mount(root, options) {
     renderSports(); renderLibrary(); renderLegend(); renderHints();
     const first = s.plays[0]; load(first, { key: first.key, say: s.name + '. ' + first.title + '.' }); applyView();
     if (s.iq) (typeof requestIdleCallback === 'function' ? requestIdleCallback : f => setTimeout(f, 1500))(() => { try { warmIQ(s); } catch (e) {} });
+    if (s.welcome) setTimeout(() => { if (!dead && state.sport === s && !lesson.on && !tracer.on) welcome(s); }, 900);
     opts.onSport && opts.onSport(s.id);
   }
 
@@ -844,6 +862,7 @@ export function mount(root, options) {
     if (c === 'toggle') sim.playing(!sim.playing());
     if (c === 'slower') state.userSpeed = sim.speed(sim.speed() / 1.5 < 0.3 ? 0.25 : +(sim.speed() / 1.5).toFixed(2));
     if (c === 'faster') state.userSpeed = sim.speed(+(sim.speed() * 1.5).toFixed(2));
+    if ((c === 'defense-on' || c === 'defense-off' || c === 'defense') && state.sport.rally) { toast('In ' + state.sport.name.toLowerCase() + ' the other side always plays.'); return; }
     if (c === 'defense-on' || c === 'defense-off' || c === 'defense') {
       state.defense = c === 'defense' ? !state.defense : c === 'defense-on'; track('defense', { on: state.defense ? 1 : 0 });
       renderDefense(); if (R.rlDef) R.rlDef.classList.toggle('on', state.defense);
@@ -874,10 +893,11 @@ export function mount(root, options) {
   R.sketchBtn.onclick = () => act('sketch');
 
   // ---- sports, library, legend ----
-  const famOf = s => s.id.replace(/\d+$/, ''), FAM = { basketball: 'Hoops', flag: 'Flag', soccer: 'Soccer' };
+  const famOf = s => s.id.replace(/\d+$/, ''), FAM = { basketball: 'Hoops', flag: 'Flag', soccer: 'Soccer', pickleball: 'Pickleball' };
   const fmt = s => (s.roster && s.roster.perSide ? s.roster.perSide + 'v' + s.roster.perSide : s.short);
   function renderSports() {
     renderIQPill();
+    root.classList.toggle('ct-rally', !!state.sport.rally);   // a net sport: the other side always plays, no Defense switch
     R.sports.hidden = allowed.length < 2;
     // one tab per sport family (Hoops · Flag · Soccer); the current family's formats as a small toggle
     const fams = [...new Set(allowed.map(famOf))], cur = famOf(state.sport), formats = allowed.filter(x => famOf(x) === cur);
@@ -902,7 +922,7 @@ export function mount(root, options) {
   }
   function renderLibrary() {
     const cs = conceptsFor(state.sport.id);
-    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + cs.map(c => `<button data-concept="${esc(c.id)}" class="ct-mine">${icon(c.kind === 'offense' ? 'ball' : 'shield')}<span>Teach ${c.kind === 'offense' ? 'offense' : 'defense'}</span>${esc(c.title)}</button>`).join('') + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
+    R.lib.innerHTML = iqHero() + `<button data-mine="1" class="ct-mine">${icon('film')}<span>Saved by you</span>My plays</button>` + cs.map(c => `<button data-concept="${esc(c.id)}" class="ct-mine">${icon(c.kind === 'defense' ? 'shield' : 'ball')}<span>${c.kind === 'basics' ? 'New to it? Start here' : 'Teach ' + (c.kind === 'offense' ? 'offense' : 'defense')}</span>${esc(c.title)}</button>`).join('') + recentHTML() + `<div class="ct-libhead">Concepts</div>` + state.sport.plays.map(p => `<button data-key="${esc(p.key)}"><span>${esc(p.concept)}</span>${esc(p.title)}</button>`).join('');
   }
   // your last three plays, one tap away
   function recentHTML() {
@@ -918,6 +938,16 @@ export function mount(root, options) {
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = !!state.sport.kinds.route, soc = /^soccer/.test(state.sport.id);
+    if (state.sport.rally) {   // a net sport: your team, the other side, moves, shots over the net
+      const row3 = (svg, t) => `<span><svg viewBox="-10 -10 20 20">${svg}</svg>${t}</span>`;
+      R.legend.innerHTML = [
+        row3('<circle r="7" fill="none" stroke="#ff8e3a" stroke-width="2"/><text y="3.5" text-anchor="middle" font-size="9" font-weight="900" fill="#ff8e3a">A</text>', 'Your team, A and B'),
+        row3('<path d="M-6 -6L6 6M-6 6L6 -6" stroke="#a9d4ff" stroke-width="2.4" stroke-linecap="round"/>', 'The other side, C and D'),
+        row3('<path d="M-9 0H7M3 -4L7 0L3 4" fill="none" stroke="#ff8e3a" stroke-width="2"/>', 'Move'),
+        row3('<path d="M-9 0H9" stroke="#eef4ff" stroke-width="2" stroke-dasharray="4 3"/>', 'Shot over the net')
+      ].join('');
+      return;
+    }
     if (soc) {   // soccer: shirt numbers, runs, dribbles, passes and shots
       const row2 = (svg, t) => `<span><svg viewBox="-10 -10 20 20">${svg}</svg>${t}</span>`;
       R.legend.innerHTML = [
@@ -1806,7 +1836,7 @@ export function mount(root, options) {
     const light = root.classList.contains('ct-light');
     // the eight switches worth a thumb; the 8th is routes in football, the view lock elsewhere
     const quick = [
-      ['defense', 'shield', 'Defense', 'X’s guard, help and react on their own', state.defense],
+      state.sport.rally ? null : ['defense', 'shield', 'Defense', 'X’s guard, help and react on their own', state.defense],
       ['voice', 'speaker', 'Voice', 'The analyst explains the read as the play runs', state.narrate],
       ['beacon', 'laser', 'Best read', 'A flashing green marker on the open option', !!state.beacon],
       ['kids', 'sparkle', 'Kids', 'Big, slow and simple, for little players', !!state.kids],
@@ -1815,7 +1845,7 @@ export function mount(root, options) {
       ['light', 'sun', 'Light mode', 'For a bright sideline', light],
       fb ? ['fb', 'draw', 'Routes', 'Route tree, Cover 2 / 3, QB eyes', root.classList.contains('ct-fbopen')]
         : ['lock', state.view.locked ? 'lock' : 'unlock', 'Lock view', 'Keeps the court where you set it', !!state.view.locked]
-    ];
+    ].filter(Boolean);
     const iqMeta = !state.sport.iq || dailyOpen() ? '' : (() => { const d = dailyStore(state.sport.iq.name).get(); return d.last >= dayNumber() - 1 && d.streak ? '🔥 ' + d.streak : ''; })();
     const groups = [
       mini ? ['board', 'The board', [['plays', 'book', 'Plays', state.sport.name], ['film', 'film', 'Film room', 'Every position’s read']]] : null,
@@ -2148,6 +2178,8 @@ export function mount(root, options) {
   idle(() => { if (!dead && state.sport.iq) try { warmIQ(state.sport); } catch (e) {} });
   if (opts.trace) setTimeout(() => { if (!dead) { track('trace_cta', { at: 'link' }); openTrace(opts.trace === '1' || opts.trace === true ? null : String(opts.trace).toUpperCase()); } }, 900);
   if (opts.concept) setTimeout(() => { if (!dead) { track('lesson_cta', { at: 'link' }); openConcepts(opts.concept, opts.level); } }, 700);
+  let welcoming = false; try { welcoming = !!(state.sport.welcome && !localStorage.getItem('chalktalk.met.' + state.sport.id) && !opts.trace && !opts.concept && !opts.iq); } catch (e) {}
+  if (welcoming) setTimeout(() => { if (!dead && !lesson.on && !tracer.on) welcome(state.sport); }, 1200);
   if (opts.iq && state.sport.iq) setTimeout(() => { if (!dead) { track('iq_cta', { at: 'link' }); iq.open(opts.iq === 'daily' ? 'daily' : null); } }, 700);
   refreshLexicon(ownApi());
   // anonymous usage analytics (track.js): never names, words, keys or IPs. Off in development and when the host says so.
@@ -2161,7 +2193,7 @@ export function mount(root, options) {
   });
   track('view', { lang: (navigator.language || '').slice(0, 5) });   // what other coaches taught it (no one's data, just confirmed phrases)
   if (opts.tour !== false) {
-    if (!seen.get().tour) setTimeout(() => { if (!dead) startTour(); }, 1600);
+    if (!seen.get().tour) { if (!welcoming) setTimeout(() => { if (!dead) startTour(); }, 1600); }   // a sport's own quick start comes first; the tour waits for the next visit
     else if (hasNews()) { R.newsDot.hidden = false; R.tbDot.hidden = false; setTimeout(() => { if (!dead) toast(`New in v${VERSION}: ${RELEASES[0].title}. Tap ? to see it.`); }, 1800); }
   }
 

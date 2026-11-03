@@ -2,6 +2,7 @@
 import basketball from './basketball.js';
 import { flag5, flag7 } from './flag.js';
 import { soccer7, soccer9 } from './soccer.js';
+import { pickleball } from './pickleball.js';
 
 const SPORTS = {};
 export function registerSport(pack) {
@@ -12,13 +13,14 @@ export function registerSport(pack) {
 }
 export const getSport = id => SPORTS[id] || SPORTS.basketball;
 export const sports = () => Object.values(SPORTS);
-// hosts say "basketball", "flag", "flag-football", "flag 7v7", "soccer", "soccer 9v9", "futbol"…
+// hosts say "basketball", "flag", "flag-football", "flag 7v7", "soccer", "soccer 9v9", "futbol", "pickleball"…
 export function sportFor(slug) {
   const s = String(slug || '').toLowerCase();
+  if (/pickle|dink/.test(s)) return SPORTS.pickleball;
   if (/soccer|futbol|fútbol/.test(s) || (/football/.test(s) && /assoc/.test(s))) return /9|11/.test(s) ? SPORTS.soccer9 : SPORTS.soccer7;
   if (/7/.test(s) && /flag|7v7|7 ?on ?7/.test(s)) return SPORTS.flag7;
   if (/flag|football/.test(s)) return SPORTS.flag5;
   return SPORTS[s] || SPORTS.basketball;
 }
 
-[basketball, flag5, flag7, soccer7, soccer9].forEach(registerSport);
+[basketball, flag5, flag7, soccer7, soccer9, pickleball].forEach(registerSport);

@@ -39,7 +39,7 @@ assert.match(likeness(seer, sports()[0]).name, /Joki/);
 // variety: every kind of question, and a player who keeps playing doesn't see a question again for a long time
 for (const sport of sports()) {
   const types = new Set(sport.plays.flatMap(p => candidates(p, sport).map(q => q.type)));
-  ['pass', 'spot', 'read', 'next', 'name'].forEach(t => assert.ok(types.has(t), `${sport.id} asks ${t}`));
+  (sport.rally ? ['spot', 'read', 'next', 'name'] : ['pass', 'spot', 'read', 'next', 'name']).forEach(t => assert.ok(types.has(t), `${sport.id} asks ${t}`));   // a net sport has no passes: which shot is the read
   let prof = blank(), ids = new Set(), repeats = 0;
   for (let s = 0; s < 5; s++) {
     const Q = quiz(sport, { age: '12-14', seed: 100 + s, n: 5, iq: prof.iq, seen: prof.seen });
@@ -94,7 +94,7 @@ console.log(`ok: ${count} IQ questions cut from the plays; ratings, levels and l
   assert.ok(qs.length > 3000, 'thousands of questions (' + qs.length + ')');
   assert.ok(!qs.some(q => q.type === 'name' && /^sit-/.test(q.key)), 'no "name that play" for a made-up situation');
   // every sport: a deep bank, every situation a valid play whose last pass goes to a real teammate
-  for (const sp of sports()) {
+  for (const sp of sports().filter(s => s.situations)) {
     const SS = situations(sp); assert.ok(SS.length >= 120, `${sp.id}: ${SS.length} situations`);
     for (const raw of SS.slice(0, 40)) {
       const n2 = norm(raw, sp); assert.ok(n2.ok, raw.key + ' ' + n2.errors);

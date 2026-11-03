@@ -39,7 +39,7 @@ for (const c of allConcepts()) {
   }
   for (const d of Object.values(c.demos)) for (const a of d.actors) { assert.deepEqual(actorAt(a, 0), a.path[0]); const e = actorAt(a, 1); assert.ok(Math.hypot(e[0] - a.path.at(-1)[0], e[1] - a.path.at(-1)[1]) < 1e-9); }
 }
-for (const sp of ['basketball', 'flag5', 'flag7', 'soccer7', 'soccer9']) {
+for (const sp of ['basketball', 'flag5', 'flag7', 'soccer7', 'soccer9', 'pickleball']) {
   const { conceptsFor } = await import('../src/concepts/index.js');
   const kinds = new Set(conceptsFor(sp).map(c => c.kind));
   assert.ok(kinds.has('offense') && kinds.has('defense'), sp + ' teaches offense and defense');

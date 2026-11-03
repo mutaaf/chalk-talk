@@ -73,7 +73,7 @@ const LEVEL_NAMES = { kids: 'Kids · 6–9', starter: 'Starter · 10–13', vars
 function conceptPage(sport, c) {
   const lv = k => `<div class="lv"><h3>${LEVEL_NAMES[k]}</h3><ol class="steps">${c.levels[k].map((s, i) => `<li><span>${i + 1}</span><p><b>${esc(s.t)}.</b> ${esc(s.say)}${s.cue ? ` <em>“${esc(s.cue)}”</em>` : ''}</p></li>`).join('')}</ol></div>`;
   return `<section class="play concept">
-    <header><div class="num">★</div><div><small>${esc(c.kind === 'defense' ? 'Defense concept' : c.kind === 'offense' ? 'Offense concept' : 'Concept')}</small><h2>${esc(c.title)}</h2></div></header>
+    <header><div class="num">★</div><div><small>${esc(c.kind === 'defense' ? 'Defense concept' : c.kind === 'offense' ? 'Offense concept' : c.kind === 'basics' ? 'Start here: the rules' : 'Concept')}</small><h2>${esc(c.title)}</h2></div></header>
     <div class="main">${conceptDiagram(sport, c)}
       <div class="side"><p class="kid">${esc(c.line)}</p>
         ${c.cues && c.cues.length ? `<h3>Say it</h3><ul class="cues">${c.cues.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}

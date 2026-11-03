@@ -31,7 +31,7 @@ for (const sport of sports()) {
     let holder = sim.idx[r.play.ball];
     r.play.beats.forEach((b, k) => b.actions.forEach(a => {
       const K = sport.kinds[a.kind];
-      if (K.type === 'pass' || K.type === 'handoff' || K.type === 'shot') { assert.equal(sim.idx[a.who], holder, `${sport.id}/${raw.key} beat ${k + 1}: ${a.who} ${a.kind}s without the ball`); holder = K.type === 'shot' ? -1 : sim.idx[a.target]; }
+      if (K.type === 'pass' || K.type === 'handoff' || K.type === 'shot' || K.type === 'hit') { assert.equal(sim.idx[a.who], holder, `${sport.id}/${raw.key} beat ${k + 1}: ${a.who} ${a.kind}s without the ball`); holder = K.type === 'shot' ? -1 : sim.idx[a.target]; }
       if (K.dribble) assert.equal(sim.idx[a.who], holder, `${sport.id}/${raw.key} beat ${k + 1}: ${a.who} dribbles without the ball`);
     }));
     total++;

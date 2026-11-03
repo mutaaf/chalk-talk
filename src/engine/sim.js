@@ -7,7 +7,9 @@
 import { clamp, ease, route, measured, walk, slice, toward } from './geom.js';
 
 const HOLD = 1.6;   // beats of stillness at the end before it plays again
-export const SPANS = { move: [0, 0.82], pass: [0.52, 0.94], handoff: [0.55, 0.8], shot: [0.35, 0.95] };
+export const SPANS = { move: [0, 0.82], pass: [0.52, 0.94], handoff: [0.55, 0.8], shot: [0.35, 0.95], hit: [0.3, 0.96] };
+// a hit (net sports, sport.rally): the ball goes over the net to the other side, not to a teammate. The kind says
+// how it flies: apex (its highest point, in the sport's units) and bounce (it lands before it's played)
 // screens are a sequence, not a crowd: the screener arrives and sets (stops, wide base) before the teammate
 // uses it; the teammate waits, sets up their defender, then comes off shoulder to shoulder
 export const TIMING = { set: [0, 0.42], wait: [0.36, 0.86] };
@@ -71,7 +73,7 @@ export function normalize(raw, sport) {
       if (!ids[who]) { errors.push('unknown player ' + who); return; }
       const K = kinds[kind];
       const target = a.target != null && ids[String(a.target).toUpperCase()] ? String(a.target).toUpperCase() : null;
-      if ((K.type === 'pass' || K.type === 'handoff') && !target) { errors.push(kind + ' with no receiver'); return; }
+      if ((K.type === 'pass' || K.type === 'handoff' || K.type === 'hit') && !target) { errors.push(kind + ' with no receiver'); return; }
       if (K.type === 'move') { if (busy[who]) { errors.push(who + ' has two moves in one beat'); return; } busy[who] = 1; }
       const path = (Array.isArray(a.path) ? a.path : []).slice(0, 6).map(xy).filter(Boolean);
       const act = { kind, who, to: xy(a.to), via: xy(a.via), path, target };
@@ -127,7 +129,8 @@ export function compile(play, sport, options) {
     if (c) return -1;
     return idx['O' + p.id.slice(1)] != null ? idx['O' + p.id.slice(1)] : -1;
   });
-  const guards = i => match[i] >= 0 || (job[i] && job[i].type !== 'man');
+  // in a net sport nobody guards anybody: the other side only moves when the play moves them
+  const guards = i => !sport.rally && (match[i] >= 0 || (job[i] && job[i].type !== 'man'));
   const screened = beats.map(() => ({})), beaten = beats.map(() => ({})), react = sport.react || 0.3;
   // when and where a defender is hung up: { at: the screen's spot (or null: on the screener), f0, f1 (release, or null) }
   const hung = beats.map(() => ({}));
@@ -306,7 +309,7 @@ export function compile(play, sport, options) {
         if (spec.style === 'screen') screenRoute[k + ':' + pi] = routes.length;
         routes.push(makeRoute(pi, k, a.kind, line));
         routes[routes.length - 1].mv = mv[pi];
-      } else if (spec.type === 'pass' || spec.type === 'handoff') {
+      } else if (spec.type === 'pass' || spec.type === 'handoff' || spec.type === 'hit') {
         ev = { kind: a.kind, type: spec.type, from: pi, to: idx[a.target], arc: spec.arc == null ? 1 : spec.arc }; holder = idx[a.target];
       } else if (spec.type === 'shot') {
         ev = { kind: a.kind, type: 'shot', from: pi }; holder = -1;
@@ -491,7 +494,7 @@ export function compile(play, sport, options) {
       pts = pts.concat([[back[0] - dy * 0.48 * u, back[1] + dx * 0.48 * u, e[2]], e.slice(), [back[0] + dy * 0.48 * u, back[1] - dx * 0.48 * u, e[2]]]);
     }
     const m = measured(pts);
-    return { p: pi, beat: k, kind, side: play.players[pi].side, type: spec.type, pts, m, len: m.len, line, dashed: spec.type === 'pass' || spec.type === 'shot' };
+    return { p: pi, beat: k, kind, side: play.players[pi].side, type: spec.type, pts, m, len: m.len, line, dashed: spec.type === 'pass' || spec.type === 'shot' || spec.type === 'hit' };
   }
 
   // ---- the clock, and a per-frame memo so every consumer of a frame shares one computation ----
@@ -577,6 +580,7 @@ export function compile(play, sport, options) {
   };
 
   function ballAt(time) {
+    time = Math.max(0, time);   // a frame clock can start a hair before 0
     const k = Math.floor(time), f = time - k, P = sim.posAt(time);
     const held = (pi, bouncing) => {
       const p = P[pi];
@@ -598,8 +602,19 @@ export function compile(play, sport, options) {
           const hit = 0.62, h = u < hit ? h0 * (1 - u / hit) + B.r : B.r + (B.held * 0.8 - B.r) * ((u - hit) / (1 - hit));
           return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h];
         }
+        if (ev.type === 'hit') {   // over the net: up to its apex, down to the court where it bounces, or into the paddle on the volley
+          const sk = K[ev.kind], land = sk.bounce ? clamp(1 - (sk.lead || 4) / Math.max(dist, 1e-6), 0.5, 0.92) : 1, h1b = sk.bounce ? B.r : h0 * 0.9, mid = (h0 + h1b) / 2;   // it bounces a few steps in front of the player
+          let top = sk.apex || h0 * 1.5;
+          const N = sport.net, vn = N && b[1] !== a[1] ? (N.y - a[1]) / (b[1] - a[1]) / land : -1;   // where it crosses the net: always over it
+          if (vn > 0.02 && vn < 0.98) { const at = h0 + (h1b - h0) * vn + 4 * Math.max(0, top - mid) * vn * (1 - vn); if (at < N.clear) top += (N.clear - at) / (4 * vn * (1 - vn)); }
+          if (u < land) { const v = u / land; return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h0 + (h1b - h0) * v + 4 * Math.max(0, top - mid) * v * (1 - v)]; }
+          const v = (u - land) / (1 - land);
+          return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, B.r + (h0 * 0.9 - B.r) * Math.sin(v * Math.PI / 2)];
+        }
         if (ev.style === 'chest') return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h0 + 0.35 * Math.sin(Math.PI * u) * Math.min(1, dist / 20)];   // flat, on a line
-        const peak = ev.type === 'shot' ? goal[2] * 0.7 : ev.type === 'handoff' ? 0.15 * sport.mark : Math.min(B.maxArc, dist * 0.18) * ev.arc;
+        let peak = ev.type === 'shot' ? goal[2] * 0.7 : ev.type === 'handoff' ? 0.15 * sport.mark : Math.min(B.maxArc, dist * 0.18) * ev.arc;
+        const N = sport.net, vn = N && b[1] !== a[1] ? (N.y - a[1]) / (b[1] - a[1]) : -1;   // a net sport's put-away still goes over the net
+        if (vn > 0.02 && vn < 0.98) { const at = h0 + (h1 - h0) * vn + 4 * peak * vn * (1 - vn); if (at < N.clear) peak += (N.clear - at) / (4 * vn * (1 - vn)); }
         return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, h0 + (h1 - h0) * u + 4 * peak * u * (1 - u)];
       }
       if (f >= sp[1]) {

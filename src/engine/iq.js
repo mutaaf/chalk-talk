@@ -65,11 +65,19 @@ const NEXT = { pass: (a, t) => `${a} passes to ${t}`, throw: (a, t) => `${a} thr
   run: a => `${a} runs with it`, pitch: (a, t) => `${a} pitches to ${t}`, motion: a => `${a} goes in motion` };
 
 // every question one play can ask (each with an id, so a player isn't asked the same thing twice soon)
+// a sport's own kinds can say themselves (pickleball: says '{w} dinks to {t}', read 'Dink')
+const nextFor = sport => {
+  const out = Object.assign({}, NEXT);
+  Object.keys(sport.kinds).forEach(k => { const s = sport.kinds[k].says; if (s) out[k] = /\{t\}/.test(s) ? (a, t) => s.replace('{w}', a).replace('{t}', t) : a => s.replace('{w}', a); });
+  return out;
+};
+const readFor = sport => Object.assign({}, READ, ...Object.keys(sport.kinds).filter(k => sport.kinds[k].read).map(k => ({ [k]: sport.kinds[k].read })));
+
 export function candidates(raw, sport, opts) {
   const m = !!(opts && opts.mirror), src = m ? mirror(raw, sport) : raw;
   const n = normalize(src, sport); if (!n.ok) return [];
   const sim = compile(n.play, sport, { defense: true }), out = [], D = difficulty(raw, sport), U = sport.mark, nb = sim.play.beats.length;
-  const fb = !!sport.kinds.route, nm = id => { const p = sim.players[sim.idx[id]]; return p ? sport.notation.name(p) : id; };
+  const fb = !!sport.kinds.route, NX = nextFor(sport), RD = readFor(sport), nm = id => { const p = sim.players[sim.idx[id]]; return p ? sport.notation.name(p) : id; };
   const add = q => { q.key = raw.key; q.mirror = m; q.from = Math.max(0, (q.from != null ? q.from : q.at - LEAD)); q.id = [raw.key, q.type, q.beat != null ? q.beat : '', q.who || '', m ? 'm' : ''].join('|'); out.push(q); };
   sim.play.beats.forEach((b, k) => b.actions.forEach(a => {
     const K = sport.kinds[a.kind];
@@ -88,33 +96,38 @@ export function candidates(raw, sport, opts) {
   // the ball handler's read: what the play does with the ball this step
   sim.play.beats.forEach((b, k) => {
     const h = sim.holderAt(k + 0.02); if (h < 0) return;
-    const who = sim.players[h].id, a = b.actions.find(x => x.who === who && READ[x.kind]);
+    const who = sim.players[h].id, a = b.actions.find(x => x.who === who && RD[x.kind] && sport.kinds[x.kind]);
     if (!a || sim.play.lesson === 'defense') return;
+    if (sport.rally) {   // which shot: the answer and the three the sport lists next to it
+      const all = [...new Set(Object.values(sport.kinds).map(x => x.read).filter(Boolean))], i = all.indexOf(RD[a.kind]);
+      add({ type: 'read', beat: k, at: k + 0.03, who, answer: RD[a.kind], options: [0, 1, 2, 3].map(j => all[(i + j) % all.length]).sort((x, y) => all.indexOf(x) - all.indexOf(y)), d: D - 2 });
+      return;
+    }
     const opts2 = fb ? ['Throw', 'Run it', 'Hand off', 'Pitch'] : ['Pass', 'Drive', 'Shoot', 'Hand off'];
     add({ type: 'read', beat: k, at: k + 0.03, who, answer: READ[a.kind], options: opts2.filter(o => o === READ[a.kind] || o !== 'Pitch'), d: D - 2 });
   });
   // what happens next: the step's main action, against things that could have happened
   sim.play.beats.forEach((b, k) => {
     if (k === 0 && nb > 1 && fb) return;
-    const acts = b.actions.filter(a => NEXT[a.kind] && sim.players[sim.idx[a.who]] && sim.players[sim.idx[a.who]].side === 'O');
+    const acts = b.actions.filter(a => NX[a.kind] && sim.players[sim.idx[a.who]] && sim.players[sim.idx[a.who]].side === 'O');
     const a = acts.find(x => sport.kinds[x.kind].type !== 'move') || acts[0]; if (!a) return;
-    const line = NEXT[a.kind](nm(a.who), a.target ? nm(a.target) : '');
+    const line = NX[a.kind](nm(a.who), a.target ? nm(a.target) : '');
     // wrong answers: what this same player could have done instead (other targets, other moves), never
     // something that happens in this step or the next
-    const said = x => NEXT[x.kind](nm(x.who), x.target ? nm(x.target) : '');
-    const truth = new Set(sim.play.beats.slice(k, k + 2).flatMap(bb => bb.actions.filter(x => NEXT[x.kind]).map(said)));
-    const O = sim.players.filter(p => p.side === 'O' && p.role !== 'C' && p.id !== a.who).map(p => p.id);
-    const ballKinds = Object.keys(NEXT).filter(x => sport.kinds[x] && (sport.kinds[x].type !== 'move' || x === 'dribble' || x === 'run') && x !== 'snap');
-    const moveKinds = Object.keys(NEXT).filter(x => sport.kinds[x] && sport.kinds[x].type === 'move' && x !== 'dribble' && x !== 'run');
+    const said = x => NX[x.kind](nm(x.who), x.target ? nm(x.target) : '');
+    const truth = new Set(sim.play.beats.slice(k, k + 2).flatMap(bb => bb.actions.filter(x => NX[x.kind]).map(said)));
+    const O = sim.players.filter(p => p.side === 'O' && p.role !== 'C' && p.id !== a.who).map(p => p.id), Opp = sim.players.filter(p => p.side === 'D').map(p => p.id);
+    const ballKinds = Object.keys(NX).filter(x => sport.kinds[x] && (sport.kinds[x].type !== 'move' || x === 'dribble' || x === 'run') && x !== 'snap');
+    const moveKinds = Object.keys(NX).filter(x => sport.kinds[x] && sport.kinds[x].type === 'move' && x !== 'dribble' && x !== 'run');
     const hasBall = sim.holderAt(k + 0.02) === sim.idx[a.who], fakes = [];
-    for (const kind of hasBall ? ballKinds : moveKinds) for (const t of NEXT[kind].length > 1 ? O : [null]) {
-      const f = NEXT[kind](nm(a.who), t ? nm(t) : ''); if (!truth.has(f) && fakes.indexOf(f) < 0) fakes.push(f);
+    for (const kind of hasBall ? ballKinds : moveKinds) for (const t of NX[kind].length > 1 ? (sport.kinds[kind].type === 'hit' ? Opp : O) : [null]) {
+      const f = NX[kind](nm(a.who), t ? nm(t) : ''); if (!truth.has(f) && fakes.indexOf(f) < 0) fakes.push(f);
     }
-    if (fakes.length < 3) for (const w of O.filter(id => sim.players[sim.idx[id]].role !== 'QB')) for (const kind of moveKinds) { const f = NEXT[kind](nm(w), ''); if (!truth.has(f) && fakes.indexOf(f) < 0 && fakes.length < 6) fakes.push(f); }
+    if (fakes.length < 3) for (const w of O.filter(id => sim.players[sim.idx[id]].role !== 'QB')) for (const kind of moveKinds) { const f = NX[kind](nm(w), ''); if (!truth.has(f) && fakes.indexOf(f) < 0 && fakes.length < 6) fakes.push(f); }
     add({ type: 'next', beat: k, at: k + 0.01, from: Math.max(0, k - 0.9), answer: line, pool: fakes, d: D + 2 });
   });
   // defense: a defender's job at the moment, when the engine's read is clear
-  if (!fb && sim.players.some(p => p.side === 'D')) sim.play.beats.forEach((b, k) => {
+  if (!fb && !sport.rally && sim.players.some(p => p.side === 'D')) sim.play.beats.forEach((b, k) => {
     sim.players.forEach((p, i) => {
       if (p.side !== 'D') return;
       const r = bestReads(sim, sport, k + 0.5, i); if (!r.length || !DJOB[r[0].kind]) return;

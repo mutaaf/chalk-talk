@@ -7,10 +7,10 @@
 // walked to the ring; a pinch or trigger moves it on. Everything is drawn with additive light, so on see-through
 // glasses black is simply not there. Own WebGL (no three.js); pure parts live in engine/trace.js.
 
-import { trace, lookAt, roomScale, positions, busiest, metersPer } from './engine/trace.js';
+import { trace, lookAt, roomScale, positions, busiest, metersPer, bounceIn } from './engine/trace.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const GOLD = [1, 0.78, 0.35], ORANGE = [1, 0.56, 0.23], ICE = [0.62, 0.8, 1], WHITE = [0.93, 0.96, 1];
+const GOLD = [1, 0.78, 0.35], ORANGE = [1, 0.56, 0.23], ICE = [0.62, 0.8, 1], WHITE = [0.93, 0.96, 1], RED = [1, 0.42, 0.42];
 const BEAT_S = 1.7, EYE = 1.6;
 
 // ---- tiny matrix kit (column-major, like WebGL and WebXR) ----
@@ -111,7 +111,7 @@ const CSS = `
 export function createTrace(ctx) {
   let el = null, gl = null, G = null, T = null, buf = null, tbuf = null, atlas = null, cells = {}, panel = null;
   let sim = null, sport = null, tr = null, who = -1, t = 0, playing = true, hold = 0, last = 0, raf = 0, mode = 'eyes';
-  let yaw = null, dYaw = 0, dPitch = -0.2, xr = null, scale = 1, origin = null, heading0 = 0, panelPos = null, panelText = '', waiting = false, spoken = -1;
+  let yaw = null, dYaw = 0, dPitch = -0.2, xr = null, scale = 1, origin = null, heading0 = 0, panelPos = null, panelText = '', waiting = false, spoken = -1, bounces = [], ready = false;
   const name = id => ctx.name ? ctx.name(id) : id;
 
   // field → world meters: in XR the origin is your first spot and your first look is straight ahead
@@ -146,6 +146,18 @@ export function createTrace(ctx) {
     const g = [], tx = [], P = sim.posAt(t), k = Math.min(sim.play.beats.length - 1, Math.floor(t)), ended = t >= sim.play.beats.length;
     // the field's lines, faint
     for (const l of sport.field.lines({ los: sim.play.los })) if (l.p && l.p.length > 1) ribbon(g, l.p.map(q => W(q[0], q[1], (q[2] || 0) + 0.01)), 0.05 + (l.w || 1) * 0.02, ICE.concat(xr ? 0.22 : 0.4), 0);
+    // a net sport's court: the kitchens glow faintly red on the floor (no volleys in there), the net is a curtain of
+    // light at its real height with a bright top band, and the ball's bounce this step is a ring where it lands
+    const C = sport.court;
+    if (C) {
+      const h = C.W / 2, n = C.net, flat = (x0, y0, x1, y1, col) => quad(g, W(x0, y0, 0.006), W(x1, y0, 0.006), W(x1, y1, 0.006), W(x0, y1, 0.006), [0, 0], [0, 0], [0, 0], [0, 0], col, 0);
+      flat(-h, n - C.nvz, h, n, RED.concat(xr ? 0.07 : 0.1)); flat(-h, n, h, n + C.nvz, RED.concat(xr ? 0.07 : 0.1));
+      quad(g, W(-C.post, n, 0), W(C.post, n, 0), W(C.post, n, C.netMid), W(-C.post, n, C.netMid), [0, 0], [0, 0], [0, 0], [0, 0], WHITE.concat(xr ? 0.05 : 0.07), 0);
+      arc(g, W(-C.post, n, C.netH), W(C.post, n, C.netH), -(C.netH - C.netMid) * metersPer(sport) * Math.min(1, scale * 1.4), 0.07, WHITE.concat(0.85), 0, cam);
+      for (const x of [-C.post, C.post]) pillar(g, W(x, n, 0), 0.07, C.netH * metersPer(sport) * Math.min(1, scale * 1.4), WHITE.concat(0.6), cam);
+      const bz = bounces[k];
+      if (bz && !ended) { const f = t - k, on = f > 0.25 && f < 0.98, c = W(bz[0], bz[1], 0.02); ring(g, c, 0.22 + (on ? 0.08 * Math.sin(now / 120) : 0), 0.08, ICE.concat(on ? 0.9 : 0.35), 0); }
+    }
     // your path: done faint, now bright and flowing, to come dimmer; a ring where each move ends
     tr.steps.forEach(s => {
       if (s.pts.length < 2) return;
@@ -208,6 +220,7 @@ export function createTrace(ctx) {
   }
   function stepText() {
     const n = sim.play.beats.length, k = Math.min(n - 1, Math.floor(t));
+    if (ready) return { head: `On a real court · you are ${tr.name}`, job: `Stand on your spot facing the net. Pinch to start the point.` };
     if (t >= n) return { head: 'That’s the play', job: 'Again from the top in a moment.' };
     return { head: `Step ${k + 1} of ${n} · you are ${tr.name}`, job: waiting ? 'Walk to the ring to keep going' : tr.steps[k].job };
   }
@@ -250,9 +263,12 @@ export function createTrace(ctx) {
     try { space = await session.requestReferenceSpace('local-floor'); } catch (e) { space = await session.requestReferenceSpace('local'); floor = -1.5; }
     // stand on your spot, facing your first look
     scale = fit ? roomScale(tr, sport) : 1; origin = tr.start; heading0 = lookAt(sim, who, 0, sport); t = 0; hold = 0; waiting = false; panelPos = null; last = 0;
+    // a net sport life size: the court is the reference, so you face the net (the court's lines land on the real ones)
+    // and the point waits for a pinch while you find your spot
+    if (sport.court && !fit) { heading0 = tr.side === 'D' ? Math.PI : 0; ready = true; playing = false; }
     const ar = m === 'immersive-ar' || session.environmentBlendMode !== 'opaque';
-    session.addEventListener('select', () => { if (waiting) { waiting = false; t = Math.floor(t) + 1; } else if (t >= sim.play.beats.length) { t = 0; hold = 0; } else playing = !playing; });
-    session.addEventListener('end', () => { xr = null; scale = 1; origin = null; heading0 = 0; last = 0; });
+    session.addEventListener('select', () => { if (ready) { ready = false; playing = true; t = 0; return; } if (waiting) { waiting = false; t = Math.floor(t) + 1; } else if (t >= sim.play.beats.length) { t = 0; hold = 0; } else playing = !playing; });
+    session.addEventListener('end', () => { xr = null; scale = 1; origin = null; heading0 = 0; last = 0; ready = false; playing = true; });
     const onFrame = (now, frame) => {
       if (!xr) return; session.requestAnimationFrame(onFrame);
       const pose = frame.getViewerPose(space); if (!pose) return;
@@ -298,6 +314,7 @@ export function createTrace(ctx) {
   // ---- open / close ----
   function pick(i) {
     who = i; tr = trace(sim, i, sport, name); t = 0; hold = 0; yaw = null; dYaw = 0; spoken = -1; waiting = false;
+    bounces = sim.play.beats.map((_, k) => bounceIn(sim, sport, k));
     el.querySelectorAll('.tr-who button').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
     ctx.track && ctx.track('trace_pick', { side: tr.side });
   }
@@ -307,7 +324,7 @@ export function createTrace(ctx) {
     close();
     const list = positions(sim, sport, name);
     el = document.createElement('div'); el.className = 'ct-tr'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Trace your path');
-    el.innerHTML = `<canvas></canvas><div class="tr-top"><div class="tr-who" role="group" aria-label="Your position">${list.map(p => `<button type="button" data-i="${p.i}" class="${p.side === 'D' ? 'd' : ''}" aria-label="${esc((p.side === 'D' ? 'Defense ' : '') + p.label)}">${esc(p.side === 'D' ? 'X' + p.short : p.short)}</button>`).join('')}</div><button type="button" class="tr-x" data-a="close" aria-label="Close trace">✕</button></div>
+    el.innerHTML = `<canvas></canvas><div class="tr-top"><div class="tr-who" role="group" aria-label="Your position">${list.map(p => `<button type="button" data-i="${p.i}" class="${p.side === 'D' ? 'd' : ''}" aria-label="${esc((p.side === 'D' ? (sport.sides ? sport.sides.D + ' ' : 'Defense ') : '') + p.label)}">${esc(p.side === 'D' && !sport.rally ? 'X' + p.short : p.short)}</button>`).join('')}</div><button type="button" class="tr-x" data-a="close" aria-label="Close trace">✕</button></div>
       <p class="tr-hint">Drag to look around</p>
       <div class="tr-card"><div class="tr-step" data-t="head"></div><div class="tr-job" data-t="job"></div><div class="tr-row"><button type="button" data-a="prev" aria-label="Previous step">⏮</button><button type="button" data-a="play" aria-label="Play or pause">⏯</button><button type="button" data-a="next" aria-label="Next step">⏭</button><button type="button" data-a="mode">Eyes</button><span class="sp"></span><span data-t="xr"></span></div></div>`;
     ctx.root.appendChild(el);
@@ -332,7 +349,7 @@ export function createTrace(ctx) {
     cv.addEventListener('pointerup', () => { drag = null; });
     cv.addEventListener('dblclick', () => { dYaw = 0; dPitch = -0.2; });
     xrSupport().then(s => {
-      const b = []; if (s['immersive-ar']) b.push('<button type="button" class="tr-xr" data-a="ar">Life size AR</button><button type="button" data-a="room">Fit my room</button>');
+      const b = []; if (s['immersive-ar']) b.push(`<button type="button" class="tr-xr" data-a="ar">${sport.court ? 'On a real court' : 'Life size AR'}</button><button type="button" data-a="room">Fit my room</button>`);
       if (s['immersive-vr']) b.push('<button type="button" class="tr-xr" data-a="vr">VR</button>');
       if (el) el.querySelector('[data-t=xr]').innerHTML = b.join('');
     });

@@ -7,12 +7,12 @@
 
 import { sports, getSport } from './sports/index.js';
 import { normalize, compile } from './engine/sim.js';
-import { trace, lookAt, positions, busiest } from './engine/trace.js';
+import { trace, lookAt, positions, busiest, bounceIn } from './engine/trace.js';
 
 const app = document.getElementById('app');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const BEAT_MS = 1700;
-let screen = 'sport', sport = null, sim = null, tr = null, who = -1, k = 0, t0 = 0, north = false, raf = 0, head = null, ppu = 0;
+let screen = 'sport', sport = null, sim = null, tr = null, who = -1, k = 0, t0 = 0, north = false, raf = 0, head = null, ppu = 0, bz = [];
 const nameOf = id => { const p = sim.play.players.find(q => q.id === id); return p ? sport.notation.name(p) : id; };
 const say = text => { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {} };
 
@@ -49,12 +49,12 @@ function pickWho() {
   screen = 'who';
   const P = positions(sim, sport, nameOf), best = busiest(sim);
   P.sort((a, b) => (b.i === best) - (a.i === best));
-  list(sim.play.title || 'Your position', 'Who are you?', P.map(p => ({ t: (p.side === 'D' ? 'Defense: ' : '') + p.label, s: p.i === best ? 'Busiest in this play' : p.side === 'D' ? 'Guard' : '', cls: p.side === 'D' ? 'd' : '' })), i => start(P[i].i), () => pickPlay(sport));
+  list(sim.play.title || 'Your position', 'Who are you?', P.map(p => ({ t: (p.side === 'D' ? (sport.sides ? sport.sides.D : 'Defense') + ': ' : '') + p.label, s: p.i === best ? 'Busiest in this play' : p.side === 'D' ? (sport.rally ? '' : 'Guard') : '', cls: p.side === 'D' ? 'd' : '' })), i => start(P[i].i), () => pickPlay(sport));
 }
 
 // ---- the trace: a heads-up radar of your path ----
 function start(i) {
-  who = i; tr = trace(sim, i, sport, nameOf); k = 0; t0 = performance.now(); head = null; ppu = 0; screen = 'trace';
+  who = i; tr = trace(sim, i, sport, nameOf); bz = sim.play.beats.map((_, j) => bounceIn(sim, sport, j)); k = 0; t0 = performance.now(); head = null; ppu = 0; screen = 'trace';
   app.innerHTML = '<canvas width="600" height="600"></canvas><div class="hint">◀ ▶ steps · Enter replays · ▲ turns the map</div>';
   keys = e => {
     const n = tr.steps.length;
@@ -72,7 +72,7 @@ const speakStep = () => say(`Step ${k + 1}. ${tr.steps[k].job}.`);
 function draw(now) {
   raf = requestAnimationFrame(draw);
   const cv = app.querySelector('canvas'); if (!cv) return;
-  const c = cv.getContext('2d'), u = Math.min(1, (now - t0) / BEAT_MS), t = k + u, P = sim.posAt(t), me = P[who];
+  const c = cv.getContext('2d'), u = Math.max(0, Math.min(1, (now - t0) / BEAT_MS)), t = k + u, P = sim.posAt(t), me = P[who];
   const want = north ? 0 : lookAt(sim, who, t, sport);
   if (head == null) head = want; let d = want - head; d = Math.atan2(Math.sin(d), Math.cos(d)); head += d * 0.08;
   const f = [Math.sin(head), -Math.cos(head)], r = [Math.cos(head), Math.sin(head)], cx = 300, cy = 392;
@@ -85,7 +85,14 @@ function draw(now) {
   c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.lineJoin = 'round';
   const line = (pts, w, col, blur) => { if (pts.length < 2) return; c.beginPath(); pts.forEach((q, j) => { const s = S(q); j ? c.lineTo(s[0], s[1]) : c.moveTo(s[0], s[1]); }); c.lineWidth = w; c.strokeStyle = col; c.shadowColor = col; c.shadowBlur = blur; c.stroke(); };
   // the field, faint
-  for (const l of sport.field.lines({ los: sim.play.los })) if (l.p && l.p.length > 1 && !(l.p[0][2] > 0.5)) line(l.p, 1.5, 'rgba(140,188,255,.28)', 0);
+  for (const l of sport.field.lines({ los: sim.play.los })) if (l.p && l.p.length > 1 && !(l.p[0][2] > 0.1)) line(l.p, l.hot ? 4 : 1.5, l.hot ? 'rgba(238,244,255,.7)' : 'rgba(140,188,255,.28)', 0);
+  // a net sport: the kitchens faint red (no volleys in there), and where the ball bounces this step
+  const C = sport.court;
+  if (C) {
+    c.fillStyle = 'rgba(255,107,107,.13)'; c.shadowBlur = 0;
+    for (const [y0, y1] of [[C.net - C.nvz, C.net], [C.net, C.net + C.nvz]]) { c.beginPath(); [[-C.W / 2, y0], [C.W / 2, y0], [C.W / 2, y1], [-C.W / 2, y1]].forEach((q, j) => { const s2 = S(q); j ? c.lineTo(s2[0], s2[1]) : c.moveTo(s2[0], s2[1]); }); c.fill(); }
+    if (bz[k] && u > 0.2) { const s2 = S(bz[k]); c.beginPath(); c.arc(s2[0], s2[1], 12, 0, Math.PI * 2); c.lineWidth = 3; c.strokeStyle = 'rgba(169,212,255,.9)'; c.shadowColor = '#a9d4ff'; c.shadowBlur = 10; c.stroke(); }
+  }
   // your path: done faint, to come dim, now bright with light running along it, and the ring where it ends
   tr.steps.forEach(s => { if (s.k !== k) line(s.pts, 6, s.k < k ? 'rgba(255,199,90,.22)' : 'rgba(255,199,90,.38)', 6); });
   if (step.pts.length > 1) {

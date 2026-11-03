@@ -14,7 +14,8 @@ export function jobIn(sim, i, k, sport, name = id => id) {
   for (const a of b.actions) {
     if (a.who !== me.id) continue;
     const T = (K[a.kind] || {}).type;
-    if (a.kind === 'snap') said.push('Snap it');
+    if ((K[a.kind] || {}).job) said.push(K[a.kind].job.replace('{t}', () => name(a.target)));   // the kind says it (pickleball: "Dink it to C")
+    else if (a.kind === 'snap') said.push('Snap it');
     else if (T === 'pass') said.push(`Pass to ${name(a.target)}`);
     else if (T === 'handoff') said.push(`Hand it to ${name(a.target)}`);
     else if (T === 'shot') said.push('Shoot it');
@@ -24,11 +25,12 @@ export function jobIn(sim, i, k, sport, name = id => id) {
     else if (a.target && /cover|guard|mark|deny|rush/.test(a.kind)) said.push(`${cap(a.kind)} ${name(a.target)}`);
     else said.push(a.kind === 'move' ? 'Move to your next spot' : a.kind === 'route' ? 'Run your route' : `${cap(a.kind)} to your next spot`);
   }
-  const incoming = b.actions.find(a => a.target === me.id && /pass|handoff/.test((K[a.kind] || {}).type || ''));
-  if (incoming && incoming.kind === 'snap' && !said.length) said.push('Take the snap');
+  const incoming = b.actions.find(a => a.target === me.id && /pass|handoff|hit/.test((K[a.kind] || {}).type || ''));
+  if (incoming && K[incoming.kind].recv) said.push(K[incoming.kind].recv.replace('{w}', name(incoming.who)));   // over the net to you
+  else if (incoming && incoming.kind === 'snap' && !said.length) said.push('Take the snap');
   else if (incoming && !said.length) said.push(`Get open: ${name(incoming.who)} is passing to you`);
   else if (incoming) said.push('then catch it');
-  if (!said.length) return me.side === 'D' ? 'Stay with your player, see the ball' : 'Hold your spot, eyes on the ball';
+  if (!said.length) return sport.rally ? 'Paddle up, watch the ball' : me.side === 'D' ? 'Stay with your player, see the ball' : 'Hold your spot, eyes on the ball';
   return said.join(', ');
 }
 
@@ -52,7 +54,7 @@ export function trace(sim, i, sport, name = id => id) {
 // where your eyes are at time t, as a heading in the field's frame: 0 faces the goal you attack (−y), +π/2 faces +x.
 // With the ball you look at the goal; without it, at the ball, leaning toward where you're running.
 export function lookAt(sim, i, t, sport) {
-  const P = sim.posAt(t), me = P[i], goal = sport.field.goal, ball = sim.ballAt(t), h = sim.holderAt(t);
+  const P = sim.posAt(t), me = P[i], goal = sim.play.players[i].side === 'D' && sport.field.goalD ? sport.field.goalD : sport.field.goal, ball = sim.ballAt(t), h = sim.holderAt(t);   // a net sport: the other side looks at our court
   const tgt = h === i || !ball ? goal : ball;
   let dx = tgt[0] - me[0], dy = tgt[1] - me[1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
   const Q = sim.posAt(t + 0.08)[i], mx = Q[0] - me[0], my = Q[1] - me[1], ml = Math.hypot(mx, my);
@@ -77,3 +79,13 @@ export function busiest(sim) {
   const score = sim.play.players.map(p => p.side !== 'O' ? -1 : sim.play.beats.reduce((n, b) => n + b.actions.filter(a => a.who === p.id).length * 2 + b.actions.filter(a => a.target === p.id).length, 0));
   return score.indexOf(Math.max(...score));
 }
+
+// net sports: where the ball bounces in step k (a serve, a drop, a dink lands a few steps in front of the player who
+// plays it), or null when it's taken out of the air. Sampled from the engine's own ball, so it is what the board shows.
+export function bounceIn(sim, sport, k) {
+  if (!sport.rally) return null;
+  const r = sport.ball.r; let best = null;
+  for (let f = 0.3; f < 0.96; f += 0.004) { const b = sim.ballAt(k + f); if (b && b[2] <= r + sport.mark * 0.3 && (!best || b[2] < best[2])) best = b; }
+  return best ? [best[0], best[1]] : null;
+}
+

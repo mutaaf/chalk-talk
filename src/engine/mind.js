@@ -94,7 +94,7 @@ export function frame(sim, sport, t) {
   // the ball this beat: a pass, handoff or shot, and where it is in its flight
   let ball = null;
   if (info) {
-    const a = info.actions.find(x => K[x.kind] && (K[x.kind].type === 'pass' || K[x.kind].type === 'handoff' || K[x.kind].type === 'shot'));
+    const a = info.actions.find(x => K[x.kind] && (K[x.kind].type === 'pass' || K[x.kind].type === 'handoff' || K[x.kind].type === 'shot' || K[x.kind].type === 'hit'));
     if (a) {
       const type = K[a.kind].type, sp = SPANS[type];
       ball = { kind: a.kind, type, from: sim.idx[a.who], to: a.target ? sim.idx[a.target] : -1, release: k + sp[0], arrive: k + sp[1], phase: f < sp[0] ? 'coming' : f < sp[1] ? 'air' : 'done' };
@@ -200,7 +200,7 @@ export function doing(T, nameOf) {
   if (T.ball && T.ball.state !== 'released' && T.ball.state !== 'holding') return T.ball.text;
   const a = T.action && !T.action.incoming ? T.action : null;
   if (a) {
-    if (a.type === 'pass' || a.type === 'handoff') return a.kind + ' → ' + nm(a.target);
+    if (a.type === 'pass' || a.type === 'handoff' || a.type === 'hit') return a.kind + ' → ' + nm(a.target);
     if (a.type === 'shot') return a.kind + '!';
     const pct = T.route ? ' ' + Math.round(T.route.done * 100) + '%' : '';
     return (a.tree || a.kind) + (a.target ? ' for ' + nm(a.target) : '') + pct;

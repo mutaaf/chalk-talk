@@ -211,7 +211,7 @@ export function createLesson(ctx) {
       body = `<small>Quiz · ${streak ? streak + ' in a row' : 'start a streak'}${best ? ' · best ' + best : ''}</small><h3>${esc(Q.ask)}</h3>${opts}${fb}`;
       foot = `<button type="button" class="go ghost" data-learn>Back to the lesson</button><div class="dots"></div>${answered ? '<button type="button" class="go" data-next>Next ›</button>' : ''}`;
     }
-    panel.innerHTML = `<header><span><small>${esc(C.kind === 'defense' ? 'Defense concept' : C.kind === 'offense' ? 'Offense concept' : 'Concept')}</small><b>${esc(C.title)}</b></span><button type="button" data-close aria-label="Close the lesson">${icon('close')}</button></header>${lv}<div class="ct-lsnb" aria-live="polite">${body}</div><footer>${foot}</footer>${C.credit ? `<p class="credit">${esc(C.credit)}</p>` : ''}`;
+    panel.innerHTML = `<header><span><small>${esc(C.kind === 'defense' ? 'Defense concept' : C.kind === 'offense' ? 'Offense concept' : C.kind === 'basics' ? 'Start here: the rules' : 'Concept')}</small><b>${esc(C.title)}</b></span><button type="button" data-close aria-label="Close the lesson">${icon('close')}</button></header>${lv}<div class="ct-lsnb" aria-live="polite">${body}</div><footer>${foot}</footer>${C.credit ? `<p class="credit">${esc(C.credit)}</p>` : ''}`;
   }
   function onPanel(e) {
     const b = e.target.closest('button'); if (!b) return;

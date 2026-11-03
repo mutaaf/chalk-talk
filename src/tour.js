@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.36.0';
+export const VERSION = '0.37.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.37.0', date: '2026-11-03', title: 'Pickleball', items: [
+    { title: 'A new sport: pickleball doubles', call: 'The real 20 × 44 ft court with the kitchen and the net. Nine points from the serve to the put-away: the two-bounce rule, return and run in, the third-shot drop, drive and crash, dinking, lob and switch, the poach, the Erne and the reset.' },
+    { title: 'New to it? Start here', call: 'The first time you open pickleball you get three ways in: the five rules in two minutes, a whole point step by step, or Trace. The lessons go from kids to coach, and PickleIQ asks you to pick the shot before it happens.' },
+    { title: 'On a real court, in AR', call: 'Trace draws the kitchens, the net at its real height, and a ring where each ball bounces. On AR glasses, “On a real court” lines the court up as you stand on your spot facing the net, and the point starts with a pinch.' }
+  ] },
   { version: '0.36.0', date: '2026-11-02', title: 'Trace: walk your path in light', items: [
     { title: 'Be the player', call: 'More → Trace. Pick your position and the play is projected around you: your path glows on the floor, light runs along the move you make now, and the step card tells you your job. Your eyes, or just above and behind you.' },
     { title: 'On AR and VR glasses', call: 'On glasses or headsets with a WebXR browser (Snap Spectacles, Quest, Vision Pro, Android XR), Trace goes life size or fits your room. The play waits at the end of each move until you walk to the ring.' },

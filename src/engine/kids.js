@@ -3,12 +3,14 @@
 // verbs ("passes to", "stands still like a wall for", "runs to the basket"), a picture word at the end of a score.
 // Pure: no DOM.
 
-const GOAL = { basketball: 'the basket', flag5: 'the end zone', flag7: 'the end zone', soccer7: 'the goal', soccer9: 'the goal' };
-const BALL = { basketball: '🏀', flag5: '🏈', flag7: '🏈', soccer7: '⚽', soccer9: '⚽' };
+const GOAL = { basketball: 'the basket', flag5: 'the end zone', flag7: 'the end zone', soccer7: 'the goal', soccer9: 'the goal', pickleball: 'the net' };
+const BALL = { basketball: '🏀', flag5: '🏈', flag7: '🏈', soccer7: '⚽', soccer9: '⚽', pickleball: '🏓' };
 
 // one action as a few words, or null when it isn't worth saying to a little kid
 function said(a, n, sport) {
   const goal = GOAL[sport.id] || 'the goal', who = n(a.who), to = a.target ? n(a.target) : '';
+  const K = sport.kinds[a.kind] || {};
+  if (K.kid) return K.kid.replace('{w}', who).replace('{t}', to);   // the kind says it (pickleball: "A hits a soft one into the kitchen")
   switch (a.kind) {
     case 'pass': case 'distribute': return `${who} passes to ${to}`;
     case 'throw': return `${who} throws to ${to}`;
@@ -34,7 +36,7 @@ export function kidLines(play, sport, nameOf) {
   const n = nameOf || (id => id.replace(/^O/, ''));
   const side = id => { const p = (play.players || []).find(q => q.id === id); return p ? p.side : id[0] === 'X' ? 'D' : 'O'; };
   return (play.beats || []).map(b => {
-    const acts = (b.actions || []).filter(a => side(a.who) === 'O' && a.kind !== 'ready');
+    const acts = (b.actions || []).filter(a => (sport.rally || side(a.who) === 'O') && a.kind !== 'ready');   // a net sport: both sides play the ball
     // the ball first (it's what kids watch), then one more thing
     const ball = acts.filter(a => (sport.kinds[a.kind] || {}).type !== 'move' || a.kind === 'dribble' || (a.kind === 'run' && sport.kinds.route));
     const rest = acts.filter(a => ball.indexOf(a) < 0);
