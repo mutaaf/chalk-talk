@@ -12,9 +12,11 @@ self.addEventListener('fetch', e => {
   // Marquee ads (/ads/*: the loader, config, creatives) always go to the network, never the shell cache.
   if (e.request.method !== 'GET' || u.pathname.includes('/api/') || u.pathname.startsWith('/ads/')) return;
   const page = e.request.mode === 'navigate';
-  // pages: network first (fresh when online), the cache when not; everything else: cache first
+  // pages: network first (fresh when online), the cache when not; only the board itself refreshes the cached shell
+  // (the glasses and code pages are their own pages); everything else: cache first
   e.respondWith(page
-    ? fetch(e.request).then(r => { const c = r.clone(); caches.open('ct-' + V).then(x => x.put('./', c)); return r; }).catch(() => caches.match('./'))
+    ? fetch(e.request).then(r => { if (r.ok && /\/chalktalk\/?$/.test(u.pathname)) { const c = r.clone(); caches.open('ct-' + V).then(x => x.put('./', c)); } return r; })
+        .catch(() => caches.match(u.pathname.replace(/\/$/, '') + '.html').then(hit => hit || caches.match('./')))
     : caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
         if (r.ok && (u.origin === location.origin || /fonts\.(googleapis|gstatic)\.com$/.test(u.hostname))) { const c = r.clone(); caches.open('ct-' + V).then(x => x.put(e.request, c)); }
         return r;

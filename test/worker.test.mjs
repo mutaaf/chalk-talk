@@ -112,6 +112,28 @@ console.log('ok: worker routes, validation, CORS, caps and limits');
   assert.equal((await worker.fetch(req('/analyst', { sport: 'flag5', play: canned, facts: [] }), env('{}'))).status, 400);
   console.log('ok: analyst endpoint');
 }
+// a play handed to a headset: a 4-digit code fetches it for two hours, names never go, the code is per play
+{
+  const { DatabaseSync } = await import('node:sqlite');
+  const sq = new DatabaseSync(':memory:');
+  const mk = (sql, a = []) => ({ first: async () => sq.prepare(sql).get(...a) ?? null, run: async () => { sq.prepare(sql).run(...a); return {}; }, all: async () => ({ results: sq.prepare(sql).all(...a) }) });
+  const D = { prepare: sql => Object.assign(mk(sql), { bind: (...a) => mk(sql, a) }) };
+  const e = env('{}', { DB: D });
+  const play = Object.assign(JSON.parse(JSON.stringify(canned)), { names: { O1: 'Jordan' } }); play.players[0].name = 'Jordan';
+  let r = await worker.fetch(req('/hand', { sport: 'basketball', play, who: 'o2' }), e);
+  assert.equal(r.status, 200); const { code } = await r.json(); assert.match(code, /^\d{4}$/);
+  r = await worker.fetch(req('/hand/' + code), e); assert.equal(r.status, 200);
+  const got = await r.json(); assert.equal(got.sport, 'basketball'); assert.equal(got.who, 'O2'); assert.equal(got.play.beats.length, canned.beats.length);
+  assert.ok(!JSON.stringify(got).includes('Jordan'), 'no names in a handed play');
+  assert.equal((await worker.fetch(req('/hand/' + (code === '0000' ? '0001' : '0000')), e)).status, 404);
+  assert.equal((await worker.fetch(req('/hand', { sport: 'cricket', play }), e)).status, 400);
+  assert.equal((await worker.fetch(req('/hand', { sport: 'basketball', play: { players: 1 } }), e)).status, 400);
+  sq.prepare('UPDATE hand SET at = ?').run(Date.now() - 3 * 3600 * 1000);
+  assert.equal((await worker.fetch(req('/hand/' + code), e)).status, 404, 'codes expire');
+  for (let i = 1; i < LIMITS.handsPerDay; i++) await worker.fetch(req('/hand', { sport: 'basketball', play }), e);
+  assert.equal((await worker.fetch(req('/hand', { sport: 'basketball', play }), e)).status, 429);
+  console.log('ok: handing a play to a headset by code');
+}
 // opt-in voice learning: a phrase or a fix is shared with everyone only once 3 different coaches confirm it;
 // anything carrying a scrubbed name is refused
 {

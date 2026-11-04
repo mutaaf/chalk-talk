@@ -7,6 +7,7 @@ rmSync('dist', { recursive: true, force: true });
 mkdirSync(out + '/vendor', { recursive: true });
 copyFileSync('index.html', out + '/index.html');
 copyFileSync('glasses.html', out + '/glasses.html');   // Meta Ray-Ban Display web app (Trace)
+copyFileSync('go.html', out + '/go.html');   // a headset types a 4-digit code here (mutaafaziz.com/chalktalk/go) to open a handed play
 mkdirSync(out + '/admin', { recursive: true }); copyFileSync('admin/index.html', out + '/admin/index.html');   // the owner's analytics (not cached offline)
 cpSync('src', out + '/src', { recursive: true });
 copyFileSync('node_modules/aurora-field/dist/aurora-field.mjs', out + '/vendor/aurora-field.mjs');

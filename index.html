@@ -44,7 +44,7 @@
 <script type="module">
   import { mount } from './src/index.js';
   const q = new URLSearchParams(location.search);
-  window.chalk = mount(document.getElementById('app'), { fullscreen: true, sport: q.get('sport') || 'basketball', play: q.get('play'), iq: q.get('iq'), concept: q.get('concept'), level: q.get('level'), trace: q.get('trace'), kids: q.has('kids') ? q.get('kids') !== '0' : null });
+  window.chalk = mount(document.getElementById('app'), { fullscreen: true, sport: q.get('sport') || 'basketball', play: q.get('play'), iq: q.get('iq'), concept: q.get('concept'), level: q.get('level'), trace: q.get('trace'), hand: q.get('hand'), kids: q.has('kids') ? q.get('kids') !== '0' : null });
   // Ad slot: the foot of the play library (desktop Concepts sidebar, Plays panel, phone sheet), never over the board.
   // Lives here, not in src/, so hosts that mount the package (CourtIQ) never show ads.
   const appEl = document.getElementById('app');

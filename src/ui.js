@@ -209,7 +209,7 @@ export function mount(root, options) {
   let link = null;
   try {
     const m = location.hash.match(/ct-link=([\w.-]+)/);
-    if (m && standalone) { localStorage.setItem(LINK, m[1]); history.replaceState(null, '', location.pathname + location.search); }
+    if (m && standalone) { localStorage.setItem(LINK, m[1]); window.history.replaceState(null, '', location.pathname + location.search); }
     link = standalone ? localStorage.getItem(LINK) : null;
   } catch (e) {}
   if (link) { setApi(COURTIQ + '/api/labs/chalk-talk'); setAuth(link); }
@@ -668,7 +668,13 @@ export function mount(root, options) {
     seek: k => { if (!state.sim || state.quiz) return; state.sim.seek(k); state.sim.playing(true); renderDots(); } });
   // trace (src/trace.js): pick a position, the play is projected around you as light (first person, or WebXR glasses)
   const tracer = createTrace({ root, sim: () => state.sim, sport: () => state.sport, name: id => nameOf(id), track, chime: k => chime(k === 'ok' ? 'yes' : k),
-    speak: t => { if (state.narrate) speak(t, true); }, onClose: () => { if (state.sim && tracePaused) state.sim.playing(true); tracePaused = false; } });
+    speak: t => { if (state.narrate) speak(t, true); },
+    // a 4-digit code that opens this play and position on a headset (Chalk Talk's own API; the play's shape only)
+    handoff: async who => {
+      const r = await fetch(ownApi() + '/hand', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sport: state.sport.id, play: state.raw, who }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Couldn’t make a code.'); return j;
+    },
+    onClose: () => { if (state.sim && tracePaused) state.sim.playing(true); tracePaused = false; } });
   let tracePaused = false;
   function openTrace(who) {
     if (!state.sim || state.quiz) return;
@@ -1571,7 +1577,7 @@ export function mount(root, options) {
     if (e.key === 'ArrowLeft') act('back');
     if (e.key === 'Escape') {
       if (!R.spot.hidden) { endTour(); return; } if (root.querySelector('.ct-panel:not(.out)')) { closePanel(); return; }
-      if (tracer.on) { tracer.close(); return; }
+      if (tracer.on) { if (!tracer.back()) tracer.close(); return; }
       if (lesson.on) { lesson.close(); return; }
       if (state.coach) { endCoach(false); return; } if (state.quiz) { iq.stop(); return; } if (state.focus) { R.focusChip.click(); return; }
       if (root.classList.contains('ct-present-on')) { present(false); return; } if (state.sketch) { finishSketch(); return; } if (root.classList.contains('ct-board')) boardOnly(false);
@@ -2176,6 +2182,15 @@ export function mount(root, options) {
   // the IQ bank (thousands of questions) is built when the board is idle, for this sport and each one switched to
   const idle = f => (typeof requestIdleCallback === 'function' ? requestIdleCallback(f, { timeout: 4000 }) : setTimeout(f, 1500));
   idle(() => { if (!dead && state.sport.iq) try { warmIQ(state.sport); } catch (e) {} });
+  // a play handed over by code (?hand=1234, from mutaafaziz.com/chalktalk/go on a headset): its sport, the play, Trace
+  if (opts.hand && /^\d{4}$/.test(opts.hand)) {
+    try { window.history.replaceState(null, '', location.pathname); } catch (e) {}   // window's: `history` here is the play history
+    fetch(ownApi() + '/hand/' + opts.hand).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.error || 'That code didn’t work.'))))).then(h => {
+      if (dead) return;
+      setSport(sportFor(h.sport)); load(h.play, { quiet: true });
+      track('trace_cta', { at: 'hand' }); setTimeout(() => { if (!dead) openTrace(h.who || null); }, 400);
+    }).catch(e => toast((e && e.message) || 'That code didn’t work.'));
+  }
   if (opts.trace) setTimeout(() => { if (!dead) { track('trace_cta', { at: 'link' }); openTrace(opts.trace === '1' || opts.trace === true ? null : String(opts.trace).toUpperCase()); } }, 900);
   if (opts.concept) setTimeout(() => { if (!dead) { track('lesson_cta', { at: 'link' }); openConcepts(opts.concept, opts.level); } }, 700);
   let welcoming = false; try { welcoming = !!(state.sport.welcome && !localStorage.getItem('chalktalk.met.' + state.sport.id) && !opts.trace && !opts.concept && !opts.iq); } catch (e) {}

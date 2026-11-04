@@ -8,10 +8,16 @@
 // Vision Pro, Android XR): on a real court or field (stand on your spot facing the goal, pinch, and the field locks
 // to you), fit my room, VR, or a tabletop hologram of the whole play. Walking it, a gold ghost of you runs on time,
 // arrows on the floor point to the next ring, a ping sounds from where you need to go, and each rep is scored.
+// The step card fits each headset's view (narrow glasses get a smaller card that tags along with your gaze), and
+// the words fit its input (pinch, tap, trigger). Without a headset: Earbuds (Ray-Ban Meta, AirPods, any earbuds:
+// every step spoken and paced, pings from where to go, a tap on the glasses pauses), Display glasses (XREAL,
+// VITURE, RayNeo, Rokid: full screen, black is clear, 3D side by side), and a 4-digit code that hands the play to
+// any headset's browser (mutaafaziz.com/chalktalk/go) or Ray-Ban Display.
 // Everything is drawn with additive light, so on see-through glasses black is simply not there. Own WebGL (no
 // three.js); pure parts live in engine/trace.js.
 
-import { trace, lookAt, roomScale, positions, busiest, metersPer, bounceIn, flightIn, faceHeading, faceWords, repScore } from './engine/trace.js';
+import { trace, lookAt, roomScale, positions, busiest, metersPer, bounceIn, flightIn, faceHeading, faceWords, repScore, hudFit, pressWord, earPace } from './engine/trace.js';
+import { qrSvg } from './qr.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const GOLD = [1, 0.78, 0.35], ORANGE = [1, 0.56, 0.23], ICE = [0.62, 0.8, 1], WHITE = [0.93, 0.96, 1], RED = [1, 0.42, 0.42];
@@ -38,6 +44,24 @@ function phoneQuat(o) {
 }
 const yawOf = f => Math.atan2(f[0], -f[2]);
 const rotY = (v, o) => [v[0] * Math.cos(o) - v[2] * Math.sin(o), v[1], v[0] * Math.sin(o) + v[2] * Math.cos(o)];
+
+// speech of our own (Earbuds speaks every step whatever the board's narration is set to); `done` when it's said
+function say(text, done) {
+  let fired = false; const fin = () => { if (!fired) { fired = true; done && done(); } };
+  try {
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 1.02; u.onend = fin; u.onerror = fin; speechSynthesis.speak(u);
+    setTimeout(fin, 900 + String(text).split(/\s+/).length * 420);   // some voices never say they're done
+  } catch (e) { setTimeout(fin, 300); }
+}
+// a second of near silence, looped: it makes this page the one playing, so a tap on Ray-Ban Meta, AirPods or any
+// earbuds (play/pause, next, previous) comes to us through the Media Session
+function quiet() {
+  const n = 8000, b = new Uint8Array(44 + n), v = new DataView(b.buffer), w = (o, t) => [...t].forEach((c, i) => { b[o + i] = c.charCodeAt(0); });
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) b[44 + i] = 128 + (i % 2);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
 
 // ---- a tiny spatial synth: pings that come from a place (HRTF), so you can find the ring without looking ----
 function spatial() {
@@ -156,6 +180,28 @@ const CSS = `
 .ct-tr.cam { background: #000; } .ct-tr.cam video { display: block; }
 .ct-tr .tr-row button.tr-xr.on { background: #ffc75a; }
 .ct-tr .tr-hint { position: absolute; top: calc(60px + env(safe-area-inset-top)); left: 0; right: 0; text-align: center; font-size: 12px; color: rgba(199, 214, 238, .7); pointer-events: none; }
+/* Display glasses: pure black (clear on the glasses), the step card drawn in the light, the controls out of the way */
+.ct-tr.gl { background: #000; } .ct-tr.gl canvas { cursor: none; }
+.ct-tr.gl .tr-top, .ct-tr.gl .tr-card, .ct-tr.gl .tr-hint { opacity: 0; pointer-events: none; transition: opacity .4s; }
+.ct-tr .tr-glbar { position: absolute; right: 12px; top: calc(10px + env(safe-area-inset-top)); display: none; gap: 8px; transition: opacity .4s; }
+.ct-tr.gl .tr-glbar { display: flex; } .ct-tr.gl.idle .tr-glbar { opacity: 0; }
+/* Earbuds: the step big, for a glance at the phone */
+.ct-tr.ear .tr-job { font-size: clamp(22px, 6vw, 34px); }
+.ct-tr .tr-row button.on { background: #ffc75a; color: #04070c; border-color: transparent; }
+/* the sheet: every other way in, and the code for a headset */
+.ct-tr .tr-sheet, .ct-tr .tr-sheet * { box-sizing: border-box; }
+.ct-tr .tr-sheet { position: absolute; inset: auto 0 0 0; max-height: 86%; overflow-y: auto; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); background: rgba(6, 11, 21, .97); border-top: 1px solid rgba(140, 188, 255, .25); border-radius: 22px 22px 0 0; display: grid; gap: 10px; }
+.ct-tr .tr-sheet h3 { margin: 0; font: 900 12px/1 var(--display, system-ui); letter-spacing: .16em; text-transform: uppercase; color: #ffc75a; }
+.ct-tr .tr-sheet .way { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px; border-radius: 14px; border: 1px solid rgba(140, 188, 255, .18); }
+.ct-tr .tr-sheet .way b { font-size: 16px; } .ct-tr .tr-sheet .way small { grid-column: 1; font-size: 13px; line-height: 1.35; color: #a8bad6; }
+.ct-tr .tr-sheet .way > button, .ct-tr .tr-sheet .way .bs { grid-row: 1 / span 2; grid-column: 2; } .ct-tr .tr-sheet .way .bs { display: flex; gap: 6px; }
+.ct-tr .tr-sheet .code { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 14px; border-radius: 16px; background: rgba(255, 199, 90, .08); border: 1px solid rgba(255, 199, 90, .35); }
+.ct-tr .tr-sheet .code .qr { width: 132px; height: 132px; border-radius: 10px; overflow: hidden; background: #fff; }
+.ct-tr .tr-sheet .code .qr svg { width: 100%; height: 100%; display: block; }
+.ct-tr .tr-sheet .code .num { font: 900 46px/1 var(--display, system-ui); letter-spacing: .14em; color: #ffc75a; font-variant-numeric: tabular-nums; }
+.ct-tr .tr-sheet .code p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.4; color: #c7d6ee; } .ct-tr .tr-sheet .code p b { color: #fff; overflow-wrap: anywhere; }
+@media (max-width: 420px) { .ct-tr .tr-sheet .code .qr { width: 104px; height: 104px; } .ct-tr .tr-sheet .code .num { font-size: 38px; } }
+.ct-tr .tr-sheet ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.45; color: #a8bad6; } .ct-tr .tr-sheet li b { color: #eef4ff; }
 `;
 
 export function createTrace(ctx) {
@@ -164,6 +210,7 @@ export function createTrace(ctx) {
   let yaw = null, dYaw = 0, dPitch = -0.2, xr = null, xrs = {}, how = null, scale = 1, origin = null, heading0 = 0, shift = [0, 0, 0], anchored = false;
   let panelPos = null, panelText = '', waiting = false, waitAt = 0, pinged = 0, spoken = -1, flown = -1, bounces = [], flights = [], ready = false, behind = false;
   let lates = [], reps = 0, score = null, ori = null, phoneOff = null, stream = null;
+  let fit = hudFit(1, 1), press = 'Pinch', glasses = null, ear = null, sheet = null, idleT = 0;
   const name = id => ctx.name ? ctx.name(id) : id, sfx = spatial();
   const table = () => how === 'table', walking = () => !!xr && !table();
   const bestKey = () => `chalktalk.trace.best.${sport.id}.${sim.play.title || ''}.${tr.id}`;
@@ -292,8 +339,8 @@ export function createTrace(ctx) {
       // and if it's coming to you and you're looking away, light at the edge of your view shows which way to turn
       if (me && fwd && walking() && B && t - k < 0.9) {
         const b = W(B[0], B[1], B[2] || 0), want = Math.atan2(b[0] - cam[0], -(b[2] - cam[2])), d = Math.atan2(Math.sin(want - yawOf(fwd)), Math.cos(want - yawOf(fwd)));
-        if (Math.abs(d) > 0.8) for (let j = 0; j < 3; j++) {
-          const a = yawOf(fwd) + Math.sign(d) * (0.35 + j * 0.09), pulse = 0.5 + 0.5 * Math.sin(now / 110 - j);
+        if (Math.abs(d) > Math.min(0.8, fit.edge * 2)) for (let j = 0; j < 3; j++) {
+          const a = yawOf(fwd) + Math.sign(d) * fit.edge * (1 + j * 0.26), pulse = 0.5 + 0.5 * Math.sin(now / 110 - j);
           sprite(g, [cam[0] + Math.sin(a) * 1.1, cam[1] - 0.12, cam[2] - Math.cos(a) * 1.1], 0.05 + j * 0.012, GOLD.concat(0.4 + 0.5 * pulse), cam);
         }
       }
@@ -325,11 +372,11 @@ export function createTrace(ctx) {
   // ---- the clock: one beat every BEAT_S seconds (÷ speed); walking it in XR it waits for you at the end of each
   // of your moves, pings from the ring while it waits, and scores the rep ----
   function advance(now, head) {
-    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0; last = now;
+    const dt = last ? Math.min(ear ? 1 : 0.1, (now - last) / 1000) : 0; last = now;
     const n = sim.play.beats.length;
     if (!playing) return;
     if (t >= n) { hold += dt; if (hold > (score ? 4 : 2.2)) { t = 0; hold = 0; lates = []; score = null; } return; }
-    const k = Math.floor(t), next = t + dt * speed / BEAT_S;
+    const k = Math.floor(t), next = t + dt / (ear ? earPace(tr.steps[k] && tr.steps[k].job, speed, BEAT_S) : BEAT_S / speed);
     if (head && walking() && Math.floor(next) > k) {
       const s = tr.steps[k];
       if (s && s.moved) {
@@ -363,13 +410,22 @@ export function createTrace(ctx) {
   }
   function stepText() {
     const n = sim.play.beats.length, k = Math.min(n - 1, Math.floor(t));
-    if (ready) return { head: `On a real ${(sport.trace && sport.trace.place) || 'field'} · you are ${tr.name}`, job: `Stand on your spot facing ${faceWords(sim, who, sport)}. Pinch to start.` };
+    if (ready) return { head: `On a real ${(sport.trace && sport.trace.place) || 'field'} · you are ${tr.name}`, job: `Stand on your spot facing ${faceWords(sim, who, sport)}. ${press} to start.` };
     if (t >= n && score) return { head: `Rep ${reps} · ${'★'.repeat(score.stars)}${'☆'.repeat(3 - score.stars)}${score.beat ? ' · new best' : ''}`, job: `${score.onTime} of ${score.moves} moves on time${score.avg > 0.4 ? `, ${score.avg.toFixed(1)} s late on average` : ''}. Again in a moment.` };
+    if (ear && !playing && t === 0) return { head: `Earbuds · you are ${tr.name}`, job: `Face ${faceWords(sim, who, sport)}. Listen for each step.` };
     if (t >= n) return { head: 'That’s the play', job: 'Again from the top in a moment.' };
-    return { head: `Step ${k + 1} of ${n} · you are ${tr.name}`, job: waiting ? 'Walk to the ring to keep going' : behind ? 'Catch your ghost · ' + tr.steps[k].job : tr.steps[k].job };
+    return { head: `Step ${k + 1} of ${n} · you are ${tr.name}`, job: waiting ? `Walk to the ring to keep going · ${press} to skip` : behind ? 'Catch your ghost · ' + tr.steps[k].job : tr.steps[k].job };
   }
   function sayStep() {
-    const k = Math.floor(t); if (k === spoken || !ctx.speak || t >= sim.play.beats.length || ready) return;
+    const n = sim.play.beats.length, k = Math.floor(t);
+    if (ear) {   // every step said, whatever narration is set to, and a ping from where you're going
+      if (t >= n) { if (spoken !== n) { spoken = n; say('That’s the play. Again in a moment.'); } return; }
+      if (k === spoken || !playing) return;
+      spoken = k; const s = tr.steps[k]; say(`${k + 1}. ${s.job}`);
+      if (s.moved) { const e = W(s.to[0], s.to[1], 0), P = sim.posAt(t)[who], me = W(P[0], P[1], 0), d = Math.hypot(e[0] - me[0], e[2] - me[2]); sfx.ping([e[0], EYE, e[2]], 660 + 600 * Math.max(0, 1 - d / 8), 0.3, 0.3); }
+      return;
+    }
+    if (k === spoken || !ctx.speak || t >= n || ready) return;
     spoken = k; ctx.speak(tr.steps[k].job);
   }
 
@@ -381,7 +437,7 @@ export function createTrace(ctx) {
     const cv = el.querySelector('canvas'), dpr = Math.min(2, devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
     if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     const cam = mode === 'cam';
-    gl.viewport(0, 0, cv.width, cv.height); if (cam) gl.clearColor(0, 0, 0, 0); else gl.clearColor(0.008, 0.02, 0.04, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.viewport(0, 0, cv.width, cv.height); if (cam) gl.clearColor(0, 0, 0, 0); else if (glasses) gl.clearColor(0, 0, 0, 1); else gl.clearColor(0.008, 0.02, 0.04, 1); gl.clear(gl.COLOR_BUFFER_BIT);
     const target = lookAt(sim, who, t, sport);
     if (yaw == null) yaw = target; let d = target - yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); yaw += d * 0.06;
     const P = sim.posAt(t)[who], me = W(P[0], P[1], 0);
@@ -398,9 +454,24 @@ export function createTrace(ctx) {
       eye = mode === 'above' ? [me[0] - Math.sin(a) * 4.2, 4.4, me[2] + Math.cos(a) * 4.2] : [me[0], EYE, me[2]];
     }
     const vp = mul(persp(cam ? (h > w ? 1.05 : 0.75) : h > w ? 1.45 : 1.1, w / h, 0.05, 300), look(eye, fwd, up));
-    sfx.ear(eye, fwd); cues(eye);
-    draw(vp, scene(eye, now, fwd));
-    const s = stepText(); el.querySelector('[data-t=head]').textContent = s.head; el.querySelector('[data-t=job]').textContent = s.job;
+    // heard, not seen: you stand facing the goal (or the net), so the pings come from where that puts the ring
+    if (ear) { const hf = faceHeading(sim, who, sport); sfx.ear([me[0], EYE, me[2]], [Math.sin(hf), 0, -Math.cos(hf)]); } else sfx.ear(eye, fwd);
+    cues(eye);
+    const data = scene(eye, now, fwd), s = stepText();
+    if (glasses) {
+      // display glasses: one picture, or one per eye side by side (3D mode), with the step card in the light
+      const halves = glasses.sbs ? 2 : 1, fov = 0.75, aw = w / halves, r = [-fwd[2], 0, fwd[0]], rl = Math.hypot(r[0], r[2]) || 1;
+      const tv = Math.tan(fov / 2), f2 = hudFit(tv * aw / h, tv, 1.4), want = [eye[0] + fwd[0] * 1.4, eye[1] + fwd[1] * 1.4 - f2.drop, eye[2] + fwd[2] * 1.4];
+      const txt = s.head + '\n' + s.job; if (txt !== panelText) { panelText = txt; drawPanel(s); }
+      for (let e = 0; e < halves; e++) {
+        const o = halves === 2 ? (e ? 0.032 : -0.032) / rl : 0, ey = [eye[0] + r[0] * o, eye[1], eye[2] + r[2] * o];
+        gl.viewport(Math.round(e * cv.width / halves), 0, Math.round(cv.width / halves), cv.height);
+        const vpe = mul(persp(fov, aw / h, 0.05, 300), look(ey, fwd, up));
+        draw(vpe, data);
+        if (panel) { const pt = []; label(pt, want, f2.w, f2.h, [0, 0, 1, 1], [1, 1, 1, 1], ey); gl.bindTexture(gl.TEXTURE_2D, panel); gl.useProgram(T.p); gl.uniformMatrix4fv(T.vp, false, vpe); runPanel(pt); }
+      }
+    } else draw(vp, data);
+    el.querySelector('[data-t=head]').textContent = s.head; el.querySelector('[data-t=job]').textContent = s.job;
     sayStep();
   }
   const onOri = e => { if (e.alpha == null) return; const r = Math.PI / 180, so = (screen.orientation && screen.orientation.angle) || window.orientation || 0; ori = { a: e.alpha * r, b: e.beta * r, g: e.gamma * r, s: so * r }; };
@@ -426,6 +497,96 @@ export function createTrace(ctx) {
     ctx.track && ctx.track('trace_cam', { motion: ori ? 1 : 0 });
   }
 
+  // ---- Earbuds: Ray-Ban Meta, Oakley Meta, AirPods, any earbuds. The phone in your pocket says each step, paced
+  // to the words, a ping comes from where you're going, and a tap on the glasses (or earbuds) pauses and plays ----
+  function earIntro() {
+    if (!ear) return; t = 0; hold = 0; playing = false; spoken = -1; lates = []; score = null;
+    say(`You are ${/^\d+$/.test(tr.name) ? 'number ' + tr.name : tr.name}. ${sim.play.title ? sim.play.title + '. ' : ''}Stand on your spot facing ${faceWords(sim, who, sport)}. Ready. Go.`, () => { if (ear && !playing && t === 0) { playing = true; last = 0; } });
+  }
+  async function earbuds(on) {
+    const ms = navigator.mediaSession, set = (k, f) => { try { ms.setActionHandler(k, f); } catch (e) {} };
+    if (!on) {
+      if (!ear) return;
+      try { ear.a.pause(); URL.revokeObjectURL(ear.a.src); } catch (e) {}
+      try { if (ear.lock) ear.lock.release(); } catch (e) {} clearInterval(ear.tick);
+      if (ms) ['play', 'pause', 'nexttrack', 'previoustrack'].forEach(k => set(k, null));
+      try { speechSynthesis.cancel(); } catch (e) {}
+      ear = null; playing = true;
+      if (el) { el.classList.remove('ear'); el.querySelector('.tr-hint').hidden = true; }
+      return;
+    }
+    if (xr || ear) return;
+    if (glasses) glassMode(false);
+    sfx.start();
+    const a = new Audio(quiet()); a.loop = true; a.play().catch(() => {});
+    ear = { a, lock: null }; el.classList.add('ear');
+    const hint = el.querySelector('.tr-hint'); hint.textContent = 'Phone in your pocket: tap your glasses or earbuds to pause and play'; hint.hidden = false;
+    earIntro();   // said on the tap itself (iOS lets speech start only there)
+    if (ms) {
+      try { ms.metadata = new MediaMetadata({ title: `${tr.name} · ${sim.play.title || 'Chalk Talk'}`, artist: 'Chalk Talk Trace', album: sport.name }); } catch (e) {}
+      set('play', () => { if (!ear) return; playing = true; spoken = -1; ear.a.play().catch(() => {}); ms.playbackState = 'playing'; });
+      set('pause', () => { if (!ear) return; playing = false; ear.a.pause(); ms.playbackState = 'paused'; try { speechSynthesis.cancel(); } catch (e) {} });
+      set('nexttrack', () => { t = Math.min(sim.play.beats.length, Math.floor(t) + 1); hold = 0; });
+      set('previoustrack', () => { t = Math.max(0, Math.ceil(t) - 2); hold = 0; spoken = -1; });
+      ms.playbackState = 'playing';
+    }
+    // the screen stays on if it can; if it goes off anyway, a timer keeps the steps coming (frames stop when hidden)
+    ear.tick = setInterval(() => { if (ear && document.hidden) { advance(performance.now()); sayStep(); } }, 250);
+    try { if (navigator.wakeLock) ear.lock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    ctx.track && ctx.track('trace_ear', { media: ms ? 1 : 0 });
+  }
+
+  // ---- Display glasses (XREAL, VITURE, RayNeo, Rokid, anything that plugs in as a screen): full screen and pure
+  // black, so only the light shows; 3D draws one picture per eye side by side for glasses in their 3D mode ----
+  const poke = () => { if (!el) return; el.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => { if (el) el.classList.add('idle'); }, 3000); };
+  function glassMode(on, sbs) {
+    if (!el) return;
+    if (!on) {
+      glasses = null; el.classList.remove('gl', 'idle'); panelText = '';
+      try { if (document.fullscreenElement === el) document.exitFullscreen().catch(() => {}); } catch (e) {}
+      return;
+    }
+    if (mode === 'cam') camera(false); if (ear) earbuds(false);
+    glasses = { sbs: !!sbs }; panelText = ''; el.classList.add('gl'); showSheet(false); poke();
+    el.querySelector('[data-a=sbs]').textContent = glasses.sbs ? '2D' : '3D';
+    try { const r = el.requestFullscreen && el.requestFullscreen({ navigationUI: 'hide' }); if (r && r.catch) r.catch(() => {}); } catch (e) {}
+    ctx.track && ctx.track('trace_glasses', { sbs: glasses.sbs ? 1 : 0 });
+  }
+  const onFs = () => { if (glasses && el && !document.fullscreenElement) glassMode(false); };
+  // a keyboard, a ring or a clicker drives it when you can't see the buttons
+  const onKey = e => {
+    if (!el || xr || !(glasses || ear)) return;
+    const n = sim.play.beats.length, k = e.key;
+    if (k === ' ' || k === 'Enter') { if (t >= n) t = 0; playing = !playing; if (ear) playing ? ear.a.play().catch(() => {}) : ear.a.pause(); }
+    else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown') { t = Math.min(n, Math.floor(t) + 1); hold = 0; }
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') { t = Math.max(0, Math.ceil(t) - 2); hold = 0; spoken = -1; }
+    else return;
+    e.preventDefault(); e.stopPropagation(); poke();
+  };
+
+  // ---- every other way in: a code for a headset, Earbuds, Display glasses ----
+  function showSheet(on) {
+    if (sheet) { sheet.remove(); sheet = null; }
+    if (!on || !el) return;
+    sheet = document.createElement('div'); sheet.className = 'tr-sheet'; sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-label', 'Trace on any glasses');
+    sheet.innerHTML = `<h3>Trace on any glasses</h3>
+      ${ctx.handoff ? '<div class="way"><b>Send to a headset</b><small>Snap Specs, Quest, Vision Pro, Android XR, Pico or Ray-Ban Display: a 4-digit code opens this play and your position there.</small><button type="button" class="tr-xr" data-a="hand">Get a code</button></div><div data-t="code" aria-live="polite"></div>' : ''}
+      <div class="way"><b>Earbuds</b><small>Ray-Ban Meta, Oakley Meta, AirPods or any earbuds: every step said out loud with your phone in your pocket, a ping from where you’re going. Tap your glasses or earbuds to pause.</small><button type="button" data-a="ear" class="${ear ? 'on' : ''}">${ear ? 'Stop' : 'Start'}</button></div>
+      <div class="way"><b>Display glasses</b><small>XREAL, VITURE, RayNeo, Rokid or any glasses you plug in: full screen, black is clear. 3D if your glasses are in side-by-side mode.</small><span class="bs"><button type="button" data-a="glass">Start</button><button type="button" data-a="glass3d">3D</button></span></div>
+      <button type="button" data-a="sheet-x">Done</button>`;
+    el.appendChild(sheet);
+  }
+  async function handoff() {
+    const box = sheet && sheet.querySelector('[data-t=code]'); if (!box) return;
+    box.innerHTML = '<p>Making a code…</p>';
+    try {
+      const r = await ctx.handoff(tr.id); if (!sheet || !box.isConnected) return;
+      const base = /^(localhost|127\.)/.test(location.hostname) ? location.origin + location.pathname : 'https://mutaafaziz.com/chalktalk/';
+      box.innerHTML = `<div class="code"><div class="qr">${qrSvg(base + '?hand=' + r.code)}</div><div><div class="num">${esc(r.code)}</div><p>On the headset: <b>mutaafaziz.com/chalktalk/go</b>, then the code. Ray-Ban Display: <b>mutaafaziz.com/chalktalk/glasses</b> → Enter a code. Or scan it with a phone. Good for ${Math.round((r.minutes || 120) / 60)} hours.</p></div></div>`;
+      ctx.track && ctx.track('trace_hand', {});
+    } catch (e) { box.innerHTML = `<p>${esc((e && e.message) || 'Couldn’t make a code.')}</p>`; }
+  }
+
   // ---- WebXR: on a real court or field, fit my room, VR, or a tabletop hologram ----
   async function xrSupport() {
     const out = {}; if (!navigator.xr) return out;
@@ -433,9 +594,12 @@ export function createTrace(ctx) {
     return out;
   }
   async function enterXR(m, mode2) {
-    sfx.start(); if (mode === 'cam') camera(false);
+    sfx.start(); if (mode === 'cam') camera(false); if (ear) earbuds(false); if (glasses) glassMode(false); showSheet(false);
     const session = await navigator.xr.requestSession(m, { optionalFeatures: ['local-floor', 'hand-tracking'] });
-    xr = { session, m }; how = mode2; ctx.track && ctx.track('trace_xr', { m: m === 'immersive-ar' ? 'ar' : 'vr', how: mode2 });
+    xr = { session, m }; how = mode2;
+    // the words for "go" follow what you hold or use: a pinch, a tap on a phone's screen, a controller's trigger
+    const words = () => { press = pressWord(session.inputSources); panelText = ''; };
+    words(); session.addEventListener('inputsourceschange', words); ctx.track && ctx.track('trace_xr', { m: m === 'immersive-ar' ? 'ar' : 'vr', how: mode2 });
     await gl.makeXRCompatible();
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
     let space, floor = 0;
@@ -470,10 +634,14 @@ export function createTrace(ctx) {
       const layer = session.renderState.baseLayer;
       gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
       gl.clearColor(ar ? 0 : 0.008, ar ? 0 : 0.02, ar ? 0 : 0.04, ar ? 0 : 1); gl.clear(gl.COLOR_BUFFER_BIT);
+      // the step card, fitted to this device's view: on a wide headset it floats ahead, a little low (above the far
+      // end of a tabletop), and follows lazily; on narrow glasses (Snap Specs) it's smaller and tags along with your gaze
+      const P0 = pose.views[0].projectionMatrix, dist = table() ? 1.7 : 1.4; fit = hudFit(1 / P0[0], 1 / P0[5], dist);
       const data = scene(head, now, fwd), s = stepText(), txt = s.head + '\n' + s.job;
-      // the step card: floats ahead of you, a little low (above the far end of a tabletop), and follows lazily
-      const want = table() ? [head[0] + fwd[0] * 1.7, head[1] + 0.05, head[2] + fwd[2] * 1.7] : [head[0] + fwd[0] * 1.4, head[1] - 0.45, head[2] + fwd[2] * 1.4];
-      panelPos = panelPos ? panelPos.map((v, j) => v + (want[j] - v) * 0.04) : want;
+      const gz = [-fz[0], -2 * (o.y * o.z - o.w * o.x), -fz[2]];
+      const want = fit.follow ? [head[0] + gz[0] * dist, head[1] + gz[1] * dist - fit.drop, head[2] + gz[2] * dist]
+        : table() ? [head[0] + fwd[0] * 1.7, head[1] + 0.05, head[2] + fwd[2] * 1.7] : [head[0] + fwd[0] * 1.4, head[1] - fit.drop, head[2] + fwd[2] * 1.4];
+      panelPos = panelPos ? panelPos.map((v, j) => v + (want[j] - v) * (fit.follow ? 0.12 : 0.04)) : want;
       if (txt !== panelText) { panelText = txt; drawPanel(s); }
       sayStep();
       for (const view of pose.views) {
@@ -481,7 +649,7 @@ export function createTrace(ctx) {
         const V = view.transform.inverse.matrix, Fm = new Float32Array(16); Fm.set(V); for (let j = 0; j < 3; j++) Fm[12 + j] += V[4 + j] * floor;   // our floor (y 0) is at `floor` in this space
         const vp = mul(view.projectionMatrix, Fm);
         draw(vp, data);
-        if (panel) { const pt = []; label(pt, panelPos, 0.9, 0.34, [0, 0, 1, 1], [1, 1, 1, 1], head); gl.bindTexture(gl.TEXTURE_2D, panel); gl.useProgram(T.p); gl.uniformMatrix4fv(T.vp, false, vp); runPanel(pt); }
+        if (panel) { const pt = []; label(pt, panelPos, fit.w, fit.h, [0, 0, 1, 1], [1, 1, 1, 1], head); gl.bindTexture(gl.TEXTURE_2D, panel); gl.useProgram(T.p); gl.uniformMatrix4fv(T.vp, false, vp); runPanel(pt); }
       }
     };
     session.requestAnimationFrame(onFrame);
@@ -508,6 +676,7 @@ export function createTrace(ctx) {
     who = i; tr = trace(sim, i, sport, name); t = 0; hold = 0; yaw = null; dYaw = 0; spoken = -1; flown = -1; waiting = false; lates = []; score = null; reps = 0; phoneOff = null;
     bounces = sim.play.beats.map((_, k) => bounceIn(sim, sport, k));
     flights = sim.play.beats.map((_, k) => flightIn(sim, sport, k));
+    if (ear) earIntro();
     el.querySelectorAll('.tr-who button').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
     ctx.track && ctx.track('trace_pick', { side: tr.side });
   }
@@ -519,7 +688,8 @@ export function createTrace(ctx) {
     el = document.createElement('div'); el.className = 'ct-tr'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Trace your path');
     el.innerHTML = `<video muted playsinline autoplay aria-hidden="true"></video><canvas></canvas><div class="tr-top"><div class="tr-who" role="group" aria-label="Your position">${list.map(p => `<button type="button" data-i="${p.i}" class="${p.side === 'D' ? 'd' : ''}" aria-label="${esc((p.side === 'D' ? (sport.sides ? sport.sides.D + ' ' : 'Defense ') : '') + p.label)}">${esc(p.side === 'D' && !sport.rally ? 'X' + p.short : p.short)}</button>`).join('')}</div><button type="button" class="tr-x" data-a="close" aria-label="Close trace">✕</button></div>
       <p class="tr-hint">Drag to look around</p>
-      <div class="tr-card"><div class="tr-step" data-t="head"></div><div class="tr-job" data-t="job"></div><div class="tr-row"><button type="button" data-a="prev" aria-label="Previous step">⏮</button><button type="button" data-a="play" aria-label="Play or pause">⏯</button><button type="button" data-a="next" aria-label="Next step">⏭</button><button type="button" data-a="mode">Eyes</button><button type="button" data-a="speed" aria-label="Speed">1×</button><span class="sp"></span><span data-t="xr"></span></div></div>`;
+      <div class="tr-card"><div class="tr-step" data-t="head"></div><div class="tr-job" data-t="job"></div><div class="tr-row"><button type="button" data-a="prev" aria-label="Previous step">⏮</button><button type="button" data-a="play" aria-label="Play or pause">⏯</button><button type="button" data-a="next" aria-label="Next step">⏭</button><button type="button" data-a="mode">Eyes</button><button type="button" data-a="speed" aria-label="Speed">1×</button><span class="sp"></span><span data-t="xr"></span></div></div>
+      <div class="tr-glbar"><button type="button" data-a="sbs">3D</button><button type="button" data-a="glx">Exit glasses</button></div>`;
     ctx.root.appendChild(el);
     try { setup(el.querySelector('canvas'), true); } catch (e) { el.querySelector('[data-t=job]').textContent = 'This device can’t draw 3D (WebGL is off).'; return; }
     sfx.start();
@@ -530,20 +700,30 @@ export function createTrace(ctx) {
       if (b.dataset.i != null) pick(+b.dataset.i);
       const a = b.dataset.a, n = sim.play.beats.length;
       if (a === 'close') close();
-      if (a === 'play') { if (t >= n) t = 0; playing = !playing; }
+      if (a === 'play') { if (t >= n) t = 0; playing = !playing; if (ear) playing ? ear.a.play().catch(() => {}) : ear.a.pause(); }
       if (a === 'next') { t = Math.min(n, Math.floor(t) + 1); hold = 0; }
       if (a === 'prev') { t = Math.max(0, Math.ceil(t) - 2); hold = 0; }
       if (a === 'mode') { if (mode === 'cam') camera(false); else mode = mode === 'eyes' ? 'above' : 'eyes'; b.textContent = mode === 'eyes' ? 'Eyes' : 'Above'; }
       if (a === 'speed') { speed = speed === 1 ? 0.5 : 1; b.textContent = speed === 1 ? '1×' : '½×'; }
       if (a === 'cam') camera(mode !== 'cam');
+      if (a === 'ways') showSheet(!sheet);
+      if (a === 'sheet-x') showSheet(false);
+      if (a === 'hand') handoff();
+      if (a === 'ear') { if (ear) earbuds(false); else { earbuds(true); showSheet(false); } }
+      if (a === 'glass' || a === 'glass3d') glassMode(true, a === 'glass3d');
+      if (a === 'sbs' && glasses) { glasses.sbs = !glasses.sbs; b.textContent = glasses.sbs ? '2D' : '3D'; poke(); }
+      if (a === 'glx') glassMode(false);
       const go = { ar: ['immersive-ar', 'real'], room: ['immersive-ar', 'room'], vr: ['immersive-vr', 'vr'], table: [xrs['immersive-ar'] ? 'immersive-ar' : 'immersive-vr', 'table'] }[a];
       if (go) enterXR(go[0], go[1]).catch(err => { el.querySelector('[data-t=job]').textContent = 'Couldn’t start: ' + (err && err.message || err); });
     });
     // drag to look; a double tap looks where the player looks (and recenters the phone)
     const cv = el.querySelector('canvas'); let drag = null;
     cv.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY, dYaw, dPitch]; cv.setPointerCapture(e.pointerId); if (mode !== 'cam') el.querySelector('.tr-hint').hidden = true; });
-    cv.addEventListener('pointermove', e => { if (!drag) return; dYaw = drag[2] + (e.clientX - drag[0]) * 0.006; dPitch = Math.max(-1.2, Math.min(0.6, drag[3] + (e.clientY - drag[1]) * 0.005)); });
-    cv.addEventListener('pointerup', () => { drag = null; });
+    cv.addEventListener('pointermove', e => { if (glasses) poke(); if (!drag) return; dYaw = drag[2] + (e.clientX - drag[0]) * 0.006; dPitch = Math.max(-1.2, Math.min(0.6, drag[3] + (e.clientY - drag[1]) * 0.005)); });
+    cv.addEventListener('pointerup', e => {
+      if (glasses && drag && Math.hypot(e.clientX - drag[0], e.clientY - drag[1]) < 8) { if (t >= sim.play.beats.length) t = 0; playing = !playing; }
+      drag = null;
+    });
     cv.addEventListener('dblclick', () => { dYaw = 0; dPitch = -0.2; phoneOff = null; });
     const place = (sport.trace && sport.trace.place) || 'field', phone = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && matchMedia('(pointer: coarse)').matches;
     xrSupport().then(s => {
@@ -551,17 +731,22 @@ export function createTrace(ctx) {
       if (s['immersive-ar']) b.push(`<button type="button" class="tr-xr" data-a="ar">On a real ${place}</button><button type="button" data-a="room">Fit my room</button><button type="button" data-a="table">Tabletop</button>`);
       if (s['immersive-vr']) b.push('<button type="button" class="tr-xr" data-a="vr">VR</button>' + (s['immersive-ar'] ? '' : '<button type="button" data-a="table">Tabletop</button>'));
       if (phone) b.push('<button type="button" class="tr-xr" data-a="cam">Camera</button>');
+      b.push('<button type="button" data-a="ways">Any glasses</button>');
       if (el) el.querySelector('[data-t=xr]').innerHTML = b.join('');
     });
+    addEventListener('keydown', onKey, true); document.addEventListener('fullscreenchange', onFs);
     last = 0; playing = true; mode = 'eyes'; speed = 1; raf = requestAnimationFrame(frame);
     ctx.track && ctx.track('trace', { sport: sport.id });
   }
   function close() {
     cancelAnimationFrame(raf); raf = 0;
     if (xr) { try { xr.session.end(); } catch (e) {} xr = null; }
-    camera(false); sfx.stop();
+    camera(false); earbuds(false); glassMode(false); showSheet(false); sfx.stop(); clearTimeout(idleT);
+    removeEventListener('keydown', onKey, true); document.removeEventListener('fullscreenchange', onFs);
     if (el) { el.remove(); el = null; } gl = null; atlas = null; panel = null; panelText = '';
     ctx.onClose && ctx.onClose();
   }
-  return { open, close, get on() { return !!el; } };
+  // Esc: out of the sheet, Display glasses or Earbuds first; false when there's nothing to step back from
+  function back() { if (sheet) { showSheet(false); return true; } if (glasses) { glassMode(false); return true; } if (ear) { earbuds(false); return true; } return false; }
+  return { open, close, back, get on() { return !!el; } };
 }

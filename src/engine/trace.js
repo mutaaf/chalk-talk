@@ -129,3 +129,25 @@ export function repScore(lates, tol = 0.35) {
   const r = moves ? onTime / moves : 0;
   return { moves, onTime, avg, stars: !moves ? 0 : r === 1 ? 3 : r >= 0.6 ? 2 : r > 0 ? 1 : 0 };
 }
+
+// ---- every headset and pair of glasses ----
+// the step card, fitted to the view: `tanH`/`tanV` are the tangents of half the field of view (from the projection
+// matrix: 1/P[0], 1/P[5]). On a wide headset (Quest, Vision Pro, Android XR) it floats 0.9 m wide, low and ahead,
+// where you glance down to it; on narrow see-through glasses (Snap Specs, about 25° tall) that spot is out of
+// view, so it shrinks to fit and tags along with your gaze, just under the middle.
+export function hudFit(tanH, tanV, dist = 1.4) {
+  const w = Math.min(0.9, 2 * dist * tanH * 0.72), h = w * 290 / 768, narrow = tanV < 0.5;
+  const drop = Math.max(0, Math.min(0.45, dist * tanV * 0.9 - h / 2));
+  return { w, h, drop, follow: narrow, edge: Math.min(0.35, Math.atan(tanH) * 0.8) };
+}
+// what you do to say "go" on this device, from its input sources (WebXR targetRayMode, hands, controllers)
+export function pressWord(sources) {
+  const s = [...(sources || [])];
+  if (s.some(x => x.targetRayMode === 'screen')) return 'Tap the screen';
+  if (s.some(x => x.hand || x.targetRayMode === 'transient-pointer')) return 'Pinch';
+  if (s.some(x => x.gamepad && x.targetRayMode === 'tracked-pointer')) return 'Pull the trigger';
+  return 'Pinch';
+}
+// heard, not seen (earbuds, Ray-Ban Meta): a step lasts as long as it takes to say it and a breath, never under a
+// beat; slower when you slow the play down
+export const earPace = (text, speed = 1, beat = 1.7) => Math.max(beat, 1 + String(text || '').split(/\s+/).filter(Boolean).length * 0.36) / (speed || 1);

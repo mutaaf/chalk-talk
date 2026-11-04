@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.38.0';
+export const VERSION = '0.39.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.39.0', date: '2026-11-04', title: 'Trace on every headset and pair of glasses', items: [
+    { title: 'Send a play to any headset', call: 'In Trace, Any glasses → Send to a headset gives a 4-digit code. On Snap Specs, Quest, Vision Pro, Android XR or Pico, open mutaafaziz.com/chalktalk/go and type it, and your play opens at your position. On Ray-Ban Display, choose Enter a code. A phone can scan the QR code instead.' },
+    { title: 'Fits every view', call: 'The step card sizes itself to the device. On narrow see-through glasses like Snap Specs it’s smaller and follows your gaze, so it never drops out of view when you look down at your ring. The words match your device too: pinch, tap the screen, or pull the trigger.' },
+    { title: 'Earbuds and Ray-Ban Meta', call: 'Earbuds says every step out loud, paced to the words, with a ping from where you’re going, while your phone stays in your pocket. A tap on your Ray-Ban Meta, Oakley Meta, AirPods or any earbuds pauses and plays it. For XREAL, VITURE, RayNeo or Rokid, Display glasses goes full screen in pure black, so only the light shows, and 3D draws one picture for each eye.' }
+  ] },
   { version: '0.38.0', date: '2026-11-03', title: 'Trace, rebuilt for AR and VR', items: [
     { title: 'Line it up on a real field, any sport', call: 'On AR glasses, “On a real court” or “On a real field” lets the play follow you while you stand on your spot facing the basket, the end zone, the goal or the net. Pinch and it locks to the real lines. The hoop, the goals, the pylons and the net stand up at their real size.' },
     { title: 'Chase your ghost, score the rep', call: 'Walking it, a gold ghost of you runs the play on time. Arrows on the floor point to your next ring, a ping sounds from where you need to go, and when a pass is coming, light at the edge of your view shows which way to turn. Each rep gets up to three stars, and your best is kept.' },

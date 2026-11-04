@@ -42,7 +42,7 @@ export const LIMITS = {
   lexiconMin: 3,
   claudeMicrosPerDay: 5_000_000,   // $5 a day of Haiku for everyone together (≈ 3,000 free plays); then the open models   // distinct coaches before a phrase or a fix is shared with everyone
   estNeurons: { event: 0, learn: 0, play: 85, smart: 80, brain: 35, tutor: 15, analyst: 30, hear: 8, say: 4 },
-  maxJson: 64 * 1024, maxAudio: 2 * 1024 * 1024, maxSay: 300
+  maxJson: 64 * 1024, handsPerDay: 60, maxAudio: 2 * 1024 * 1024, maxSay: 300
 };
 const SPORTS = ['basketball', 'flag5', 'flag7', 'soccer7', 'soccer9', 'pickleball'];
 // USD per million tokens (in, out); a neuron is $0.011 per 1000
@@ -108,6 +108,7 @@ async function rollup(d, days) {
   const learn = await d.prepare("SELECT COUNT(*) n, COUNT(DISTINCT who) coaches FROM voice_learn WHERE day >= ?").bind(since).first().catch(() => null);
   return { days, since, totals: tot, daily, countries, cities, devices, browsers, oses, hosts, refs, sports, ais, features, voice, iq, recent, ai, learn };
 }
+const HAND_MS = 2 * 3600 * 1000;
 const ready = new WeakSet();   // per database binding
 async function db(env) {
   if (!env.DB) return null;
@@ -116,6 +117,7 @@ async function db(env) {
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS events (day TEXT NOT NULL, ts INTEGER NOT NULL, visitor TEXT NOT NULL, name TEXT NOT NULL, country TEXT, region TEXT, city TEXT, device TEXT, browser TEXT, os TEXT, host TEXT, ref TEXT, sport TEXT, ai TEXT, props TEXT)').run();
     await env.DB.prepare('CREATE INDEX IF NOT EXISTS events_day ON events (day)').run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS ai_cache (k TEXT PRIMARY KEY, task TEXT NOT NULL, v TEXT NOT NULL, hits INTEGER NOT NULL DEFAULT 0, at TEXT NOT NULL, last TEXT)').run();
+    await env.DB.prepare('CREATE TABLE IF NOT EXISTS hand (code TEXT PRIMARY KEY, v TEXT NOT NULL, at INTEGER NOT NULL)').run();
     await env.DB.prepare('CREATE TABLE IF NOT EXISTS voice_learn (day TEXT NOT NULL, sport TEXT NOT NULL, kind TEXT NOT NULL, a TEXT NOT NULL, b TEXT NOT NULL, kept INTEGER NOT NULL, who TEXT NOT NULL)').run();
     ready.add(env.DB);
   }
@@ -243,6 +245,30 @@ export default {
           (wd.results || []).forEach(r => { if (!out.words[r.a]) out.words[r.a] = r.b; });
         }
         return json(out, 200, Object.assign({ 'cache-control': 'public, max-age=3600' }, h));
+      }
+      // a play handed to a headset or glasses: a 4-digit code typed on the headset (mutaafaziz.com/chalktalk/go)
+      // fetches it for two hours. Only the play's shape goes (ids, spots, beats): never the roster's names.
+      const hm = path.match(/^\/hand\/(\d{4})$/);
+      if (hm && req.method === 'GET') {
+        const d = await db(env); if (!d) return json({ error: 'No database.' }, 503, h);
+        const r = await d.prepare('SELECT v FROM hand WHERE code = ? AND at >= ?').bind(hm[1], Date.now() - HAND_MS).first();
+        return r ? json(JSON.parse(r.v), 200, Object.assign({ 'cache-control': 'no-store' }, h)) : json({ error: 'That code has expired. Make a new one.' }, 404, h);
+      }
+      if (path === '/hand' && req.method === 'POST') {
+        const body = await readJson(req), d = await db(env); if (!d) return json({ error: 'No database.' }, 503, h);
+        if (SPORTS.indexOf(body.sport) < 0 || !body.play || typeof body.play !== 'object' || !Array.isArray(body.play.players) || !Array.isArray(body.play.beats)) return json({ error: 'That isn’t a play.' }, 400, h);
+        if (await bump(d, `hand:${day()}:${await visitorHash(req, env)}`, 1) > LIMITS.handsPerDay) return json({ error: 'That’s a lot of codes today. Try again tomorrow.' }, 429, h);
+        const play = JSON.parse(JSON.stringify(body.play, (k, v) => (k === 'name' || k === 'names' ? undefined : v)));
+        const v = JSON.stringify({ sport: body.sport, play, who: /^[A-Z]{1,2}\d{0,2}$/i.test(body.who || '') ? String(body.who).toUpperCase() : null });
+        await d.prepare('DELETE FROM hand WHERE at < ?').bind(Date.now() - HAND_MS).run();
+        if (Math.random() < 0.02) await d.prepare("DELETE FROM ai_usage WHERE bucket LIKE 'hand:%' AND bucket < ?").bind('hand:' + day()).run();
+        for (let i = 0; i < 8; i++) {
+          const code = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+          if (await d.prepare('SELECT code FROM hand WHERE code = ?').bind(code).first()) continue;
+          await d.prepare('INSERT INTO hand (code, v, at) VALUES (?, ?, ?)').bind(code, v, Date.now()).run();
+          return json({ code, minutes: HAND_MS / 60000 }, 200, h);
+        }
+        return json({ error: 'Busy right now. Try again.' }, 503, h);
       }
       if (req.method !== 'POST') return json({ error: 'Not found.' }, 404, h);
       if (!env.AI) return json({ error: 'The free AI is offline.' }, 503, h);

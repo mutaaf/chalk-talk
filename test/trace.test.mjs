@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sports } from '../src/sports/index.js';
 import { normalize, compile } from '../src/engine/sim.js';
-import { trace, lookAt, roomScale, positions, busiest, metersPer, flightIn, faceHeading, faceWords, repScore } from '../src/engine/trace.js';
+import { trace, lookAt, roomScale, positions, busiest, metersPer, flightIn, faceHeading, faceWords, repScore, hudFit, pressWord, earPace } from '../src/engine/trace.js';
+import { qr, qrSvg } from '../src/qr.js';
 
 let paths = 0, steps = 0, moved = 0, flights = 0;
 for (const sport of sports()) for (const raw of sport.plays) {
@@ -54,4 +55,30 @@ assert.match(g, /<meta name="viewport" content="width=600, height=600, initial-s
 assert.match(g, /<meta name="mrbd-web-app-capable" content="yes">/);
 assert.ok(!/<link rel="icon"[^>]*svg/.test(g), 'no SVG icon on the glasses');
 assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /glasses\.html/, 'the build ships it');
-console.log(`ok: trace for ${paths} positions, ${steps} steps (${moved} moves), ${flights} ball flights, every job in words, rep scores; the glasses page keeps its contract`);
+// every headset: the step card fits the view. Wide headsets keep the 0.9 m card low and ahead; narrow glasses
+// (Snap Specs, ~46° diagonal) get a smaller card that follows the gaze and stays inside the view, top and bottom
+const quest = hudFit(Math.tan(0.9), Math.tan(0.85)), specs = hudFit(Math.tan(0.33), Math.tan(0.22)), phoneAR = hudFit(Math.tan(0.3), Math.tan(0.55));
+assert.equal(quest.w, 0.9); assert.equal(quest.drop, 0.45); assert.equal(quest.follow, false);
+assert.ok(specs.follow && specs.w < 0.9);
+for (const f of [quest, specs, phoneAR]) {
+  assert.ok(f.drop + f.h / 2 <= 1.4 * (f === quest ? Math.tan(0.85) : f === specs ? Math.tan(0.22) : Math.tan(0.55)) + 1e-9, 'the card stays inside the view');
+  assert.ok(f.w / 2 <= 1.4 * (f === quest ? Math.tan(0.9) : f === specs ? Math.tan(0.33) : Math.tan(0.3)), 'and inside it side to side');
+  assert.ok(f.edge > 0 && f.edge <= 0.35);
+}
+assert.equal(pressWord([{ targetRayMode: 'screen' }]), 'Tap the screen');
+assert.equal(pressWord([{ targetRayMode: 'transient-pointer' }]), 'Pinch');
+assert.equal(pressWord([{ targetRayMode: 'tracked-pointer', hand: {} }]), 'Pinch');
+assert.equal(pressWord([{ targetRayMode: 'tracked-pointer', gamepad: {} }]), 'Pull the trigger');
+assert.equal(pressWord([]), 'Pinch');
+assert.equal(earPace('Hold'), 1.7); assert.ok(earPace('Cut hard to the elbow and look for the pass from the point') > 5); assert.equal(earPace('Hold', 0.5), 3.4);
+// the QR code for a handed play: the right size, finder patterns in three corners, the timing row
+for (const [text, v] of [['https://mutaafaziz.com/chalktalk/?hand=4821', 4], ['HELLO', 1], ['x'.repeat(150), 8]]) {
+  const q = qr(text); assert.equal(q.version, v); assert.equal(q.size, v * 4 + 17);
+  for (const [cx, cy] of [[3, 3], [q.size - 4, 3], [3, q.size - 4]]) { assert.ok(q.at(cx, cy)); assert.ok(!q.at(cx + 2, cy)); assert.ok(q.at(cx + 3, cy)); }
+  for (let i = 8; i < q.size - 8; i++) assert.equal(q.at(i, 6), i % 2 === 0);
+}
+assert.match(qrSvg('x'), /^<svg[^>]*viewBox="0 0 29 29"/); assert.throws(() => qr('x'.repeat(300)));
+// the code page a headset opens: big keys, the board on a good code
+const go = readFileSync(new URL('../go.html', import.meta.url), 'utf8');
+assert.match(go, /api\/hand\//); assert.match(go, /\?hand=/); assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /go\.html/, 'the build ships the code page');
+console.log(`ok: trace for ${paths} positions, ${steps} steps (${moved} moves), ${flights} ball flights, every job in words, rep scores, every headset's card fit, the QR and code pages; the glasses page keeps its contract`);

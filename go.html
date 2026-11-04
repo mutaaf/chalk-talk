@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chalk Talk · Enter a code</title>
+<meta name="description" content="Open a Chalk Talk play on your headset or glasses: enter the 4-digit code from Trace on your phone or computer.">
+<meta name="theme-color" content="#02050a">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<style>
+  /* the page a headset opens (Snap Specs, Quest, Vision Pro, Android XR, Pico): big keys for a pinch or a trigger,
+     the number row on a keyboard works too. Black reads as clear on see-through glasses. */
+  :root { --gold: #ffc75a; --ice: #8cbcff; --paper: #eef4ff; --mute: #9fb4d4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: #000; color: var(--paper); font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
+  main { min-height: 100vh; display: grid; place-content: center; gap: 22px; padding: 24px 16px; text-align: center; }
+  h1 { margin: 0; font-size: 15px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+  p { margin: 0; color: var(--mute); font-size: 16px; line-height: 1.4; max-width: 30ch; justify-self: center; }
+  .digits { display: flex; gap: 12px; justify-content: center; }
+  .digits span { width: 64px; height: 84px; display: grid; place-items: center; border-radius: 18px; border: 2px solid rgba(140, 188, 255, .35); font: 800 48px/1 ui-rounded, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  .digits span.on { border-color: var(--gold); box-shadow: 0 0 22px rgba(255, 199, 90, .35); }
+  .keys { display: grid; grid-template-columns: repeat(3, 88px); gap: 12px; justify-content: center; }
+  .keys button { height: 76px; border-radius: 20px; border: 2px solid rgba(140, 188, 255, .3); background: #000; color: var(--paper); font: 800 32px/1 ui-rounded, system-ui, sans-serif; cursor: pointer; }
+  .keys button:hover, .keys button:focus-visible { border-color: var(--gold); color: var(--gold); outline: none; }
+  .keys button:active { background: rgba(255, 199, 90, .18); }
+  .keys .go { background: var(--gold); color: #04070c; border-color: transparent; font-size: 22px; }
+  #msg { min-height: 1.4em; color: var(--paper); }
+  #msg.bad { color: #ff9a8a; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chalk Talk Trace</h1>
+  <p>Enter the code from Trace on your phone or computer (Any glasses → Send to a headset).</p>
+  <div class="digits" aria-live="polite"><span></span><span></span><span></span><span></span></div>
+  <div class="keys">
+    <button>1</button><button>2</button><button>3</button><button>4</button><button>5</button><button>6</button><button>7</button><button>8</button><button>9</button>
+    <button data-k="back" aria-label="Delete">⌫</button><button>0</button><button data-k="go" class="go">Open</button>
+  </div>
+  <p id="msg"></p>
+</main>
+<script>
+  const ds = [...document.querySelectorAll('.digits span')], msg = document.getElementById('msg');
+  let code = '';
+  const show = () => ds.forEach((s, i) => { s.textContent = code[i] || ''; s.classList.toggle('on', i === Math.min(code.length, 3)); });
+  async function go() {
+    if (code.length !== 4) { msg.className = 'bad'; msg.textContent = 'Four digits.'; return; }
+    msg.className = ''; msg.textContent = 'Opening…';
+    try {
+      const r = await fetch('api/hand/' + code);
+      if (r.status === 404) { msg.className = 'bad'; msg.textContent = 'That code has expired or isn’t right. Make a new one.'; code = ''; show(); return; }
+    } catch (e) {}   // offline or no check: let the board try
+    location.href = './?hand=' + code;
+  }
+  function key(k) {
+    if (k === 'back') code = code.slice(0, -1);
+    else if (k === 'go') return go();
+    else if (/^\d$/.test(k) && code.length < 4) code += k;
+    msg.textContent = ''; show();
+    if (code.length === 4) go();
+  }
+  document.querySelector('.keys').addEventListener('click', e => { const b = e.target.closest('button'); if (b) key(b.dataset.k || b.textContent); });
+  addEventListener('keydown', e => { if (/^\d$/.test(e.key)) key(e.key); else if (e.key === 'Backspace') key('back'); else if (e.key === 'Enter') key('go'); });
+  const q = new URLSearchParams(location.search).get('c'); if (q && /^\d{4}$/.test(q)) { code = q; show(); go(); } else show();
+</script>
+</body>
+</html>

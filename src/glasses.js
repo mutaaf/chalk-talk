@@ -36,7 +36,34 @@ addEventListener('keydown', e => keys(e));
 function pickSport() {
   screen = 'sport';
   const S = sports();
-  list('Chalk Talk Trace', 'Pick your sport', S.map(s => ({ t: s.name, s: s.roster ? s.roster.label : '' })), i => pickPlay(S[i]));
+  list('Chalk Talk Trace', 'Pick your sport', [{ t: 'Enter a code', s: 'From Trace on your phone: Any glasses' }].concat(S.map(s => ({ t: s.name, s: s.roster ? s.roster.label : '' }))), i => (i ? pickPlay(S[i - 1]) : enterCode()));
+}
+// a play handed over from a phone or computer: four digits, ▲▼ change one, ◀▶ move, Enter opens it
+function enterCode() {
+  cancelAnimationFrame(raf); screen = 'code';
+  const d = [0, 0, 0, 0]; let i = 0, msg = '▲ ▼ change a digit · ◀ ▶ move · Enter opens';
+  const draw = () => { app.innerHTML = `<h1>Enter a code</h1><p class="sub">Trace on your phone → Any glasses → Send to a headset</p><div class="digits">${d.map((x, j) => `<span class="${j === i ? 'on' : ''}">${x}</span>`).join('')}</div><p class="hint">${esc(msg)}</p>`; };
+  draw();
+  keys = e => {
+    const k = e.key;
+    if (k === 'ArrowUp') d[i] = (d[i] + 1) % 10; else if (k === 'ArrowDown') d[i] = (d[i] + 9) % 10;
+    else if (k === 'ArrowRight') i = Math.min(3, i + 1); else if (k === 'ArrowLeft') i = Math.max(0, i - 1);
+    else if (/^\d$/.test(k)) { d[i] = +k; i = Math.min(3, i + 1); }
+    else if (k === 'Enter') { msg = 'Opening…'; draw(); fromCode(d.join('')).catch(err => { msg = err.message; draw(); }); return; }
+    else if (k === 'Escape' || k === 'Backspace') { e.preventDefault(); pickSport(); return; }
+    else return;
+    e.preventDefault(); draw();
+  };
+}
+async function fromCode(code) {
+  let r; try { r = await fetch('api/hand/' + code); } catch (e) { throw new Error('No connection. Try again.'); }
+  const h = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(h.error || 'That code didn’t work.');
+  const s = getSport(h.sport), n = normalize(h.play, s);
+  if (!n || !n.play) throw new Error('That play didn’t open here.');
+  sport = s; sim = compile(n.play, s, { defense: true });
+  const w = h.who ? sim.play.players.findIndex(p => p.id === h.who) : -1;
+  start(w >= 0 ? w : busiest(sim));
 }
 function pickPlay(s) {
   sport = s; screen = 'play';
@@ -126,7 +153,8 @@ function draw(now) {
 
 // a link can skip the lists: glasses.html?sport=flag5&play=slant-flat&who=Z
 const q = new URLSearchParams(location.search);
-if (q.get('sport')) {
+if (/^\d{4}$/.test(q.get('hand') || '')) fromCode(q.get('hand')).catch(() => enterCode());
+else if (q.get('sport')) {
   const s = getSport(q.get('sport')), raw = s.plays.find(p => p.key === q.get('play')) || s.plays[0], n = normalize(raw, s);
   sport = s; sim = compile(n.play, s, { defense: true });
   const w = q.get('who') ? sim.play.players.findIndex(p => p.id === q.get('who').toUpperCase() || sport.notation.inside(p) === q.get('who').toUpperCase()) : -1;
