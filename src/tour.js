@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.37.0';
+export const VERSION = '0.38.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.38.0', date: '2026-11-03', title: 'Trace, rebuilt for AR and VR', items: [
+    { title: 'Line it up on a real field, any sport', call: 'On AR glasses, “On a real court” or “On a real field” lets the play follow you while you stand on your spot facing the basket, the end zone, the goal or the net. Pinch and it locks to the real lines. The hoop, the goals, the pylons and the net stand up at their real size.' },
+    { title: 'Chase your ghost, score the rep', call: 'Walking it, a gold ghost of you runs the play on time. Arrows on the floor point to your next ring, a ping sounds from where you need to go, and when a pass is coming, light at the edge of your view shows which way to turn. Each rep gets up to three stars, and your best is kept.' },
+    { title: 'Tabletop, phone camera, and the real ball flight', call: 'Tabletop puts the whole play on a table in front of you as a hologram. On a phone, Camera draws the light over what your camera sees, and you look around by moving the phone. Every pass, throw, hit and shot now flies the ball’s real path, gold when it’s coming to you, with ½× speed for walk-throughs.' }
+  ] },
   { version: '0.37.0', date: '2026-11-03', title: 'Pickleball', items: [
     { title: 'A new sport: pickleball doubles', call: 'The real 20 × 44 ft court with the kitchen and the net. Nine points from the serve to the put-away: the two-bounce rule, return and run in, the third-shot drop, drive and crash, dinking, lob and switch, the poach, the Erne and the reset.' },
     { title: 'New to it? Start here', call: 'The first time you open pickleball you get three ways in: the five rules in two minutes, a whole point step by step, or Trace. The lessons go from kids to coach, and PickleIQ asks you to pick the shot before it happens.' },

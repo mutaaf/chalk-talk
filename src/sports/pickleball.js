@@ -197,6 +197,7 @@ export const pickleball = {
   spots: SPOTS, kinds: KINDS, guard, los: null,
   notation: { shape: p => (p.side === 'O' ? 'circle' : 'x'), inside: p => LETTER[p.id] || p.id.slice(1), name: p => LETTER[p.id] || p.id },
   sides: { O: 'Your team', D: 'Other side' },
+  trace: { place: 'court', face: 'the net' },
   brains: p => (p.side === 'O' ? DOUBLES : OPP),
   positions: POSITIONS, iq: IQ, coaches: COACHES, glossary: GLOSSARY,
   plays: PICKLEBALL_PLAYS, aliases: PICKLEBALL_ALIASES,

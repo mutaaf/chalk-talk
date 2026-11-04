@@ -143,7 +143,7 @@ const base = (o) => ({
 });
 
 export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, noRun: [15, 30] }), {
-  id: 'flag5', positions: forField(30, 30, 'flag5'), iq: IQ, name: 'Flag Football 5v5', short: 'Flag 5v5', roster: { perSide: 5, label: '5 on 5' },
+  id: 'flag5', positions: forField(30, 30, 'flag5'), iq: IQ, name: 'Flag Football 5v5', short: 'Flag 5v5', roster: { perSide: 5, label: '5 on 5' }, trace: { place: 'field', face: 'the end zone you attack' },
   plays: FLAG5_PLAYS, aliases: FLAG5_ALIASES, glossary,
   starter: ['qb', 'center', 'left wide', 'right wide', 'right slot'],
   ai: {
@@ -155,7 +155,7 @@ export const flag5 = Object.assign(base({ W: 30, depth: 45, los: 30, mid: 35, no
 });
 
 export const flag7 = Object.assign(base({ W: 40, depth: 50, los: 35, hashes: [-6, 6], noRush: true }), {
-  id: 'flag7', noRush: true, positions: forField(40, 35, 'flag7'), iq: IQ, name: 'Flag Football 7v7', short: 'Flag 7v7', roster: { perSide: 7, label: '7 on 7' },
+  id: 'flag7', noRush: true, positions: forField(40, 35, 'flag7'), iq: IQ, name: 'Flag Football 7v7', short: 'Flag 7v7', roster: { perSide: 7, label: '7 on 7' }, trace: { place: 'field', face: 'the end zone you attack' },
   plays: FLAG7_PLAYS, aliases: FLAG7_ALIASES, glossary,
   starter: ['qb', 'center', 'left wide', 'right wide', 'left slot', 'right slot', 'running back'],
   ai: {

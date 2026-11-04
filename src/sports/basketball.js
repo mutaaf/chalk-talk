@@ -81,6 +81,14 @@ const KINDS = {
 export default {
   id: 'basketball', name: 'Basketball', short: 'Hoops', unit: 'ft',
   roster: { perSide: 5, label: '5 on 5' },
+  // Trace: on a real court you face the basket; the hoop at its real size (the board's is drawn larger to read on
+  // a phone): a 6 × 3.5 ft board with its square, the rim 10 ft up and 18 in across, and the arm back to the stanchion
+  trace: { place: 'court', face: 'the basket', props: () => [
+    { p: [[-3, 4, 9], [3, 4, 9], [3, 4, 12.5], [-3, 4, 12.5], [-3, 4, 9]], w: 1.6, warm: true },
+    { p: [[-1, 4, 10.1], [-1, 4, 11.6], [1, 4, 11.6], [1, 4, 10.1]], w: 0.8, warm: true },
+    { p: arc(0, 5.25, 0.75, 0, 2 * Math.PI, 22, 10), w: 2.4, hot: true },
+    { p: [[0, 4, 10], [0, 4.5, 10]], w: 0.8, warm: true },
+    { p: [[0, 4, 9.6], [0, -3, 9.6], [0, -3, 0]], w: 1.2 }] },
   field: { x: [-25, 25], y: [0, 47], goal: BASKET, lines },
   view: { scale: 1 / 26, center: 23.5, tilt: 0.98, lift: -0.02 },
   mark: 1.7, screenGap: 3, open: 4.5, react: 0.3, help: { at: 13 }, dho: true, situations: true,

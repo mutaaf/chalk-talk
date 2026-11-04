@@ -7,12 +7,12 @@
 
 import { sports, getSport } from './sports/index.js';
 import { normalize, compile } from './engine/sim.js';
-import { trace, lookAt, positions, busiest, bounceIn } from './engine/trace.js';
+import { trace, lookAt, positions, busiest, bounceIn, flightIn } from './engine/trace.js';
 
 const app = document.getElementById('app');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const BEAT_MS = 1700;
-let screen = 'sport', sport = null, sim = null, tr = null, who = -1, k = 0, t0 = 0, north = false, raf = 0, head = null, ppu = 0, bz = [];
+let screen = 'sport', sport = null, sim = null, tr = null, who = -1, k = 0, t0 = 0, north = false, raf = 0, head = null, ppu = 0, bz = [], fl = [];
 const nameOf = id => { const p = sim.play.players.find(q => q.id === id); return p ? sport.notation.name(p) : id; };
 const say = text => { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {} };
 
@@ -54,7 +54,7 @@ function pickWho() {
 
 // ---- the trace: a heads-up radar of your path ----
 function start(i) {
-  who = i; tr = trace(sim, i, sport, nameOf); bz = sim.play.beats.map((_, j) => bounceIn(sim, sport, j)); k = 0; t0 = performance.now(); head = null; ppu = 0; screen = 'trace';
+  who = i; tr = trace(sim, i, sport, nameOf); bz = sim.play.beats.map((_, j) => bounceIn(sim, sport, j)); fl = sim.play.beats.map((_, j) => flightIn(sim, sport, j)); k = 0; t0 = performance.now(); head = null; ppu = 0; screen = 'trace';
   app.innerHTML = '<canvas width="600" height="600"></canvas><div class="hint">◀ ▶ steps · Enter replays · ▲ turns the map</div>';
   keys = e => {
     const n = tr.steps.length;
@@ -100,8 +100,11 @@ function draw(now) {
     c.setLineDash([4, 18]); c.lineDashOffset = -now / 25; line(step.pts, 6, 'rgba(255,255,230,1)', 10); c.setLineDash([]);
   }
   if (step.moved) { const e = S(step.to), pulse = 0.6 + 0.4 * Math.sin(now / 180); c.beginPath(); c.arc(e[0], e[1], 22, 0, Math.PI * 2); c.lineWidth = 5; c.strokeStyle = `rgba(255,199,90,${pulse})`; c.shadowColor = '#ffc75a'; c.shadowBlur = 16; c.stroke(); }
-  // passes this step
-  for (const ro of sim.routes) if (ro.dashed && ro.beat === k && ro.pts.length > 1) { c.setLineDash([10, 10]); line([ro.pts[0], ro.pts[ro.pts.length - 1]], 3, 'rgba(238,244,255,.6)', 6); c.setLineDash([]); }
+  // the goal you attack: a target, held at the edge at the edge when it's off the radar
+  if (!sport.rally && sim.play.players[who].side === 'O') { let g2 = S(sport.field.goal); const dx = g2[0] - cx, dy = g2[1] - cy, m = Math.max(Math.abs(dx) / 270, Math.abs(dy) / 250, 1); g2 = [cx + dx / m, cy + dy / m]; c.beginPath(); c.arc(g2[0], g2[1], 10, 0, Math.PI * 2); c.moveTo(g2[0] + 18, g2[1]); c.arc(g2[0], g2[1], 18, 0, Math.PI * 2); c.lineWidth = 3; c.strokeStyle = 'rgba(238,244,255,.75)'; c.shadowColor = '#eef4ff'; c.shadowBlur = 8; c.stroke(); }
+  // the ball's real flight this step: gold when it's coming to you
+  const F = fl[k];
+  if (F) { const mine = F.target === tr.id; c.setLineDash(mine ? [] : [10, 10]); line(F.pts, mine ? 5 : 3, mine ? 'rgba(255,199,90,.9)' : 'rgba(238,244,255,.6)', mine ? 14 : 6); c.setLineDash([]); if (mine) { const e = S(F.pts[F.pts.length - 1]); c.beginPath(); c.arc(e[0], e[1], 16, 0, Math.PI * 2); c.lineWidth = 3; c.strokeStyle = 'rgba(255,199,90,.9)'; c.stroke(); } }
   // everyone else
   c.font = '800 20px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
   sim.play.players.forEach((p, i) => {

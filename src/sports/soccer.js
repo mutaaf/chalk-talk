@@ -339,7 +339,7 @@ const GLOSSARY = "Box / penalty area: The big rectangle in front of goal (12 × 
 const AI_RULES = 'Only the player on the ball can dribble, carry, pass, cross or shoot. The ball goes to feet or into space in front of a runner; every pass goes to an open teammate. Keep attackers about 8–12 yards apart (support at angles, never in a flat line). Defenders stay goal-side (between their attacker and the goal at y 0); X1 is the defending goalkeeper (it marks their keeper, O1). No heading at these ages: crosses and corners are driven low, finishes are with the feet. Offside: an attacker can\'t be past the last defender when a teammate passes forward to them' ;
 
 export const soccer7 = Object.assign(base(SOCCER7), {
-  id: 'soccer7', name: 'Soccer 7v7', short: 'Soccer 7v7', roster: { perSide: 7, label: '7 on 7' }, startBall: 'O4',   // a blank board starts with the ball at the 8's feet
+  id: 'soccer7', name: 'Soccer 7v7', short: 'Soccer 7v7', roster: { perSide: 7, label: '7 on 7' }, trace: { place: 'field', face: 'the goal you attack' }, startBall: 'O4',   // a blank board starts with the ball at the 8's feet
   positions: forField(SOCCER7, 'soccer7'), iq: IQ, coaches: COACHES, glossary: GLOSSARY,
   spots: spots(SOCCER7), plays: SOCCER7_PLAYS, aliases: SOCCER7_ALIASES,
   starter: ['goalkeeper', 'right back', 'left back', 'center midfield', 'left midfield', 'striker', 'right midfield'],
@@ -352,7 +352,7 @@ export const soccer7 = Object.assign(base(SOCCER7), {
 });
 
 export const soccer9 = Object.assign(base(SOCCER9), {
-  id: 'soccer9', name: 'Soccer 9v9', short: 'Soccer 9v9', roster: { perSide: 9, label: '9 on 9' }, startBall: 'O4',   // a blank board starts with the ball at the 8's feet
+  id: 'soccer9', name: 'Soccer 9v9', short: 'Soccer 9v9', roster: { perSide: 9, label: '9 on 9' }, trace: { place: 'field', face: 'the goal you attack' }, startBall: 'O4',   // a blank board starts with the ball at the 8's feet
   positions: forField(SOCCER9, 'soccer9'), iq: IQ, coaches: COACHES, glossary: GLOSSARY,
   spots: spots(SOCCER9), plays: SOCCER9_PLAYS, aliases: SOCCER9_ALIASES,
   starter: ['goalkeeper', 'right back', 'left back', 'center back', 'left center midfield', 'right center midfield', 'right wing', 'left wing', 'striker'],

@@ -89,3 +89,43 @@ export function bounceIn(sim, sport, k) {
   return best ? [best[0], best[1]] : null;
 }
 
+
+// the ball's real flight in step k when it's passed, thrown, hit or shot: who lets it go, who it's for, and the path
+// it flies (sampled from the engine's own ball while nobody holds it, a sample either side so it starts in a hand and
+// ends in one), or null when the ball stays in someone's hands all step
+export function flightIn(sim, sport, k) {
+  const b = sim.play.beats[k]; if (!b) return null;
+  const a = b.actions.find(x => x.kind === 'snap' || /^(pass|hit|shot)$/.test((sport.kinds[x.kind] || {}).type || '')); if (!a) return null;
+  const pts = []; let prev = null, air = false;
+  for (let j = 0; j <= 60; j++) {
+    const t = k + j / 60, B = sim.ballAt(t); if (!B) continue;
+    const p = [B[0], B[1], B[2] || 0], free = sim.holderAt(t) < 0;
+    if (free && !air && prev) pts.push(prev);
+    if (free || air) pts.push(p);
+    if (air && !free) break;
+    air = free; prev = p;
+  }
+  if (pts.length < 3) return null;
+  const T = (sport.kinds[a.kind] || {}).type;
+  return { who: a.who, target: a.target || null, kind: a.kind, shot: T === 'shot', pts };
+}
+
+// which way you face when you stand on your spot on a real field before it starts (a heading in the field frame,
+// like lookAt): a net sport faces the net, the attack faces the goal it attacks, a defender faces the ball
+export function faceHeading(sim, i, sport) {
+  const me = sim.play.players[i], s = sim.posAt(0)[i];
+  if (sport.rally) return me.side === 'D' ? Math.PI : 0;
+  const B = sim.ballAt(0), tgt = me.side === 'D' ? (B && Math.hypot(B[0] - s[0], B[1] - s[1]) > sport.mark ? B : [s[0], s[1] + 10]) : sport.field.goal;
+  const dx = tgt[0] - s[0], dy = tgt[1] - s[1];
+  return Math.hypot(dx, dy) < 1e-6 ? 0 : Math.atan2(dx, -dy);
+}
+export const faceWords = (sim, i, sport) => (sim.play.players[i].side === 'D' && !sport.rally ? 'the ball' : (sport.trace && sport.trace.face) || 'the goal');
+
+// a rep scored: for each of your moves, how many seconds the play had to wait for you to reach the ring (0 = there
+// on time, null = skipped). Three stars for every move on time.
+export function repScore(lates, tol = 0.35) {
+  const L = lates.filter(v => v !== undefined), moves = L.length, onTime = L.filter(v => v != null && v <= tol).length;
+  const got = L.filter(v => v != null), avg = got.length ? got.reduce((a, b) => a + b, 0) / got.length : 0;
+  const r = moves ? onTime / moves : 0;
+  return { moves, onTime, avg, stars: !moves ? 0 : r === 1 ? 3 : r >= 0.6 ? 2 : r > 0 ? 1 : 0 };
+}
