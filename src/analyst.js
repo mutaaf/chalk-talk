@@ -19,7 +19,7 @@ export function analyze(sim, sport, nameOf) {
   let passN = 0, keyN = 0;
   play.beats.forEach((b, k) => {
     const out = [];
-    if (k === 0 && D.length) {
+    if (k === 0 && D.length && !sport.rally) {   // a net sport has no defense to read: the point speaks for itself
       if (cov) {
         const deep = cov.jobs.filter(j => j[1] === 'zone' && /deep/i.test(j[2].label)).length, rush = cov.jobs.some(j => j[1] === 'rush');
         out.push(`Look at the shell: it's ${cov.name}. ${deep ? deep + ' deep, so ' + (deep >= 3 ? 'the seams are covered but the flats and the hooks are soft' : deep === 2 ? 'the hole is the middle of the field, between the safeties' : 'one-high, so you want to work the outside') : 'Nobody deep. Man everywhere, so somebody has to win on the route'}.${rush ? ' And they bring a rusher, so the ball has to come out on time.' : ''}`);
@@ -64,7 +64,7 @@ export function analyze(sim, sport, nameOf) {
           out.push(`${nm(a.who)} sees it: ${why} ${st === 'bounce' ? 'Bounce pass, under the hands.' : st === 'chest' ? 'Chest pass, on a line.' : ''} ${close}`.replace(/\s+/g, ' ').trim());
         } else out.push(`${nm(a.who)} finds ${nm(a.target)}. Turn the defense on and you'll see why that's the right look.`);
       }
-      if (T.type === 'shot') out.push(soccer ? `${nm(a.who)} strikes it low and early, before the keeper is set. That's what the movement bought: a clean look at goal.` : `${nm(a.who)} rises up in rhythm. That's what spacing buys you: a clean look.`);
+      if (T.type === 'shot') out.push(sport.rally ? `${nm(a.who)} puts it away. That's what patience at the kitchen line buys you: a ball that sits up.` : soccer ? `${nm(a.who)} strikes it low and early, before the keeper is set. That's what the movement bought: a clean look at goal.` : `${nm(a.who)} rises up in rhythm. That's what spacing buys you: a clean look.`);
       if (T.type === 'handoff') {
         const d = defOf(sim.idx[a.target]), wall = sport.dho && d != null ? ` ${nm(a.who)} plants and becomes a wall: ${nm(sim.players[d].id)} is stuck behind it.` : '';
         out.push(`The handoff: ${nm(a.target)} runs by and takes it out of ${nm(a.who)}'s hands at full speed.${wall} Now the defense is guarding a moving target.`);

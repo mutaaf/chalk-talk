@@ -12,14 +12,23 @@ const cache = new Map();   // play → { id: note }
 
 // the guide position a player on the board plays
 function positionOf(sport, play, p) {
+  if (sport.rally) {   // a net sport: the same letter is the server in one point, the returner in the next: go by where they start
+    const at = [p.x, p.y], d = pos => Math.hypot(pos.home[0] - at[0], pos.home[1] - at[1]);
+    return (sport.positions || []).filter(pos => pos.side === p.side && (pos.id === p.id || p.side === 'D')).sort((a, b) => d(a) - d(b))[0];
+  }
   return (sport.positions || []).find(pos => { const q = playerFor(sport, play, pos); return q && q.id === p.id; })
     || (sport.positions || []).find(pos => pos.side === p.side && (pos.id === p.role || (p.side === 'D' && sport.los == null && pos.id === (p.id === 'X1' ? 'X1' : 'X3'))));
 }
 
 // ctx: { sport, play, sim, raw, openPanel, posName, mark, watch(id, beat), say(text), band, booth }
+// what a player with nothing scripted does, said the way this sport says it
+const idle = (S, p) => S.rally ? (p.side === 'O' ? 'Stays level with the partner, paddle up, and reads the other side.' : 'Plays the same game from the other side of the net.')
+  : S.pitch ? (p.side === 'O' ? 'Keeps the shape and finds space to receive.' : 'Stays goal-side and keeps the shape.')
+  : S.kinds.route ? (p.side === 'O' ? 'Holds the play’s spacing and reads the defense.' : 'Plays the coverage and reacts to the ball.')
+  : p.side === 'O' ? 'Spaces the floor and reads the ball.' : 'Guards the play and reacts to the ball.';
 export function openFilm(ctx, startId) {
   const S = ctx.sport, play = ctx.play, sim = ctx.sim;
-  const ids = play.players.filter((p, i) => p.side === 'O' || sim.match[i] >= 0 || sim.job[i]).map(p => p.id).slice(0, 10);
+  const ids = play.players.filter((p, i) => p.side === 'O' || S.rally || sim.match[i] >= 0 || sim.job[i]).map(p => p.id).slice(0, 10);
   const key = JSON.stringify(ctx.raw.beats) + ':' + ids.join(',');
   const notes = cache.get(key) || {}; cache.set(key, notes);
   const pending = new Set(); let down = null;   // why the brains couldn't answer, if they couldn't
@@ -30,11 +39,11 @@ export function openFilm(ctx, startId) {
       ${ctx.upgrade ? `<button type="button" class="pro" data-b="pro">${icon('sparkle')}<span>${esc(ctx.upgrade.label || 'Get unlimited AI')}</span></button>` : ''}</div>
       ${ctx.upgrade && ctx.upgrade.note ? `<small>${esc(ctx.upgrade.note)}</small>` : '<small>Your key stays in this browser and goes only to Claude, OpenAI or Gemini.</small>'}</div></div>` : '';
   const local = id => {
-    const p = play.players.find(q => q.id === id), pos = positionOf(S, play, p), st = storyOf(play, id), i = sim.idx[id];
+    const p = play.players.find(q => q.id === id), pos = positionOf(S, play, p), st = storyOf(play, id, S), i = sim.idx[id];
     const catches = []; play.beats.forEach((b, k) => b.actions.forEach(a => { if (a.target === id && S.kinds[a.kind].type === 'pass' && a.kind !== 'snap') catches.push({ k, space: sim.space(k + 0.94, i) }); }));
     const beaten = sim.beaten.some(bk => bk[i]);
     return { pos, story: st, catches, beaten,
-      read: st.length ? [...new Set(st.map(s => s.text))].join(' ') : p.side === 'O' ? 'Spaces the floor and reads the ball.' : 'Guards the play and reacts to the ball.',
+      read: st.length ? [...new Set(st.map(s => s.text))].join(' ') : idle(S, p),
       risk: pos ? pos.donts[0] : '', tip: pos ? pos.cue : '' };
   };
   const card = (id, n) => {

@@ -793,8 +793,8 @@ export function mount(root, options) {
     const body = readsHTML + `<form class="ct-form"><label>Label</label><div class="ct-row"><input data-role value="${esc(p.role || '')}" placeholder="e.g. ${esc(chips[0] || 'Shooter')}" maxlength="18" autocomplete="off"><button class="go">Save</button></div>
       <div class="ct-chips">${chips.map(c => `<button type="button" data-chip>${esc(c)}</button>`).join('')}</div>
       <label>Name <small>saved on this device only, never sent to the AI</small></label><input data-n value="${esc(names.all()[id] || '')}" placeholder="Player's first name" maxlength="24" autocomplete="off"></form>
-      <div class="ct-brains"><button type="button" data-s="1">${icon('brain')}<span>${p.smart ? 'Ask this brain again' : 'Let the AI play ' + esc(posName(id))}</span></button><button type="button" data-s="all">${icon('brain')}<span>Every ${p.side === 'O' ? 'teammate' : 'defender'} thinks</span></button></div>`;
-    openPanel(markAnchor(i), (p.side === 'O' ? 'Offense ' : 'Defense ') + posName(id), body, pb => {
+      <div class="ct-brains"><button type="button" data-s="1">${icon('brain')}<span>${p.smart ? 'Ask this brain again' : 'Let the AI play ' + esc(posName(id))}</span></button><button type="button" data-s="all">${icon('brain')}<span>${state.sport.rally ? (p.side === 'O' ? 'Your team thinks' : 'The other side thinks') : 'Every ' + (p.side === 'O' ? 'teammate' : 'defender') + ' thinks'}</span></button></div>`;
+    openPanel(markAnchor(i), (state.sport.sides ? state.sport.sides[p.side] : p.side === 'O' ? 'Offense' : 'Defense') + ' · ' + posName(id), body, pb => {
       const form = pb.querySelector('form'), roleIn = pb.querySelector('[data-role]'), nameIn = pb.querySelector('[data-n]');
       pb.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { roleIn.value = b.textContent; form.requestSubmit(); });
       state.readHint = reads[0] ? { from: i, to: reads[0].to, kind: reads[0].kind } : null;

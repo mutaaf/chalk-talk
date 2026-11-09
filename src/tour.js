@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.39.0';
+export const VERSION = '0.40.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.40.0', date: '2026-11-09', title: 'Every player speaks their sport', items: [
+    { title: 'Pickleball players read like pickleball players', call: 'Tap a player and the best read is a real pickleball read: the play’s shot first, then drop, dink, hit at the feet, move up with your partner, or stay back for the two-bounce rule. No more passing to your partner or cutting to the rim. Mind view shows where each player stands (kitchen line, transition zone, baseline) and how far apart partners are.', show: null },
+    { title: 'Soccer says it the soccer way', call: 'Carry it forward, shoot, run in behind, close down, mark goal-side, and a keeper who sets the angle or stays the outlet.', show: null },
+    { title: 'Film room knows who’s who', call: 'In pickleball the same player serves one point and returns the next: Film room now picks the right position from where they start, every step is told in pickleball words, and the Analyst voice no longer calls a point “man to man.”', show: null }
+  ] },
   { version: '0.39.0', date: '2026-11-04', title: 'Trace on every headset and pair of glasses', items: [
     { title: 'Send a play to any headset', call: 'In Trace, Any glasses → Send to a headset gives a 4-digit code. On Snap Specs, Quest, Vision Pro, Android XR or Pico, open mutaafaziz.com/chalktalk/go and type it, and your play opens at your position. On Ray-Ban Display, choose Enter a code. A phone can scan the QR code instead.' },
     { title: 'Fits every view', call: 'The step card sizes itself to the device. On narrow see-through glasses like Snap Specs it’s smaller and follows your gaze, so it never drops out of view when you look down at your ring. The words match your device too: pinch, tap the screen, or pull the trigger.' },

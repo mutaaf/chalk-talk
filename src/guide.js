@@ -80,13 +80,17 @@ const VERBS = { move: 'moves to a new spot', cut: 'cuts', drift: 'drifts to open
   dribble: 'dribbles', screen: 'screens for', boxout: 'boxes out', route: 'runs the route', motion: 'goes in motion', run: 'runs with it', rush: 'rushes the QB', cover: 'covers', zone: 'drops to the zone', pull: 'goes for the flag',
   pass: 'passes to', throw: 'throws to', handoff: 'hands off to', pitch: 'pitches to', snap: 'snaps to', shot: 'shoots', ready: 'gets ready' };
 // what a player does in the play, beat by beat, in the play's own words
-export function storyOf(play, id) {
+export function storyOf(play, id, sport) {
+  const K = sport && sport.kinds || {}, fill = (t, a) => t.replace(/\{w\}/g, a.who).replace(/\{t\}/g, a.target || '');
+  // the sport's own words for a kind when it has them (a net sport's shots, its moves), else the verbs below
+  const say = a => (K[a.kind] && K[a.kind].says ? fill(K[a.kind].says, a) : a.who !== id ? `gets it from ${a.who}` : K[a.kind] && K[a.kind].job && !VERBS[a.kind] ? null : (VERBS[a.kind] || 'moves') + (a.target ? ' ' + a.target : ''));
   const out = [];
   play.beats.forEach((b, k) => {
     const mine = (b.actions || []).filter(a => a.who === id || a.target === id);
     if (!mine.length) return;
     const lines = String(b.say || '').split(/(?<=\.)\s+/).filter(s => new RegExp('\\b' + id + '\\b').test(s));
-    const text = lines.join(' ') || id + ' ' + [...new Set(mine.map(a => a.who !== id ? `gets it from ${a.who}` : (VERBS[a.kind] || 'moves') + (a.target ? ' ' + a.target : '')))].join(', then ') + '.';
+    const parts = [...new Set(mine.map(a => { const v = say(a); return v == null ? id + ': ' + fill(K[a.kind].job, a) : K[a.kind] && K[a.kind].says ? v : id + ' ' + v; }))];
+    const text = lines.join(' ') || parts.join(', then ') + '.';
     if (!out.length || out[out.length - 1].text !== text) out.push({ beat: k, text });
   });
   return out;
@@ -101,7 +105,7 @@ export function openGuide(ctx, start) {
   const tile = (p, i) => `<button type="button" class="ct-gtile ${p.side}" data-pos="${i}" style="--i:${i}">${miniBoard(S, p)}<span class="ct-gnum ${p.side}">${esc(p.num)}</span><b>${esc(p.name)}</b><small>${esc(p.cue)}</small></button>`;
   const grid = () => `<p class="ct-glede">Tap any position to go deep: the job, the read, how to coach it at every age, and its move on the board.</p><div class="ct-ggrid">${P.map(tile).join('')}</div>`;
   const detail = i => {
-    const p = P[i], pl = playerFor(S, ctx.play, p), brain = pl && S.brains ? S.brains(pl) : null, story = pl ? storyOf(ctx.play, pl.id) : [];
+    const p = P[i], pl = playerFor(S, ctx.play, p), brain = pl && S.brains ? S.brains(pl) : null, story = pl ? storyOf(ctx.play, pl.id, S) : [];
     return `<div class="ct-gdeep ${p.side}">
       <button type="button" class="ct-gback" data-b="back">${icon('undo')}<span>All positions</span></button>
       <div class="ct-ghero">${miniBoard(S, p, { anim: true })}
@@ -125,7 +129,7 @@ export function openGuide(ctx, start) {
   const playTab = () => {
     const pl = ctx.play;
     return `<p class="ct-glede"><b>${esc(pl.title)}</b>: who does what, beat by beat. Tap a player to watch only them.</p><ul class="ct-gplay">${pl.players.map(q => {
-      const st = storyOf(pl, q.id); if (!st.length) return '';
+      const st = storyOf(pl, q.id, S); if (!st.length) return '';
       return `<li><button type="button" class="ct-gwho" data-b="watch" data-id="${esc(q.id)}"><b class="ct-m ${q.side}">${esc(S.notation.name(q))}</b></button><div>${st.map(s => `<p><span class="ct-n">${s.beat + 1}</span>${ctx.mark(s.text)}</p>`).join('')}</div></li>`;
     }).join('')}</ul>`;
   };

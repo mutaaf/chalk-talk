@@ -30,7 +30,10 @@ for (const sport of sports()) for (const raw of sport.plays) for (const defense 
       assert.ok(fin(T.dist) && T.dist >= 0 && T.dist <= T.total + 1e-3, where + ' distance');
       assert.ok(typeof doing(T) === 'string' && doing(T).length, where + ' doing');
       if (T.route) assert.ok(T.route.done >= 0 && T.route.done <= 1, where);
-      if (p.side === 'D') {
+      if (sport.rally) {   // a net sport: nobody guards anybody; where you stand and your partner instead
+        assert.ok(T.net && !T.def && !T.off && ['kitchen line', 'transition zone', 'baseline'].includes(T.net.zone) && fin(T.net.gap), where);
+        assert.ok(!/guard|defender|rim|paint/.test(doing(T)), where + ' ' + doing(T));
+      } else if (p.side === 'D') {
         assert.ok(T.def && !T.off, where);
         if (T.def.man) assert.ok(fin(T.def.toMan), where);
         if (T.def.screenedBy) screens++;

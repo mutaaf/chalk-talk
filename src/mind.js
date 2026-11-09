@@ -112,7 +112,7 @@ const deg = v => (v == null ? '—' : Math.round(v) + '°');
 // the table's columns: [label, value from telemetry for sorting, text]
 const COLS = [
   ['Player', null], ['Side', T => T.side], ['Doing', null], ['x, y', T => T.x], ['Speed', T => T.speed], ['Dist', T => T.dist],
-  ['Space / man', T => (T.off ? T.off.space : T.def ? T.def.toMan : null)], ['Lane', T => (T.off ? T.off.lane : null)], ['Ball', T => (T.ball ? 1 : 0)]
+  ['Space / man', T => (T.off ? T.off.space : T.def ? T.def.toMan : T.net ? T.net.toNet : null)], ['Lane', T => (T.off ? T.off.lane : null)], ['Ball', T => (T.ball ? 1 : 0)]
 ];
 
 let styled = false;
@@ -160,14 +160,15 @@ export function createMind(o) {
   const ROWS_ALL = [['pos', 'Position'], ['vel', 'Speed'], ['dist', 'Distance'], ['now', 'Doing'], ['route', 'Route'], ['auto', 'Decided'], ['ball', 'Ball'], ['thought', 'Thinking']];
   const ROWS_D = [['job', 'Job'], ['man', 'Man'], ['zone', 'Zone'], ['screen', 'Screened'], ['beaten', 'Beaten'], ['help', 'Help'], ['react', 'Reaction'], ['toBall', 'To ball']];
   const ROWS_O = [['space', 'Space'], ['open', 'Openness'], ['lane', 'Lane'], ['guards', 'Guarded by'], ['toBall', 'To ball'], ['qb', 'Progression'], ['read', 'QB read']];
+  const ROWS_NET = [['zone', 'Court'], ['net', 'To the net'], ['mate', 'Partner']];   // a net sport: nobody guards anybody
   function toggleCard(i) { const id = sim.players[i].id; if (cards.has(id)) closeCard(id); else openCard(i); }
   function openCard(i, quiet) {
     const p = sim.players[i], sport = o.sport(), br = F.brain[i];
     if (cards.size >= MAX_CARDS) closeCard(cards.keys().next().value);
     const el = document.createElement('section'); el.className = 'ct-mcard ' + p.side; el.setAttribute('aria-label', 'Mind of ' + nm(p.id));
-    const rows = ROWS_ALL.concat(p.side === 'D' ? ROWS_D : ROWS_O);
+    const rows = ROWS_ALL.concat(sport.rally ? ROWS_NET : p.side === 'D' ? ROWS_D : ROWS_O);
     el.innerHTML = `<header><span class="big">${esc(nm(p.id))}</span><div><h5>${esc(br.name)}${p.smart ? '<em>AI</em>' : ''}</h5>
-      <small>${esc(p.id)} · ${p.side === 'O' ? 'offense' : 'defense'}${p.role ? ' · ' + esc(p.role) : ''} · ${esc(sport.unit)}</small></div><button type="button" class="x" aria-label="Close">×</button></header>
+      <small>${esc(p.id)} · ${esc(sport.sides ? sport.sides[p.side].toLowerCase() : p.side === 'O' ? 'offense' : 'defense')}${p.role ? ' · ' + esc(p.role) : ''} · ${esc(sport.unit)}</small></div><button type="button" class="x" aria-label="Close">×</button></header>
       ${br.instincts ? `<p class="inst">${esc(br.instincts)}</p>` : ''}
       <svg class="spark" viewBox="0 0 240 26" preserveAspectRatio="none" aria-hidden="true"><path></path><line y1="0" y2="24"></line><text x="0" y="7"></text></svg>
       <dl>${rows.map(([k, l]) => `<dt data-k="${k}">${l}</dt><dd data-k="${k}"></dd>`).join('')}</dl>
@@ -205,10 +206,14 @@ export function createMind(o) {
     set(k.now, doing(T, nm) + (T.beat != null ? ` · step ${T.beat + 1}` : ''));
     set(k.route, T.route ? `${T.route.auto ? 'auto ' : ''}${T.route.kind} ${Math.round(T.route.done * 100)}% of ${T.route.len.toFixed(0)} ${u} · leg ${T.route.n}/${T.route.of}` : null);
     set(k.auto, T.auto, 'hot');
-    set(k.ball, b ? b.text : null, b ? 'hot' : '');
+    set(k.ball, b ? b.text.replace(/\b[OX]\d{1,2}\b/g, m => nm(m)) : null, b ? 'hot' : '');
     set(k.thought, T.thought ? '“' + T.thought + '”' : null);
-    const d = T.def, f = T.off;
-    if (d) {
+    const d = T.def, f = T.off, net = T.net;
+    if (net) {
+      set(k.zone, net.zone, net.zone === 'kitchen line' ? 'good' : net.zone === 'transition zone' ? 'bad' : '');
+      set(k.net, `${f1(net.toNet)} ${u}`);
+      set(k.mate, net.mate ? `${nm(net.mate)} · ${f1(net.gap)} ${u} apart` : null);
+    } else if (d) {
       set(k.job, (d.job ? d.job.text.replace(/\b([OX][1-9])\b/g, m => nm(m)) : '—') + (d.auto ? ' · on its own' : ' · scripted move'));
       set(k.man, d.man ? `${nm(d.man)} · ${f1(d.toMan)} ${u} away${d.manHasBall ? ' · has the ball' : ''}` : null);
       set(k.zone, d.zoneRect ? `${d.zone}: x ${d.zoneRect[0].toFixed(0)}…${d.zoneRect[2].toFixed(0)}, y ${d.zoneRect[1].toFixed(0)}…${d.zoneRect[3].toFixed(0)}` : null);
@@ -264,7 +269,7 @@ export function createMind(o) {
     const u = o.sport().unit;
     all.forEach((T, i) => {
       const r = table.rows[i], f = T.off, d = T.def;
-      const txt = [null, null, doing(T, nm), `${T.x.toFixed(1)}, ${T.y.toFixed(1)}`, T.speed.toFixed(1) + ' ' + u + '/s', T.dist.toFixed(1), f ? (f.space == null ? '—' : f1(f.space) + ' ' + (f.open || '')) : d && d.man ? f1(d.toMan) + ' → ' + nm(d.man) : d && d.job ? d.job.label : '—', f && f.lane != null ? f1(f.lane) : '—', T.ball ? T.ball.state : ''];
+      const txt = [null, null, doing(T, nm), `${T.x.toFixed(1)}, ${T.y.toFixed(1)}`, T.speed.toFixed(1) + ' ' + u + '/s', T.dist.toFixed(1), f ? (f.space == null ? '—' : f1(f.space) + ' ' + (f.open || '')) : d && d.man ? f1(d.toMan) + ' → ' + nm(d.man) : d && d.job ? d.job.label : T.net ? T.net.zone : '—', f && f.lane != null ? f1(f.lane) : '—', T.ball ? T.ball.state : ''];
       for (let j = 2; j < txt.length; j++) if (r.s[j] !== txt[j]) { r.s[j] = txt[j]; r.td[j].textContent = txt[j]; }
       const ball = !!(T.ball && T.ball.state === 'holding'); if (r.ball !== ball) { r.ball = ball; r.tr.classList.toggle('ball', ball); }
       const get = COLS[sort.col][1]; r.key = get ? get(T) : sort.col === 2 ? txt[2] : T.id;

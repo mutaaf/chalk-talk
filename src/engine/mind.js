@@ -8,6 +8,7 @@
 // bestReads (engine/reads.js) is O(players²) and stays with the caller, for the players it's showing.
 
 import { SPANS } from './sim.js';
+import { courtZone } from './reads.js';
 import { progression, readStart, READ_STEP, openness as fbOpenness, zoneRect } from './football.js';
 
 export const BEAT_S = 2.4;   // seconds a beat lasts at 1× (sim.tick)
@@ -57,7 +58,8 @@ export function facts(sim, sport) {
 // a defender's standing job, in words
 function jobOf(sim, sport, i) {
   const p = sim.players[i], c = sim.job[i], m = sim.match[i];
-  if (p.side !== 'D') return null;
+  if (p.side !== 'D' || sport.rally) return null;   // a net sport: nobody guards anybody
+  if (sport.pitch && p.id === 'X1') return { type: 'keeper', label: 'Keeper', text: 'In goal' };
   if (c && c.type === 'zone') return { type: 'zone', label: c.zone.label || 'Zone', text: 'Zone · ' + (c.zone.label || 'area') };
   if (c && c.type === 'rush') return { type: 'rush', label: 'Rush', text: 'Rush the QB' };
   if (m >= 0) return { type: 'man', on: m, label: 'Man', text: (c ? 'Man on ' : 'Guards ') + sim.players[m].id };
@@ -127,7 +129,7 @@ export function telemetry(sim, sport, t, i, F, fr) {
     vx: tr.vx, vy: tr.vy,
     dist: tr.d, total: F.cum[i][F.steps],
     beat: fr.done ? null : fr.k, action: null, actions: [], auto: null, route: null, thought: null,
-    ball: null, def: null, off: null, fb: null
+    ball: null, def: null, off: null, net: null, fb: null
   };
   // what they're doing right now: this beat's actions (theirs, and the ones aimed at them)
   const info = fr.info;
@@ -150,8 +152,11 @@ export function telemetry(sim, sport, t, i, F, fr) {
   if (fr.holder === i) out.ball = { state: 'holding', text: b && b.from === i && b.phase === 'coming' ? (b.type === 'shot' ? 'shooting' : b.kind + ' to ' + sim.players[b.to].id) + ' in ' + ((b.release - t) * secs).toFixed(1) + 's' : 'has the ball' };
   else if (b && b.to === i && b.phase !== 'done') out.ball = { state: b.phase === 'air' ? 'air' : 'coming', from: sim.players[b.from].id, eta: (b.arrive - t) * secs, text: (b.phase === 'air' ? 'ball in the air' : b.kind + ' coming') + ' · catch in ' + ((b.arrive - t) * secs).toFixed(1) + 's' };
   else if (b && b.from === i && b.phase === 'air') out.ball = { state: 'released', text: b.type === 'shot' ? 'shot is up' : 'just threw it' };
-  // defense: the job, the man, screens, beaten, help, reaction
-  if (p.side === 'D') {
+  // a net sport: where you stand (kitchen line, transition zone, baseline), the net, your partner
+  if (sport.rally) {
+    const C = sport.court, mate = sim.players.findIndex((q, k) => k !== i && q.side === p.side);
+    out.net = { zone: courtZone(sport, me[1]), toNet: Math.abs(me[1] - C.net), mate: mate >= 0 ? sim.players[mate].id : null, gap: mate >= 0 ? dist(me, P[mate]) : null };
+  } else if (p.side === 'D') {
     const m = sim.match[i], k = fr.k, j = F.job[i];
     const scr = !fr.done && sim.screened[k] ? sim.screened[k][i] : null;
     out.def = {
@@ -197,7 +202,8 @@ export function telemetryAll(sim, sport, t, F, opts) {
 // one short line for what a player is doing: the chip's headline
 export function doing(T, nameOf) {
   const nm = nameOf || (id => id);
-  if (T.ball && T.ball.state !== 'released' && T.ball.state !== 'holding') return T.ball.text;
+  const ids = t => t.replace(/\b[OX]\d{1,2}\b/g, m => nm(m));   // the ball's line names players by sim id
+  if (T.ball && T.ball.state !== 'released' && T.ball.state !== 'holding') return ids(T.ball.text);
   const a = T.action && !T.action.incoming ? T.action : null;
   if (a) {
     if (a.type === 'pass' || a.type === 'handoff' || a.type === 'hit') return a.kind + ' → ' + nm(a.target);
@@ -206,7 +212,7 @@ export function doing(T, nameOf) {
     return (a.tree || a.kind) + (a.target ? ' for ' + nm(a.target) : '') + pct;
   }
   if (T.auto) return T.auto;
-  if (T.ball && T.ball.state === 'holding') return T.ball.text;
+  if (T.ball && T.ball.state === 'holding') return ids(T.ball.text);
   if (T.def) {
     const d = T.def;
     if (d.beaten) return 'beaten · trailing ' + (d.man ? nm(d.man) : '');
@@ -214,10 +220,12 @@ export function doing(T, nameOf) {
     if (d.help) return 'helping on the drive';
     if (d.job && d.job.type === 'zone') return 'zone · ' + d.zone;
     if (d.job && d.job.type === 'rush') return 'rushing';
+    if (d.job && d.job.type === 'keeper') return 'in goal';
     if (d.man) return (d.manHasBall ? 'on the ball · ' : 'guarding ') + nm(d.man);
     return 'reading';
   }
   if (T.action && T.action.incoming) return T.action.kind + ' from ' + nm(T.action.from);
   if (T.beat == null) return 'set';
+  if (T.net) return T.speed > 0.4 ? 'moving · ' + T.net.zone : 'ready · ' + T.net.zone;
   return T.speed > 0.4 ? 'moving' : 'spacing';
 }
