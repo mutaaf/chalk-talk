@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chalk Talk Coach's Guide: How to Use It, Controls and Tips</title>
+<meta name="description" content="How to use Chalk Talk: say or sketch a play and watch it run, every keyboard control, the IQ game, Kids view, and how your team's data stays on your device.">
+<link rel="canonical" href="https://mutaafaziz.com/chalktalk/guide/">
+<meta name="theme-color" content="#04070c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3efe6" media="(prefers-color-scheme: light)">
+<link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="../icons/favicon-32.png" sizes="32x32" type="image/png">
+<meta property="og:title" content="Chalk Talk Coach's Guide">
+<meta property="og:description" content="Say or sketch a play and watch it run in light: basketball, flag football, youth soccer and pickleball.">
+<meta property="og:url" content="https://mutaafaziz.com/chalktalk/guide/">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Atkinson+Hyperlegible:wght@400;700&family=Permanent+Marker&display=swap">
+<style>
+  /* Chalk Talk's own tokens (src/style.js): the night board in dark, chalk on paper in light */
+  :root {
+    --night: #04070c; --deep: #0a1220; --ice: #8cbcff; --o: #ff8e3a; --x: #a9d4ff; --paper: #eef4ff;
+    --mute: #8a9bb5; --gold: #ffc75a; --line: rgba(140, 188, 255, .16); --on-o: #04070c;
+    --display: 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif;
+    --body: 'Atkinson Hyperlegible', 'Segoe UI', Helvetica, sans-serif;
+    --marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+    color-scheme: dark light;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --night: #f3efe6; --deep: #fffdf8; --ice: #2457a6; --o: #c2410c; --x: #1e4b91; --paper: #101a2b;
+      --mute: #4b5869; --gold: #8a5a00; --line: rgba(36, 87, 166, .18); --on-o: #fffdf8; }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--night); }
+  body {
+    margin: 0; color: var(--paper); font: 17px/1.62 var(--body);
+    background:
+      radial-gradient(ellipse 70% 40% at 80% -5%, color-mix(in srgb, var(--ice) 18%, transparent), transparent 70%),
+      radial-gradient(ellipse 50% 30% at 0% 10%, color-mix(in srgb, var(--o) 10%, transparent), transparent 70%),
+      var(--night);
+    background-attachment: fixed;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 56px max(16px, env(safe-area-inset-left)); }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 36px; }
+  .mark { font: 900 22px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--paper); text-decoration: none; }
+  .mark span { color: var(--o); }
+  .play {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px;
+    background: var(--o); color: var(--on-o); font: 700 16px/1 var(--body); text-decoration: none;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--o) 60%, transparent), 0 8px 28px -10px var(--o);
+  }
+  .play:hover, .play:focus-visible { filter: brightness(1.08); outline: 2px solid var(--gold); outline-offset: 3px; }
+  .eyebrow { font: 20px/1 var(--marker); color: var(--gold); transform: rotate(-2deg); display: inline-block; margin: 0 0 10px; }
+  h1 { font: 900 clamp(44px, 11vw, 76px)/.92 var(--display); letter-spacing: .01em; text-transform: uppercase; margin: 0 0 18px; }
+  h1 em { font-style: normal; color: var(--o); }
+  .lede { font-size: 19px; color: color-mix(in srgb, var(--paper) 88%, var(--mute)); margin: 0 0 8px; }
+  h2 {
+    font: 900 30px/1.05 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 52px 0 14px;
+    padding-top: 18px; border-top: 1px dashed var(--line); color: var(--paper);
+  }
+  h2::before { content: attr(data-n); font: 18px/1 var(--marker); color: var(--ice); margin-right: 12px; vertical-align: 3px; }
+  h3 { font: 700 18px/1.35 var(--body); margin: 26px 0 6px; color: var(--x); }
+  p, li { margin: 0 0 12px; }
+  ul, ol { padding-left: 22px; }
+  li::marker { color: var(--o); font-weight: 700; }
+  strong { color: var(--paper); }
+  a { color: var(--ice); text-underline-offset: 3px; }
+  kbd {
+    font: 700 13px/1 ui-monospace, Menlo, monospace; padding: 3px 7px; border-radius: 6px; white-space: nowrap;
+    border: 1px solid var(--line); border-bottom-width: 2px; background: var(--deep); color: var(--paper);
+  }
+  .keys { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 16px; }
+  .keys th, .keys td { text-align: left; vertical-align: top; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+  .keys th { font: 700 13px/1 var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--mute); }
+  .keys td:first-child { width: 38%; }
+  .sports { display: grid; gap: 12px; padding: 0; list-style: none; }
+  .sports li { margin: 0; padding: 14px 16px; border-radius: 14px; background: color-mix(in srgb, var(--deep) 80%, transparent); border: 1px solid var(--line); }
+  .sports b { display: block; font: 900 21px/1.1 var(--display); text-transform: uppercase; letter-spacing: .04em; color: var(--o); margin-bottom: 4px; }
+  .end { margin-top: 56px; padding: 26px 20px; text-align: center; border-radius: 18px; border: 1px dashed var(--line); background: color-mix(in srgb, var(--deep) 70%, transparent); }
+  .end p { font: 22px/1.3 var(--marker); color: var(--gold); margin: 0 0 16px; }
+  footer { margin-top: 28px; font-size: 14px; color: var(--mute); text-align: center; }
+  @media (max-width: 480px) { .keys td:first-child { width: 44%; } .top .play { padding: 10px 16px; } }
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+  <a class="mark" href="/chalktalk/">Chalk <span>Talk</span></a>
+  <a class="play" href="/chalktalk/">Open the board &rarr;</a>
+</header>
+
+<article>
+<p class="eyebrow">the coach's guide</p>
+<h1>Chalk Talk <em>Coach's Guide</em></h1>
+<p class="lede">Chalk Talk is a coaching board where you say a play out loud, or sketch it with a finger, and watch it run in light. Players move with real spacing and timing, defenders react, and every step gets a plain caption you can teach from. This guide covers the sports, the controls, the IQ game for your players, and what stays private.</p>
+
+<h2 data-n="01">What it is</h2>
+<p>Under the board is a simulation engine. A play is a list of beats, and in each beat only the player holding the ball can dribble, pass, hand off or shoot, while teammates and defenders move on their own and react to the ball. Two layers draw it: a glowing aurora particle field, and a crisp whiteboard layer of the X's and O's a coach would draw. Players are always positions, never real names.</p>
+<p>Every sport ships with a researched library of plays and short concept lessons:</p>
+<ul class="sports">
+<li><b>Basketball 5 on 5</b>A 50 by 47 foot half court. Offense is numbered 1 to 5 (point guard to center) and defenders are X1 to X5. 26 library plays, from basic spacing to Spain pick-and-roll, plus lessons on Guard the space and 5-out drive and kick.</li>
+<li><b>Flag football 5v5 and 7v7</b>The 5v5 field is 30 by 70 yards with dashed no-run zones and a rusher who starts 7 yards off the ball; 7v7 is a 40-yard-wide passing field with no rush. Offense is lettered by role (Q, C, X, Z, Y, H, RB) and defense by job (R, CB, S, LB, N). 13 plays in each format, with Cover 2 (5v5), Cover 3 (7v7) and Flood lessons.</li>
+<li><b>Youth soccer 7v7 and 9v9</b>7v7 (U9 to U10) plays a 2-3-1 on a 40 by 55 yard pitch with build-out lines, no punting and no heading. 9v9 (U11 to U12) plays a 3-2-3 on a 50 by 75 yard pitch. Players wear shirt numbers (1 keeper, the 8, the 9 striker, 7 and 11 on the wings). 13 plays in 7v7 and 14 in 9v9, plus Pressure, cover, balance and Five lanes.</li>
+<li><b>Pickleball doubles</b>A 20 by 44 foot court with a 7-foot kitchen on each side of the net. Your team is A and B, the other side C and D. Nine full point patterns plus lessons on the five rules, getting to the kitchen line, and holding it.</li>
+</ul>
+
+<h2 data-n="02">How to start</h2>
+<p>Open the board and pick a sport from the tabs at the top. A library play loads and steps through its beats with a caption under the court. From there you have four ways in:</p>
+<ol>
+<li><strong>Run a library play.</strong> Open the Plays list (the left panel on a computer, the Plays tab on a phone) and pick one. Each play comes with coaching cues and the primary read.</li>
+<li><strong>Talk or type.</strong> Tap the mic, or hold <kbd>Space</kbd>, and describe the play in plain words: "1 dribbles to the right wing, 5 sets the ball screen and rolls." Or type it in the box. Short commands like "next", "slower", "show defense", or the name of a library play run instantly on your device without calling the AI.</li>
+<li><strong>Sketch it.</strong> Tap Sketch (or just touch the court with a stylus). Tap empty space to drop a player, then drag from a player to draw their path: a line is a cut or route, a zigzag is a dribble, ending on a teammate is a pass, and a short crossbar at the end is a screen. Tap Done and the AI names the concept and offers a cleaned-up version next to yours.</li>
+<li><strong>Play or walk it.</strong> Tap IQ to quiz your reads against a clock, or open More and pick Trace to walk one position's path in first person, through your phone's camera, or in a headset.</li>
+</ol>
+
+<h2 data-n="03">Controls</h2>
+<p>Everything works by touch on phones and tablets (folding and dual-screen devices included) and by mouse and keyboard on a computer. Press <kbd>?</kbd> in the app for the full list.</p>
+<table class="keys">
+<thead><tr><th>Key or gesture</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><kbd>Space</kbd> (hold) or mic</td><td>Listen; let go to draw the play</td></tr>
+<tr><td><kbd>P</kbd> or <kbd>K</kbd></td><td>Play or pause</td></tr>
+<tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Step back or forward one beat</td></tr>
+<tr><td><kbd>D</kbd></td><td>Defense on or off</td></tr>
+<tr><td><kbd>S</kbd></td><td>Start or finish a sketch</td></tr>
+<tr><td><kbd>D</kbd> <kbd>M</kbd> <kbd>E</kbd> <kbd>B</kbd> <kbd>O</kbd> <kbd>X</kbd></td><td>While sketching: draw, move, erase, give the ball, add an O, add an X (<kbd>T</kbd> makes moves happen at the same time, <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Z</kbd> undoes)</td></tr>
+<tr><td><kbd>V</kbd></td><td>Mind view: what every player is doing and thinking</td></tr>
+<tr><td><kbd>R</kbd> <kbd>G</kbd> <kbd>I</kbd> <kbd>H</kbd></td><td>Film room, position Guide, the IQ game, My plays</td></tr>
+<tr><td><kbd>C</kbd> / <kbd>Shift</kbd>+<kbd>P</kbd></td><td>Record a vertical video Short / build a printable playbook</td></tr>
+<tr><td><kbd>F</kbd> / <kbd>W</kbd></td><td>Presenter mode / whiteboard only</td></tr>
+<tr><td><kbd>L</kbd> <kbd>+</kbd> <kbd>-</kbd> <kbd>0</kbd></td><td>Lock the view, zoom, reset the camera</td></tr>
+<tr><td><kbd>M</kbd> / <kbd>Esc</kbd></td><td>Open More / close whatever is open</td></tr>
+<tr><td>Drag, pinch, double-tap</td><td>Orbit the field, zoom, reset the view</td></tr>
+<tr><td>Tap a player</td><td>See their best reads, label them, or give them a name kept on your device</td></tr>
+</tbody>
+</table>
+
+<h2 data-n="04">The IQ game and progress</h2>
+<p>Press <kbd>I</kbd> or tap the Daily pill to open the read-and-react game: CourtIQ in basketball, FieldIQ in flag football, PitchIQ in soccer, PickleIQ in pickleball. Questions are cut from the library plays (also mirrored left to right) and from thousands of engine-made game moments, keeping only the ones with one clearly right answer.</p>
+<p>A clip runs up to the moment of decision and freezes. Depending on the question you tap the open teammate, tap the spot a player cuts to, make the ball handler's read (pass, drive or shoot; in pickleball, which shot), call what happens next, pick a defender's job, name the play, or name the coverage.</p>
+<ul>
+<li><strong>Age bands.</strong> Each player profile picks an age band. Ages 6 to 8 get slower clips, a 15-second clock, three choices and more forgiving taps; the clock tightens to 11, 8 and 6 seconds for 9 to 11, 12 to 14, and 15 and up. The two younger bands get a hint instead of a miss when time runs out.</li>
+<li><strong>Rating and levels.</strong> Everyone starts at an IQ of 84. Fast right answers earn the most, a good second option earns half credit, and harder plays move the rating more. Every 10 points is a new level: Rookie to MVP in basketball and flag, Rookie to Ballon d'Or in soccer, 2.5 Beginner to 5.0 Pro in pickleball. After a few answers the game shows which pro style your reads resemble.</li>
+<li><strong>Ways to play.</strong> The Daily is the same five reads for everyone, every day, and doesn't touch your rating. Quick five gives five rated reads, and Streak Run keeps going until your first miss. Ten badges, from First read to a 30-day Season ticket streak, are kept on your device.</li>
+<li><strong>Trace stars.</strong> Walking a play in Trace grades how well you kept up with the gold ghost, from one to three stars, and keeps your best per position.</li>
+</ul>
+
+<h2 data-n="05">Coaching tips</h2>
+<ul>
+<li><strong>Let the screen set.</strong> In basketball the screener arrives first and the ball handler waits, so the defender gets caught on the screen. Pair a ball screen with a weak-side lift or corner drift so the help defender leaves a shooter open.</li>
+<li><strong>Follow the green marker.</strong> With Defense on, a flashing green marker shows where the ball should go right now. Tap any player mid-play to pause and see their top options and why.</li>
+<li><strong>Teach one read in flag.</strong> Open Routes to put any receiver on the route tree (hitch to go, plus drag, seam and wheel), line the defense up in man or Cover 1 through 4, and turn on QB eyes for a half-field or full-field progression.</li>
+<li><strong>Use the build-out line in 7v7 soccer.</strong> Opponents must retreat behind it while your keeper has the ball, so split the backs wide and play out short.</li>
+<li><strong>Respect two bounces in pickleball.</strong> The serve and the return must both bounce, so the serving team waits at the baseline, then drops the third shot into the kitchen and moves up together.</li>
+</ul>
+
+<h2 data-n="06">Settings and kids</h2>
+<p>Open <strong>More</strong> (<kbd>M</kbd>) for eight quick switches, the Make, Learn and Show tools, and Settings.</p>
+<ul>
+<li><strong>Kids view</strong> strips the board down for young players: bigger step buttons, 0.6x speed, auto-defense off, and every caption rewritten as one short, jargon-free sentence.</li>
+<li><strong>Appearance:</strong> Dark (glowing lines, best indoors or on a TV), Light (high contrast for a bright sideline) or Auto. Reduced motion, reduced transparency and high contrast settings on your device are respected.</li>
+<li><strong>Voice:</strong> the Analyst explains the read at half speed and waits for each line; Play-by-play keeps it quick. If the mic mishears a word, tap the transcript to fix it and Chalk Talk remembers the fix on your device.</li>
+<li><strong>AI:</strong> drawing new plays works out of the box on a free AI with a daily limit. You can add your own Claude, OpenAI or Gemini key, or connect a CourtIQ account, and an OpenAI or ElevenLabs key for a broadcast voice.</li>
+</ul>
+
+<h2 data-n="07">Privacy</h2>
+<p>Player names, ratings, play history and any keys you add stay in your browser. Names are never sent to an AI: drawing a play sends only positions and roles, and the IQ tutor gets only the age band. Sharing voice fixes to help other coaches is off unless you turn it on, and names are scrubbed on your device first. Usage counts are cookieless and anonymous, with no IP addresses and nothing you say. The board shows one small ad at the foot of the Plays list, never over the court; the <a href="/ads/privacy/">ad privacy policy</a> explains it.</p>
+
+<h2 data-n="08">FAQ</h2>
+<h3>Do I need an account or an API key?</h3>
+<p>No. The library, lessons, position guide, sketching, offline voice commands, playbooks and the IQ game all work without one. Brand-new plays from your words use the free AI up to a daily limit.</p>
+<h3>Can I print plays or share them?</h3>
+<p>Yes. Press <kbd>Shift</kbd>+<kbd>P</kbd> (or More, then Playbook) to pick library plays, your own plays, or the one on the board, and print a playbook with diagrams, cues and kid summaries, or save it as a PDF. Press <kbd>C</kbd> to record a vertical Short for social video.</p>
+<h3>Does it work offline?</h3>
+<p>Once loaded, the board, the libraries, sketching and the device voice keep working without a connection. Drawing new plays from your words needs the internet.</p>
+<h3>How do I send a play to a headset?</h3>
+<p>In Trace, pick a position, choose Any glasses, then Send to a headset. You get a 4-digit code, good for two hours, and a QR code. Open mutaafaziz.com/chalktalk/go on the headset, or mutaafaziz.com/chalktalk/glasses on Meta Ray-Ban Display, and enter the code.</p>
+</article>
+
+<section class="end">
+  <p>Ready to draw your first play?</p>
+  <a class="play" href="/chalktalk/">Open Chalk Talk &rarr;</a>
+</section>
+<footer>Chalk Talk by Mutaaf Aziz &middot; <a href="https://github.com/mutaaf/chalk-talk">Source on GitHub</a></footer>
+</main>
+</body>
+</html>

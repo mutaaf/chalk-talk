@@ -11,6 +11,8 @@ self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   // Marquee ads (/ads/*: the loader, config, creatives) always go to the network, never the shell cache.
   if (e.request.method !== 'GET' || u.pathname.includes('/api/') || u.pathname.startsWith('/ads/')) return;
+  // The coach's guide (/chalktalk/guide/) is a plain page: always straight from the network, never the board's shell.
+  if (/\/guide(\/|$)/.test(u.pathname)) return;
   const page = e.request.mode === 'navigate';
   // pages: network first (fresh when online), the cache when not; only the board itself refreshes the cached shell
   // (the glasses and code pages are their own pages); everything else: cache first

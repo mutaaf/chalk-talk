@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.40.0';
+export const VERSION = '0.40.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.40.1', date: '2026-11-10', title: 'The Coach’s Guide', items: [
+    { title: 'The whole playbook, written down', call: 'New on the standalone board: the Coach’s Guide. Every sport, every key, the IQ game, Kids view and what stays private, in one page you can read on the bench. Find it under Help, or at the foot of the Plays list.', show: 'help' }
+  ] },
   { version: '0.40.0', date: '2026-11-09', title: 'Every player speaks their sport', items: [
     { title: 'Pickleball players read like pickleball players', call: 'Tap a player and the best read is a real pickleball read: the play’s shot first, then drop, dink, hit at the feet, move up with your partner, or stay back for the two-bounce rule. No more passing to your partner or cutting to the rim. Mind view shows where each player stands (kitchen line, transition zone, baseline) and how far apart partners are.', show: null },
     { title: 'Soccer says it the soccer way', call: 'Carry it forward, shoot, run in behind, close down, mark goal-side, and a keeper who sets the angle or stays the outlet.', show: null },
