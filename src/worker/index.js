@@ -34,7 +34,8 @@ export const MODELS = {
   say: '@cf/myshell-ai/melotts'
 };
 // Per hashed IP per UTC day, and for everyone together, so this stays inside the free Workers AI
-// allowance (10k neurons a day, shared with COLD GAS and Hearth).
+// allowance (10k neurons a day, shared with every app through Prompter, github.com/mutaaf/prompter, which
+// guarantees Chalk Talk 2,500 of it).
 export const LIMITS = {
   perIp: { event: 400, learn: 300, play: 120, smart: 30, brain: 200, tutor: 300, analyst: 80, hear: 60, say: 150 },
   neuronsPerDay: 3500,
@@ -313,6 +314,7 @@ export default {
           ctx && ctx.waitUntil ? ctx.waitUntil(put) : await put;
           if (Math.random() < 0.01) { const old = dc.prepare(`DELETE FROM ai_cache WHERE at < date('now', '-${CACHE_DAYS} days')`).run(); ctx && ctx.waitUntil ? ctx.waitUntil(old) : await old; }
         }
+        if (!raw && /^Prompter: .*used up/.test(String(err && err.message))) return json({ error: 'The free AI is resting for today. Add your own Claude or OpenAI key to keep going.' }, 429, h);
         if (!raw) throw err;
         return json(raw, 200, Object.assign({ 'x-ct-model': model, 'x-ct-ms': String(Date.now() - t0), 'x-ct-neurons': String(spent), 'x-ct-usd': (micros / 1e6).toFixed(5), 'x-ct-in': String(used.in), 'x-ct-out': String(used.out), 'access-control-expose-headers': 'x-ct-model, x-ct-ms, x-ct-neurons, x-ct-in, x-ct-out' }, h));
       }
