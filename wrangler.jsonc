@@ -10,8 +10,9 @@
   "preview_urls": true,
   "previews": {},
   "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "404-page", "run_worker_first": ["/chalktalk/api/*"] },
-  // The free model: Workers AI's daily allowance, capped in code (src/worker LIMITS).
-  "ai": { "binding": "AI" },
+  // The free model: Workers AI through Prompter (github.com/mutaaf/prompter), which shares the account's free
+  // allowance between apps (Chalk Talk: 2,500 neurons a day guaranteed), also capped in code (src/worker LIMITS).
+  "services": [{ "binding": "AI", "service": "prompter", "props": { "app": "chalk-talk" } }],
   // Hashed-IP daily counters. No database_id on purpose: provisioned by name on first deploy (as COLD GAS).
   "d1_databases": [{ "binding": "DB", "database_name": "chalk-talk" }],
   "routes": [{ "pattern": "mutaafaziz.com/chalktalk*", "zone_name": "mutaafaziz.com" }]

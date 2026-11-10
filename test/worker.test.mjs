@@ -73,6 +73,9 @@ assert.equal((await worker.fetch(req('/brain', { sport: 'basketball', play: cann
 let calls = [];
 r = await worker.fetch(req('/brain', { sport: 'basketball', play: canned, id: 'O5', mode: 'film' }), Object.assign(env(''), { AI: { run: async m => { calls.push(m); return { response: /glm/.test(m) ? 'nope' : '{"read":"ok","risk":"r","tip":"t"}' }; } } }));
 assert.equal(r.status, 200); assert.ok(calls.some(m => /gemma/.test(m)));
+// Prompter says today's shared allowance is used up: a plain 429, the same words as Chalk Talk's own cap
+r = await worker.fetch(req('/brain', { sport: 'basketball', play: canned, id: 'O5', mode: 'film' }), Object.assign(env(''), { AI: { run: async () => { throw new Error("Prompter: today's shared AI allowance for chalk-talk is used up. It resets at 00:00 UTC."); } } }));
+assert.equal(r.status, 429); assert.match((await r.json()).error, /resting for today/);
 // the brain cap is its own
 const eb = env(JSON.stringify({ read: 'r', risk: 'r', tip: 't' }));
 for (let i = 0; i < LIMITS.perIp.brain; i++) await worker.fetch(req('/brain', { sport: 'basketball', play: canned, id: 'O1', mode: 'film' }), eb);
