@@ -1131,8 +1131,10 @@ export function mount(root, options) {
     if (root.querySelector('.ct-panel:not(.out).ct-helpm')) { closePanel(); return; }
     openPanel(R.helpBtn, 'Help', `<div class="ct-menu"><button type="button" data-h="tour">${icon('sparkle')}<span>Take the tour</span></button>
       <button type="button" data-h="news">${icon('film')}<span>What's new in v${VERSION}</span>${hasNews() ? '<i class="ct-new">New</i>' : ''}</button>
-      <button type="button" data-h="keys">${icon('key')}<span>Keyboard shortcuts</span></button></div>`, pb => {
-      pb.onclick = e => { const b = e.target.closest('[data-h]'); if (!b) return; ({ tour: startTour, news: whatsNew, keys: shortcuts })[b.dataset.h](); };
+      <button type="button" data-h="keys">${icon('key')}<span>Keyboard shortcuts</span></button>${opts.guide ? `
+      <button type="button" data-h="guide">${icon('book')}<span>Coach's guide<small>How it works, controls and tips</small></span></button>` : ''}</div>`, pb => {
+      // opts.guide: the standalone page's written guide (mutaafaziz.com/chalktalk/guide/); hosts that mount the package don't pass it
+      pb.onclick = e => { const b = e.target.closest('[data-h]'); if (!b) return; ({ tour: startTour, news: whatsNew, keys: shortcuts, guide: () => { track('guide_page'); location.href = opts.guide; } })[b.dataset.h](); };
     }, 'ct-helpm');
   };
   addEventListener('resize', () => { const c = root.querySelector('.ct-panel:not(.out).ct-tourcard'); if (c && c._step) spotlight(c._step.steps, c._step.i, c._step.eyebrow); });

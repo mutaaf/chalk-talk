@@ -6,7 +6,7 @@ Say a play out loud, or sketch it, and watch it draw itself in light. X's and O'
 coaches, on an [aurora-field](https://github.com/mutaaf/aurora-field) court: basketball, flag
 football 5v5 and 7v7, and any sport you add as a data file.
 
-**Live:** https://mutaafaziz.com/chalktalk/ · also inside [CourtIQ](https://github.com/mutaaf/courtiq) → Labs
+**Live:** https://mutaafaziz.com/chalktalk/ · **[Coach's guide](https://mutaafaziz.com/chalktalk/guide/)** (how it works, controls, tips) · also inside [CourtIQ](https://github.com/mutaaf/courtiq) → Labs
 
 - **Talk:** "1 dribbles to the right wing, 5 sets the ball screen and rolls" or "trips right, Z runs a corner, the slot runs a drag". Commands (next, back, again, slower, show defense, label 5 the big, cover 2, half field right, find the open man) work offline.
 - **Sketch:** tap the field to drop players, drag from a player to draw what they do. It plays at once; then the AI takes over: it names the concept ("Looks like Pick and Roll"), proposes a clean version and 2–3 coaching suggestions. Use it or keep yours.
