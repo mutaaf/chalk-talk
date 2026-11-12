@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.41.0';
+export const VERSION = '0.42.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,10 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.42.0', date: '2026-11-12', title: 'Made for iPhone Duo', items: [
+    { title: 'Open it like a book', call: 'On iPhone Duo the board gets the first page to itself and everything else moves to the second, so nothing ever sits on the fold. Tap a player and their card fills the second page while the read is drawn on the board beside it.', show: null },
+    { title: 'Stand it up on the bench', call: 'In tabletop the court sits above the fold and the controls, or the player card, sit below it. Close it and you’re back on the phone layout, same play, same step.', show: null }
+  ] },
   { version: '0.41.0', date: '2026-11-11', title: 'The player card', items: [
     { title: 'Tap a player, get the whole player', call: 'A new card: their position drawn small with its signature move, their cue (tap to hear it), what they’re doing right now, and live numbers in their sport’s words: court zone, distance to the net and the partner gap in pickleball; space, the lane and who marks them on offense; their man and the help on defense; the read order in football.', show: null },
     { title: 'Walk them through the play', call: 'Step back and forth inside the card (or use the arrow keys) and the reads, numbers and board move with you. The steps they’re in are lit. Flip to the next player from the strip at the top (or ▲▼) without closing anything.', show: null },

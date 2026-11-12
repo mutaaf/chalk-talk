@@ -1,6 +1,6 @@
 // Folds and two screens: where the hinge is, and when the board gets a screen of its own.
 import assert from 'node:assert/strict';
-import { splitFor, watchDevice } from '../src/devices.js';
+import { splitFor, watchDevice, duoSegments, saneSegments } from '../src/devices.js';
 const none = { x: false, y: false, folded: false };
 const box = (w, h) => ({ left: 0, top: 0, width: w, height: h });
 const rect = (l, t, w, h) => ({ left: l, top: t, right: l + w, bottom: t + h, width: w, height: h });
@@ -39,4 +39,32 @@ assert.equal(typeof watchDevice({}), 'function');
   stop(); assert.equal(ls.resize, undefined, 'stops listening');
   delete globalThis.window;
 }
-console.log('ok: device layouts (two screens, folds, embedded boards)');
+// iPhone Duo (iOS 27.1), where Safari has no fold API without a feature flag: known by its 951 × 669 pt open screen
+{
+  const book = duoSegments({ sw: 669, sh: 951, iw: 951, ih: 669, ios: true });
+  assert.deepEqual(splitFor(box(951, 669), book, none), { mode: 'x', a: 455.5, b: 495.5 }, 'held like a book: the fold band from the simulator');
+  const table = duoSegments({ sw: 669, sh: 951, iw: 669, ih: 880, ios: true });
+  assert.deepEqual(splitFor(box(669, 880), table, none), { mode: 'y', a: 455.5, b: 495.5 }, 'tabletop: board above the fold');
+  assert.equal(duoSegments({ sw: 466, sh: 678, iw: 466, ih: 600, ios: true }), null, 'closed: the outer screen is a plain phone');
+  assert.equal(duoSegments({ sw: 669, sh: 951, iw: 600, ih: 669, ios: true }), null, 'Safari in a split view');
+  assert.equal(duoSegments({ sw: 669, sh: 951, iw: 951, ih: 669, ios: false }), null, 'not iOS');
+  assert.equal(duoSegments({ sw: 390, sh: 844, iw: 844, ih: 390, ios: true }), null, 'a plain iPhone on its side');
+  // a preview build's nonsense segments are ignored
+  assert.equal(saneSegments([rect(0, 0, 2000, 669), rect(2040, 0, 2000, 669)], 951, 669), null);
+  assert.ok(saneSegments(book, 951, 669));
+  // the watcher finds it with no segments API, and re-lays out on rotation
+  const ls = {};
+  globalThis.window = { matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }), navigator: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 27_1 like Mac OS X)', maxTouchPoints: 5 },
+    screen: { width: 669, height: 951 }, innerWidth: 951, innerHeight: 669, addEventListener: (ev, f) => { ls[ev] = f; }, removeEventListener: ev => { delete ls[ev]; } };
+  const cls = new Set(), props = {}; let bx = box(951, 669);
+  const root = { classList: { toggle: (c, v) => (v ? cls.add(c) : cls.delete(c)) }, style: { setProperty: (k, v) => { props[k] = v; }, removeProperty: k => { delete props[k]; } }, getBoundingClientRect: () => bx };
+  const stop = watchDevice(root);
+  assert.ok(cls.has('ct-split-x')); assert.equal(props['--ct-fold-a'], '456px'); assert.equal(props['--ct-fold-b'], '496px');
+  window.innerWidth = 669; window.innerHeight = 880; bx = box(669, 880); ls.orientationchange();
+  assert.ok(cls.has('ct-split-y') && !cls.has('ct-split-x'), 'stood up in tabletop');
+  window.screen = { width: 466, height: 678 }; window.innerWidth = 466; window.innerHeight = 600; bx = box(466, 600); ls.resize();
+  stop(); delete globalThis.window;
+}
+// style.js never trusts Safari's env(viewport-segment-*) (reported far larger than the segments on iPhone Duo)
+{ const { CSS } = await import('../src/style.js'); assert.ok(!/env\(viewport-segment/.test(CSS), 'no env(viewport-segment-*) in the CSS'); }
+console.log('ok: device layouts (two screens, folds, iPhone Duo, embedded boards)');

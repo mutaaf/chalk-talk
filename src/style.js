@@ -1339,23 +1339,22 @@ export const CSS = `
 }
 
 /* ---- folds and two screens (src/devices.js sets the class). The hinge runs from --ct-fold-a to --ct-fold-b; with
-   no script geometry the env() segment values, or the middle. Nothing crosses it. ---- */
-@media (horizontal-viewport-segments: 2) { .ct.ct-full { --ct-fold-a: env(viewport-segment-right 0 0, 50%); --ct-fold-b: env(viewport-segment-left 1 0, 50%); } }
-@media (vertical-viewport-segments: 2) { .ct.ct-full { --ct-fold-a: env(viewport-segment-bottom 0 0, 50%); --ct-fold-b: env(viewport-segment-top 0 1, 50%); } }
+   no script geometry, the middle (never Safari's segment env() values: wrong on iPhone Duo). Nothing crosses it.
+   iPhone Duo puts an 84 pt status strip down one side when open as a book: it's safe area, so both pages keep out of it. ---- */
 .ct.ct-split-x > *, .ct.ct-split-y > * { --ct-fa: var(--ct-fold-a, 50%); --ct-fb: var(--ct-fold-b, 50%); }
 /* side by side: the board alone on the first screen; the header, the play card, the dock and every panel on the second */
-.ct.ct-split-x:not(.ct-board) .ct-boardbox { left: 0; right: calc(100% - var(--ct-fa)); top: max(12px, env(safe-area-inset-top)); bottom: 12px; --ct-fit: .42 .4; }
+.ct.ct-split-x:not(.ct-board) .ct-boardbox { left: env(safe-area-inset-left, 0px); right: calc(100% - var(--ct-fa)); top: max(12px, env(safe-area-inset-top)); bottom: 12px; --ct-fit: .42 .4; }
 .ct.ct-split-x:not(.ct-board) .ct-top { left: var(--ct-fb); padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 0 14px; }
 .ct.ct-split-x:not(.ct-board) .ct-playchip, .ct.ct-split-x:not(.ct-board) .ct-cardx { display: none; }
-.ct.ct-split-x:not(.ct-board) .ct-card { left: calc(var(--ct-fb) + 12px); right: 12px; top: 60px; bottom: calc(300px + env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: none; margin: 0; border-radius: 18px; padding-bottom: 16px; translate: 0 0; }
-.ct.ct-split-x:not(.ct-board) .ct-dock { left: calc(var(--ct-fb) + 12px); right: 12px; width: auto; translate: none; }
+.ct.ct-split-x:not(.ct-board) .ct-card { left: calc(var(--ct-fb) + 12px); right: max(12px, env(safe-area-inset-right)); top: 60px; bottom: calc(300px + env(safe-area-inset-bottom)); width: auto; max-width: none; max-height: none; margin: 0; border-radius: 18px; padding-bottom: 16px; translate: 0 0; }
+.ct.ct-split-x:not(.ct-board) .ct-dock { left: calc(var(--ct-fb) + 12px); right: max(12px, env(safe-area-inset-right)); width: auto; translate: none; }
 .ct.ct-split-x:not(.ct-board) nav.ct-tabbar, .ct.ct-split-x:not(.ct-board) .ct-coach, .ct.ct-split-x:not(.ct-board) .ct-toast, .ct.ct-split-x:not(.ct-board) .ct-focus,
-.ct.ct-split-x:not(.ct-board) .ct-livecard, .ct.ct-split-x:not(.ct-board) .ct-iqhud { left: calc(var(--ct-fb) + (100% - var(--ct-fb)) / 2); max-width: calc(100% - var(--ct-fb) - 20px); }
-.ct.ct-split-x:not(.ct-board) .ct-livecard, .ct.ct-split-x:not(.ct-board) .ct-iqhud { width: calc(100% - var(--ct-fb) - 24px); }
+.ct.ct-split-x:not(.ct-board) .ct-livecard, .ct.ct-split-x:not(.ct-board) .ct-iqhud { left: calc(var(--ct-fb) + (100% - var(--ct-fb) - env(safe-area-inset-right, 0px)) / 2); max-width: calc(100% - var(--ct-fb) - 20px - env(safe-area-inset-right, 0px)); }
+.ct.ct-split-x:not(.ct-board) .ct-livecard, .ct.ct-split-x:not(.ct-board) .ct-iqhud { width: calc(100% - var(--ct-fb) - 24px - env(safe-area-inset-right, 0px)); }
 .ct.ct-split-x:not(.ct-board) .ct-fab { right: calc(100% - var(--ct-fa) + 12px); top: max(12px, env(safe-area-inset-top)); }
-.ct.ct-split-x:not(.ct-board) .ct-sketchbar { left: calc(var(--ct-fb) + 12px); right: 12px; top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); width: auto; max-width: none; translate: none; }
-.ct.ct-split-x:not(.ct-board).ct-fbopen .ct-fb { right: 12px; top: 60px; max-height: calc(100% - 180px); }
-.ct.ct-split-x:not(.ct-board) .ct-panel, .ct.ct-split-x:not(.ct-board) .ct-panel.sheet { left: calc(var(--ct-fb) + 8px) !important; right: 8px; top: auto !important; bottom: calc(84px + env(safe-area-inset-bottom)) !important; width: auto !important; max-width: none; max-height: calc(100% - 100px) !important; border-radius: 22px; }
+.ct.ct-split-x:not(.ct-board) .ct-sketchbar { left: calc(var(--ct-fb) + 12px); right: max(12px, env(safe-area-inset-right)); top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); width: auto; max-width: none; translate: none; }
+.ct.ct-split-x:not(.ct-board).ct-fbopen .ct-fb { right: max(12px, env(safe-area-inset-right)); top: 60px; max-height: calc(100% - 180px); }
+.ct.ct-split-x:not(.ct-board) .ct-panel, .ct.ct-split-x:not(.ct-board) .ct-panel.sheet { left: calc(var(--ct-fb) + 8px) !important; right: max(8px, env(safe-area-inset-right)); top: auto !important; bottom: calc(84px + env(safe-area-inset-bottom)) !important; width: auto !important; max-width: none; max-height: calc(100% - 100px) !important; border-radius: 22px; }
 /* one above the other (tabletop, Flex mode, a Duo on its side): the board on top, everything else below */
 .ct.ct-split-y:not(.ct-board) .ct-boardbox { top: max(8px, env(safe-area-inset-top)); bottom: calc(100% - var(--ct-fa) + 8px); left: max(0px, env(safe-area-inset-left)); right: max(0px, env(safe-area-inset-right)); --ct-fit: .44 .46; }
 .ct.ct-split-y:not(.ct-board) .ct-top { top: var(--ct-fb); padding-top: 8px; }
@@ -1366,6 +1365,15 @@ export const CSS = `
 .ct.ct-split-y:not(.ct-board) .ct-card { max-height: calc(100% - var(--ct-fb) - 8px); }
 .ct.ct-split-y:not(.ct-board).ct-fbopen .ct-fb { top: calc(var(--ct-fb) + 52px); max-height: calc(100% - var(--ct-fb) - 150px); }
 .ct.ct-split-y:not(.ct-board) .ct-panel, .ct.ct-split-y:not(.ct-board) .ct-panel.sheet { left: 8px !important; right: 8px; top: auto !important; bottom: calc(84px + env(safe-area-inset-bottom)) !important; width: auto !important; max-width: none; max-height: calc(100% - var(--ct-fb) - 92px) !important; border-radius: 22px; }
+/* the mini map lives on the board's page in the corner, out of the controls; the second page's header drops the wordmark to fit */
+.ct.ct-split-x:not(.ct-board) .ct-mm { left: max(12px, env(safe-area-inset-left)); right: auto; top: max(12px, env(safe-area-inset-top)); bottom: auto; width: min(150px, calc(var(--ct-fa) - 24px)); }
+.ct.ct-split-x:not(.ct-board) .ct-mm.big { width: calc(var(--ct-fa) - 24px - env(safe-area-inset-left, 0px)); height: auto; }
+.ct.ct-split-x:not(.ct-board) .ct-top .ct-word { display: none; }
+.ct.ct-split-x:not(.ct-board) .ct-top { flex-wrap: wrap; row-gap: 6px; }
+/* the player card gets a whole page: the board (and the read drawn on it) stays in full view on the other one */
+.ct.ct-split-x:not(.ct-board) .ct-panel.ct-pcard { top: max(12px, env(safe-area-inset-top)) !important; bottom: max(12px, env(safe-area-inset-bottom)) !important; max-height: none !important; }
+.ct.ct-split-y:not(.ct-board) .ct-panel.ct-pcard { top: calc(var(--ct-fb) + 8px) !important; bottom: max(8px, env(safe-area-inset-bottom)) !important; max-height: none !important; }
+.ct.ct-split-y:not(.ct-board) .ct-pc-hero { grid-template-columns: 88px minmax(0, 1fr); } .ct.ct-split-y:not(.ct-board) .ct-pc-mini .ct-mb { height: 80px; }
 
 /* ==== Liquid Glass: one material for everything that floats over the board. A clear glass for controls (the dock,
    the play chip, pills, rail, toasts, edge tabs, the live pill, the presenter bar) and a denser one for surfaces
