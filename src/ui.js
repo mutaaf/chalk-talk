@@ -29,6 +29,7 @@ import { strip } from './engine/strip.js';
 import { buildPlaybook, openPlaybook } from './playbook.js';
 import { bestReads } from './engine/reads.js';
 import { createMind } from './mind.js';
+import { createCard } from './card.js';
 import { createShorts } from './shorts.js';
 import { createHow, howChip } from './howai.js';
 import { createMinimap } from './minimap.js';
@@ -781,39 +782,18 @@ export function mount(root, options) {
   const markAnchor = i => { const m = ink.marks[i]; return { x: +m.hot.getAttribute('cx'), y: +m.hot.getAttribute('cy') + (+m.hot.getAttribute('r') || 10) }; };
 
   // ---- labels: tap a player (or say "label 5 the big") to tag a role ----
+  // the player card (src/card.js): the play holds still while the coach looks, steps and flips through players
   function editRole(id) {
-    const p = byId(id); if (!p) return;
-    const i = state.play.players.indexOf(p);
-    const chips = (state.sport.ai.roles || '').split(',').map(c => c.trim()).filter(Boolean).slice(0, 6);
-    // the best read right now: the play holds still while the coach looks
-    const sim = state.sim, t = sim.time(); sim.playing(false); renderDots();
-    const reads = state.quiz ? [] : bestReads(sim, state.sport, t, i, k => nameOf(sim.players[k].id));
-    const readsHTML = reads.length ? `<section class="ct-best"><h6>${icon('sparkle')} Best read right now <small>${sim.beatInfo(sim.beatAt()) ? 'step ' + (sim.beatAt() + 1) : 'end of the play'}</small></h6>
-      <ol>${reads.map((r, n) => `<li><button type="button" data-read="${n}" class="${n === 0 ? 'on' : ''}"><b>${esc(r.text)}</b><small>${esc(r.why)}</small></button></li>`).join('')}</ol></section>` : '';
-    const body = readsHTML + `<form class="ct-form"><label>Label</label><div class="ct-row"><input data-role value="${esc(p.role || '')}" placeholder="e.g. ${esc(chips[0] || 'Shooter')}" maxlength="18" autocomplete="off"><button class="go">Save</button></div>
-      <div class="ct-chips">${chips.map(c => `<button type="button" data-chip>${esc(c)}</button>`).join('')}</div>
-      <label>Name <small>saved on this device only, never sent to the AI</small></label><input data-n value="${esc(names.all()[id] || '')}" placeholder="Player's first name" maxlength="24" autocomplete="off"></form>
-      <div class="ct-brains"><button type="button" data-s="1">${icon('brain')}<span>${p.smart ? 'Ask this brain again' : 'Let the AI play ' + esc(posName(id))}</span></button><button type="button" data-s="all">${icon('brain')}<span>${state.sport.rally ? (p.side === 'O' ? 'Your team thinks' : 'The other side thinks') : 'Every ' + (p.side === 'O' ? 'teammate' : 'defender') + ' thinks'}</span></button></div>`;
-    openPanel(markAnchor(i), (state.sport.sides ? state.sport.sides[p.side] : p.side === 'O' ? 'Offense' : 'Defense') + ' · ' + posName(id), body, pb => {
-      const form = pb.querySelector('form'), roleIn = pb.querySelector('[data-role]'), nameIn = pb.querySelector('[data-n]');
-      pb.querySelectorAll('[data-chip]').forEach(b => b.onclick = () => { roleIn.value = b.textContent; form.requestSubmit(); });
-      state.readHint = reads[0] ? { from: i, to: reads[0].to, kind: reads[0].kind } : null;
-      pb.querySelectorAll('[data-read]').forEach(b => b.onclick = () => {
-        const r = reads[+b.dataset.read]; state.readHint = { from: i, to: r.to, kind: r.kind };
-        pb.querySelectorAll('[data-read]').forEach(x => x.classList.toggle('on', x === b));
-      });
-      track('best_read', { kind: reads[0] ? reads[0].kind : 'none' });
-      form.onsubmit = e => {
-        e.preventDefault();
-        const nm = nameIn.value.trim(); if (nm !== (names.all()[id] || '')) { names.set(id, nm); if (nm) { state.showNames = true; try { localStorage.setItem('chalktalk.showNames', '1'); } catch (er) {} } }
-        closePanel(); setRole(id, roleIn.value);
-      };
-      pb.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
-        closePanel();
-        const team = state.play.players.filter(q => q.side === p.side && q.id !== state.play.ball && !(state.sport.autonomy && state.sport.autonomy.skip && state.sport.autonomy.skip(q))).map(q => q.id);
-        makeSmart(b.dataset.s === 'all' ? team : [id]);
-      });
-    });
+    const p = byId(id); if (!p || !state.sim || state.sim.idx[id] == null) return;
+    const i = state.play.players.indexOf(p), sim = state.sim; sim.playing(false); renderDots();
+    const title = q => { const pl = byId(q) || p; return (state.sport.sides ? state.sport.sides[pl.side] : pl.side === 'O' ? 'Offense' : 'Defense') + ' · ' + posName(q); };
+    const card = createCard({ sim, sport: state.sport, play: state.play, nameOf, posName, mark, quiz: !!state.quiz, title,
+      names: () => names.all(), roles: (state.sport.ai.roles || '').split(',').map(c => c.trim()).filter(Boolean).slice(0, 6),
+      band: () => band, setBand: b => { band = b; try { localStorage.setItem('chalktalk.band', b); } catch (e) {} },
+      seek: k => { sim.seek(k); sim.playing(false); onBeat(sim.beatAt()); renderDots(); },
+      hint: h => { state.readHint = h; }, say: t => say(t, key.get()), watch, track, close: closePanel, smart: makeSmart, setRole,
+      setName: (q, nm) => { if (nm !== (names.all()[q] || '')) { names.set(q, nm); if (nm) { state.showNames = true; try { localStorage.setItem('chalktalk.showNames', '1'); } catch (er) {} } } } }, id);
+    openPanel(markAnchor(i), card.title(), card.html(), (pb, el) => card.mount(pb, el), 'ct-pcard');
   }
   const closeEditor = closePanel;
   function setRole(id, role) {

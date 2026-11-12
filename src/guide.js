@@ -76,7 +76,17 @@ export function playerFor(sport, play, pos) {
   const roles = pos.id === 'H' ? ['H', 'Y'] : [pos.id];
   return play.players.find(p => roles.indexOf(p.role) >= 0) || null;
 }
-const VERBS = { move: 'moves to a new spot', cut: 'cuts', drift: 'drifts to open space', lift: 'lifts up', pop: 'pops out', roll: 'rolls to the rim', slide: 'slides with the ball', closeout: 'closes out', help: 'helps on the ball',
+// the guide position a player on the board plays
+export function positionOf(sport, play, p) {
+  if (sport.rally) {   // a net sport: the same letter is the server in one point, the returner in the next: go by where they start
+    const at = [p.x, p.y], d = pos => Math.hypot(pos.home[0] - at[0], pos.home[1] - at[1]);
+    return (sport.positions || []).filter(pos => pos.side === p.side && (pos.id === p.id || p.side === 'D')).sort((a, b) => d(a) - d(b))[0];
+  }
+  return (sport.positions || []).find(pos => { const q = playerFor(sport, play, pos); return q && q.id === p.id; })
+    || (sport.positions || []).find(pos => pos.side === p.side && (pos.id === p.role || (p.side === 'D' && sport.los == null && pos.id === (p.id === 'X1' ? 'X1' : 'X3'))));
+}
+
+export const VERBS = { move: 'moves to a new spot', cut: 'cuts', drift: 'drifts to open space', lift: 'lifts up', pop: 'pops out', roll: 'rolls to the rim', slide: 'slides with the ball', closeout: 'closes out', help: 'helps on the ball',
   dribble: 'dribbles', screen: 'screens for', boxout: 'boxes out', route: 'runs the route', motion: 'goes in motion', run: 'runs with it', rush: 'rushes the QB', cover: 'covers', zone: 'drops to the zone', pull: 'goes for the flag',
   pass: 'passes to', throw: 'throws to', handoff: 'hands off to', pitch: 'pitches to', snap: 'snaps to', shot: 'shoots', ready: 'gets ready' };
 // what a player does in the play, beat by beat, in the play's own words

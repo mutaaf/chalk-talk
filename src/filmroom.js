@@ -4,21 +4,11 @@
 // It opens instantly from the engine's own read; each brain's take fills in as it answers.
 
 import { icon } from './icons.js';
-import { miniBoard, playerFor, storyOf } from './guide.js';
+import { miniBoard, storyOf, positionOf } from './guide.js';
 import { filmFor, brainFor } from './ai.js';
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const cache = new Map();   // play → { id: note }
-
-// the guide position a player on the board plays
-function positionOf(sport, play, p) {
-  if (sport.rally) {   // a net sport: the same letter is the server in one point, the returner in the next: go by where they start
-    const at = [p.x, p.y], d = pos => Math.hypot(pos.home[0] - at[0], pos.home[1] - at[1]);
-    return (sport.positions || []).filter(pos => pos.side === p.side && (pos.id === p.id || p.side === 'D')).sort((a, b) => d(a) - d(b))[0];
-  }
-  return (sport.positions || []).find(pos => { const q = playerFor(sport, play, pos); return q && q.id === p.id; })
-    || (sport.positions || []).find(pos => pos.side === p.side && (pos.id === p.role || (p.side === 'D' && sport.los == null && pos.id === (p.id === 'X1' ? 'X1' : 'X3'))));
-}
 
 // ctx: { sport, play, sim, raw, openPanel, posName, mark, watch(id, beat), say(text), band, booth }
 // what a player with nothing scripted does, said the way this sport says it

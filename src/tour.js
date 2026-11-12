@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.40.1';
+export const VERSION = '0.41.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,11 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.41.0', date: '2026-11-11', title: 'The player card', items: [
+    { title: 'Tap a player, get the whole player', call: 'A new card: their position drawn small with its signature move, their cue (tap to hear it), what they’re doing right now, and live numbers in their sport’s words: court zone, distance to the net and the partner gap in pickleball; space, the lane and who marks them on offense; their man and the help on defense; the read order in football.', show: null },
+    { title: 'Walk them through the play', call: 'Step back and forth inside the card (or use the arrow keys) and the reads, numbers and board move with you. The steps they’re in are lit. Flip to the next player from the strip at the top (or ▲▼) without closing anything.', show: null },
+    { title: 'Four tabs', call: 'Now: the best reads, ranked, with a tap to say one aloud. Their play: what they do, step by step, with Watch only them. Coach it: what to read, do and don’t, by age, and a drill. Edit: label, name and the AI brain, as before.', show: null }
+  ] },
   { version: '0.40.1', date: '2026-11-10', title: 'The Coach’s Guide', items: [
     { title: 'The whole playbook, written down', call: 'New on the standalone board: the Coach’s Guide. Every sport, every key, the IQ game, Kids view and what stays private, in one page you can read on the bench. Find it under Help, or at the foot of the Plays list.', show: 'help' }
   ] },
