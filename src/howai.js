@@ -30,7 +30,7 @@ export const LAYERS = [
 export const PRIVATE = [
   ['Names stay here', 'Player names live on this device. The AI sees X’s and O’s.'],
   ['Your key, your provider', 'A key you add goes from your browser to that company only.'],
-  ['Counted, not read', 'Usage numbers never include your words, names, keys or IP address.']
+  ['Counted, not read', 'Usage numbers never include your words, names, keys or full IP address.']
 ];
 
 // this device's numbers: how much was understood instantly, how long the AI takes when it's asked

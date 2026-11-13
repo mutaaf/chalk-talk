@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.42.0';
+export const VERSION = '0.42.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.42.1', date: '2026-11-12', title: 'Telling you what we count', items: [
+    { title: 'Anonymous usage analytics', call: 'On this site we now also see which pages and buttons get used, and from roughly which city, so we know where the board needs work. Every bit of text is masked, so player names and what you say never leave your device, and Global Privacy Control or Do Not Track turns it off. The Coach’s Guide has the details.', show: null }
+  ] },
   { version: '0.42.0', date: '2026-11-12', title: 'Made for iPhone Duo', items: [
     { title: 'Open it like a book', call: 'On iPhone Duo the board gets the first page to itself and everything else moves to the second, so nothing ever sits on the fold. Tap a player and their card fills the second page while the read is drawn on the board beside it.', show: null },
     { title: 'Stand it up on the bench', call: 'In tabletop the court sits above the fold and the controls, or the player card, sit below it. Close it and you’re back on the phone layout, same play, same step.', show: null }

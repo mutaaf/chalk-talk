@@ -27,4 +27,18 @@ const src = new URL('../src/', import.meta.url).pathname;
 
 // The service worker never caches /ads/* (a stale loader or creative would outlive a policy change).
 assert.match(read('sw.js'), /u\.pathname\.startsWith\('\/ads\/'\)\) return;/, 'sw.js passes /ads/* to the network');
+// Box Office analytics: on the visitor pages (never /admin), with text masked where names and words show, never in
+// the package (src/ only forwards to a window.boxoffice the page set up), and never cached by the SW.
+for (const f of ['index.html', 'glasses.html', 'go.html', 'guide/index.html']) assert.match(read(f), /<script async src="\/boxoffice\/v1\/insights\.js"><\/script>\n<\/body>/, f + ' ends its body with the Box Office tag');
+for (const f of ['index.html', 'glasses.html', 'go.html']) assert.match(read(f), /<body data-private class="ph-sensitive">/, f + ' masks its text from replays and autocapture');
+assert.doesNotMatch(read('admin/index.html'), /boxoffice/, 'the admin page loads no Box Office');
+assert.match(read('sw.js'), /u\.pathname\.startsWith\('\/boxoffice\/'\)\) return;/, 'sw.js passes /boxoffice/* to the network');
+(function walk(d) {
+  for (const f of readdirSync(d)) {
+    const p = join(d, f);
+    if (statSync(p).isDirectory()) walk(p);
+    else if (p.endsWith('.js')) assert.doesNotMatch(readFileSync(p, 'utf8'), /boxoffice\/v1|window\.boxoffice\s*=/, p + ' must not load or create Box Office');
+  }
+})(src);
+console.log('ok: Box Office on the visitor pages, masked, off /admin and the package, out of the SW cache');
 console.log('ok: ads stay on the standalone page, off /admin, off the board, out of the SW cache');

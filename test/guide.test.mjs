@@ -13,7 +13,8 @@ assert.match(g, /<link rel="canonical" href="https:\/\/mutaafaziz\.com\/chalktal
 assert.match(g, /<meta name="viewport"/, 'viewport meta');
 assert.match(g, /<h1>[^]*?Coach's Guide[^]*?<\/h1>/, 'the h1');
 assert.match(g, /href="\/chalktalk\/"/, 'a way back to the board');
-assert.doesNotMatch(g, /<script/i, 'no scripts: the text is the page');
+// the one script is Box Office's async analytics tag at the end (CLAUDE.md → Box Office); the page needs none
+assert.doesNotMatch(g.replace('<script async src="/boxoffice/v1/insights.js"></script>', ''), /<script/i, 'no scripts: the text is the page');
 assert.doesNotMatch(g, /ads\/v1|data-marquee/, 'no ads on the guide');
 assert.doesNotMatch(g, /—|&mdash;/, 'no em-dashes');
 const words = g.slice(g.indexOf('<body>')).replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;

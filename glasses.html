@@ -25,8 +25,11 @@
   .hint { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 16px; color: #8aa0c0; }
 </style>
 </head>
-<body>
+<!-- Box Office: data-private masks every text in session replays and ph-sensitive keeps click text out of autocapture,
+     so player names, what the coach says and codes never leave the device. -->
+<body data-private class="ph-sensitive">
 <div id="app"></div>
 <script type="module" src="src/glasses.js"></script>
+<script async src="/boxoffice/v1/insights.js"></script>
 </body>
 </html>
