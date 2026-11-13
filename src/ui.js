@@ -675,12 +675,13 @@ export function mount(root, options) {
       const r = await fetch(ownApi() + '/hand', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sport: state.sport.id, play: state.raw, who }) });
       const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Couldn’t make a code.'); return j;
     },
-    onClose: () => { if (state.sim && tracePaused) state.sim.playing(true); tracePaused = false; } });
+    onClose: () => { if (field) field.play(); if (state.sim && tracePaused) state.sim.playing(true); tracePaused = false; } });
   let tracePaused = false;
   function openTrace(who) {
     if (!state.sim || state.quiz) return;
     closePanel(); if (lesson.on) lesson.close();
     if (state.sim) { tracePaused = true; state.sim.playing(false); renderDots(); }
+    if (field) field.pause();   // Trace covers the board: its light, ink and map rest until it closes
     tracer.open(who);
   }
   // concept lessons (src/lesson.js): a concept from src/concepts drawn on the court, level by level, with a quiz
@@ -724,7 +725,7 @@ export function mount(root, options) {
   let loopErr = false;
   (function loop(now) {
     if (dead) return;
-    if (state.sim && field && ink) try {
+    if (state.sim && field && ink && !tracer.on) try {
       aura.tick(now);
       const t = state.sim.tick(now);
       if (state.quiz) {

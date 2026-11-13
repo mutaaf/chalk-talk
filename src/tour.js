@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.42.1';
+export const VERSION = '0.43.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,13 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.43.0', date: '2026-11-13', title: 'Trace, lighter and smarter', items: [
+    { title: 'Smooth on every headset', call: 'Trace now draws each frame in a fraction of the time: the field is built once, rings are drawn by the graphics chip, and the board rests behind it. That means steadier light on glasses, cooler phones and longer batteries.', show: null },
+    { title: 'Set the play on a real table', call: 'In Tabletop, look at a table or the floor and the whole play rides on it. Pinch and it stays put.', show: null },
+    { title: 'Blue is where you went', call: 'Walking a play in AR or VR, your real path shows in blue after each rep, next to the gold one you were meant to run.', show: null },
+    { title: 'A home for the beta', call: 'mutaafaziz.com/chalktalk/beta shows what Chalk Talk does on a phone, an iPhone Duo and glasses, and installs it in two taps. Send it to another coach.', show: null },
+    { title: 'Ray-Ban Display goes hands-free', call: 'Swipe down on the glasses app and it walks the whole play by itself, each step as long as its words. It also rests the display when nothing is moving.', show: null }
+  ] },
   { version: '0.42.1', date: '2026-11-12', title: 'Telling you what we count', items: [
     { title: 'Anonymous usage analytics', call: 'On this site we now also see which pages and buttons get used, and from roughly which city, so we know where the board needs work. Every bit of text is masked, so player names and what you say never leave your device, and Global Privacy Control or Do Not Track turns it off. The Coach’s Guide has the details.', show: null }
   ] },

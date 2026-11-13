@@ -14,7 +14,9 @@ self.addEventListener('fetch', e => {
   // So does Box Office analytics (/boxoffice/*: the loader and its relay).
   if (u.pathname.startsWith('/boxoffice/')) return;
   // The coach's guide (/chalktalk/guide/) is a plain page: always straight from the network, never the board's shell.
+  // The beta page (/chalktalk/beta/) too: a marketing page with its own images, never cached as part of the app.
   if (/\/guide(\/|$)/.test(u.pathname)) return;
+  if (/\/beta(\/|$)/.test(u.pathname)) return;
   const page = e.request.mode === 'navigate';
   // pages: network first (fresh when online), the cache when not; only the board itself refreshes the cached shell
   // (the glasses and code pages are their own pages); everything else: cache first

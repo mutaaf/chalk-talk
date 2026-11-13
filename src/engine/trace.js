@@ -151,3 +151,19 @@ export function pressWord(sources) {
 // heard, not seen (earbuds, Ray-Ban Meta): a step lasts as long as it takes to say it and a breath, never under a
 // beat; slower when you slow the play down
 export const earPace = (text, speed = 1, beat = 1.7) => Math.max(beat, 1 + String(text || '').split(/\s+/).filter(Boolean).length * 0.36) / (speed || 1);
+// walking it: your track on the floor, a point every `gap` meters; past `max` every other point goes (the shape
+// stays, the memory doesn't grow through a long practice)
+export function thin(track, p, gap = 0.12, max = 500) {
+  const q = track[track.length - 1];
+  if (q && Math.hypot(p[0] - q[0], p[1] - q[1]) < gap) return track;
+  track.push(p);
+  if (track.length > max) { const keep = track.filter((_, j) => j % 2 === 0 || j === track.length - 1); track.length = 0; track.push(...keep); }
+  return track;
+}
+// the screen's render scale from the mean frame time (ms): long frames (a phone heating up, a full soccer field, a
+// big display) drop it fast, short ones win it back slowly; never under half
+export function resStep(res, ms) {
+  if (ms > 24) return Math.max(0.5, Math.round((res - 0.1) * 100) / 100);
+  if (ms < 17.5) return Math.min(1, Math.round((res + 0.02) * 100) / 100);
+  return res;
+}

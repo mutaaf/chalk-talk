@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { sports } from '../src/sports/index.js';
 import { normalize, compile } from '../src/engine/sim.js';
-import { trace, lookAt, roomScale, positions, busiest, metersPer, flightIn, faceHeading, faceWords, repScore, hudFit, pressWord, earPace } from '../src/engine/trace.js';
+import { trace, lookAt, roomScale, positions, busiest, metersPer, flightIn, faceHeading, faceWords, repScore, hudFit, pressWord, earPace, thin, resStep } from '../src/engine/trace.js';
 import { qr, qrSvg } from '../src/qr.js';
 
 let paths = 0, steps = 0, moved = 0, flights = 0;
@@ -78,6 +78,21 @@ for (const [text, v] of [['https://mutaafaziz.com/chalktalk/?hand=4821', 4], ['H
   for (let i = 8; i < q.size - 8; i++) assert.equal(q.at(i, 6), i % 2 === 0);
 }
 assert.match(qrSvg('x'), /^<svg[^>]*viewBox="0 0 29 29"/); assert.throws(() => qr('x'.repeat(300)));
+// your track walking it: a point every gap, never more than max, the last point kept
+{ const tk = []; for (let i = 0; i <= 100; i++) thin(tk, [i * 0.05, 0], 0.12, 500); assert.ok(tk.length >= 33 && tk.length <= 35, String(tk.length));
+  const big = []; for (let i = 0; i < 2000; i++) thin(big, [i * 0.2, Math.sin(i)], 0.12, 300); assert.ok(big.length <= 300); assert.deepEqual(big[big.length - 1], [1999 * 0.2, Math.sin(1999)]); }
+// the render scale: long frames drop it fast, short ones win it back slowly, within [0.5, 1]
+assert.equal(resStep(1, 40), 0.9); assert.equal(resStep(0.55, 40), 0.5); assert.equal(resStep(0.5, 60), 0.5); assert.equal(resStep(0.9, 16.6), 0.92); assert.equal(resStep(1, 10), 1); assert.equal(resStep(0.8, 20), 0.8);
+// the renderer: no per-frame JS arrays (typed buffers, uploaded once per frame), rings drawn by the shader in one quad
+{ const src = readFileSync(new URL('../src/trace.js', import.meta.url), 'utf8');
+  assert.ok(!/new Float32Array\(arr\)/.test(src), 'no per-draw copies'); assert.match(src, /bufferSubData/); assert.match(src, /vF < -1\.5/, 'ring mode in the glow shader');
+  assert.match(src, /'hit-test'/); assert.match(src, /'dom-overlay'/); assert.match(src, /fixedFoveation/); }
+// the glasses page: auto (hands-free) on ▼, and it rests the display when nothing moves
+{ const gs = readFileSync(new URL('../src/glasses.js', import.meta.url), 'utf8'); assert.match(gs, /ArrowDown[^\n]*auto = !auto/); assert.match(gs, /calm && now - drawn/); }
+// the beta landing page: the install CTA up top, shipped by the build, never in the app's cache
+{ const bp = readFileSync(new URL('../beta/index.html', import.meta.url), 'utf8'), bd = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  assert.match(bp, /manifest\.webmanifest/); assert.match(bp, /beforeinstallprompt/); { const hero = bp.slice(bp.indexOf('<body'), bp.indexOf('<section class="duo"')); assert.match(hero, /data-install[^>]*>Get the beta/, 'the install CTA is in the top bar'); assert.match(hero, /class="hero"[\s\S]*Get the beta/, 'and in the hero'); }
+  assert.match(bd, /cpSync\('beta'/); assert.match(bd, /!f\.startsWith\('\.\/beta\/'\)/); assert.match(sw, /\\\/beta\(/); }
 // the code page a headset opens: big keys, the board on a good code
 const go = readFileSync(new URL('../go.html', import.meta.url), 'utf8');
 assert.match(go, /api\/hand\//); assert.match(go, /\?hand=/); assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /go\.html/, 'the build ships the code page');

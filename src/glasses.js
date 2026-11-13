@@ -13,6 +13,9 @@ const app = document.getElementById('app');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const BEAT_MS = 1700;
 let screen = 'sport', sport = null, sim = null, tr = null, who = -1, k = 0, t0 = 0, north = false, raf = 0, head = null, ppu = 0, bz = [], fl = [];
+// battery: the display draws at full rate only while something moves (the step, the turn, the zoom); settled, a few
+// frames a second keep the ring pulsing. Auto walks the whole play hands-free, each step as long as its words
+let calm = false, drawn = 0, auto = false, autoT = 0;
 const nameOf = id => { const p = sim.play.players.find(q => q.id === id); return p ? sport.notation.name(p) : id; };
 const say = text => { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 1.05; speechSynthesis.speak(u); } catch (e) {} };
 
@@ -82,23 +85,33 @@ function pickWho() {
 // ---- the trace: a heads-up radar of your path ----
 function start(i) {
   who = i; tr = trace(sim, i, sport, nameOf); bz = sim.play.beats.map((_, j) => bounceIn(sim, sport, j)); fl = sim.play.beats.map((_, j) => flightIn(sim, sport, j)); k = 0; t0 = performance.now(); head = null; ppu = 0; screen = 'trace';
-  app.innerHTML = '<canvas width="600" height="600"></canvas><div class="hint">◀ ▶ steps · Enter replays · ▲ turns the map</div>';
+  auto = false; clearTimeout(autoT);
+  app.innerHTML = '<canvas width="600" height="600"></canvas><div class="hint">◀ ▶ steps · Enter replays · ▲ map · ▼ auto</div>';
   keys = e => {
     const n = tr.steps.length;
-    if (e.key === 'ArrowRight') { e.preventDefault(); k = Math.min(n - 1, k + 1); t0 = performance.now(); speakStep(); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); k = Math.max(0, k - 1); t0 = performance.now(); speakStep(); }
-    else if (e.key === 'Enter') { e.preventDefault(); t0 = performance.now(); speakStep(); }
-    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); north = !north; head = null; }
-    else if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); speechSynthesis && speechSynthesis.cancel(); pickWho(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(Math.min(n - 1, k + 1)); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(Math.max(0, k - 1)); }
+    else if (e.key === 'Enter') { e.preventDefault(); go(k); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); north = !north; head = null; calm = false; }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); auto = !auto; clearTimeout(autoT); if (auto) go(k >= n - 1 ? 0 : k); else say('Auto off.'); }
+    else if (e.key === 'Escape' || e.key === 'Backspace') { e.preventDefault(); auto = false; clearTimeout(autoT); speechSynthesis && speechSynthesis.cancel(); pickWho(); }
   };
-  speakStep();
+  speakStep(); calm = false;
   cancelAnimationFrame(raf); raf = requestAnimationFrame(draw);
 }
 const speakStep = () => say(`Step ${k + 1}. ${tr.steps[k].job}.`);
+// go to step j and say it; on auto the next step comes when this one's words are done (and the move has run)
+function go(j) {
+  k = j; t0 = performance.now(); calm = false; speakStep(); clearTimeout(autoT);
+  if (!auto) return;
+  const words = tr.steps[k].job.split(/\s+/).length, ms = Math.max(BEAT_MS + 600, 1300 + words * 380);
+  autoT = setTimeout(() => { if (!auto || screen !== 'trace') return; if (k < tr.steps.length - 1) go(k + 1); else { say('That’s the play. Again.'); setTimeout(() => { if (auto && screen === 'trace') go(0); }, 2200); } }, ms);
+}
 
 function draw(now) {
   raf = requestAnimationFrame(draw);
   const cv = app.querySelector('canvas'); if (!cv) return;
+  if (calm && now - drawn < 80) return; drawn = now;
   const c = cv.getContext('2d'), u = Math.max(0, Math.min(1, (now - t0) / BEAT_MS)), t = k + u, P = sim.posAt(t), me = P[who];
   const want = north ? 0 : lookAt(sim, who, t, sport);
   if (head == null) head = want; let d = want - head; d = Math.atan2(Math.sin(d), Math.cos(d)); head += d * 0.08;
@@ -107,6 +120,7 @@ function draw(now) {
   const step = tr.steps[k], B = sim.ballAt(t);
   let far = sport.mark * 4; for (const q of step.pts.concat([step.to, B ? [B[0], B[1]] : me])) far = Math.max(far, Math.hypot(q[0] - me[0], q[1] - me[1]));
   const want2 = 230 / far; ppu = ppu ? ppu + (want2 - ppu) * 0.08 : want2;
+  calm = u >= 1 && Math.abs(d) < 0.003 && Math.abs(want2 - ppu) < ppu * 0.004;
   const S = q => { const dx = q[0] - me[0], dy = q[1] - me[1]; return [cx + (dx * r[0] + dy * r[1]) * ppu, cy - (dx * f[0] + dy * f[1]) * ppu]; };
   c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000'; c.fillRect(0, 0, 600, 600);
   c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.lineJoin = 'round';
@@ -127,7 +141,7 @@ function draw(now) {
     c.setLineDash([4, 18]); c.lineDashOffset = -now / 25; line(step.pts, 6, 'rgba(255,255,230,1)', 10); c.setLineDash([]);
   }
   if (step.moved) { const e = S(step.to), pulse = 0.6 + 0.4 * Math.sin(now / 180); c.beginPath(); c.arc(e[0], e[1], 22, 0, Math.PI * 2); c.lineWidth = 5; c.strokeStyle = `rgba(255,199,90,${pulse})`; c.shadowColor = '#ffc75a'; c.shadowBlur = 16; c.stroke(); }
-  // the goal you attack: a target, held at the edge at the edge when it's off the radar
+  // the goal you attack: a target, held at the edge when it's off the radar
   if (!sport.rally && sim.play.players[who].side === 'O') { let g2 = S(sport.field.goal); const dx = g2[0] - cx, dy = g2[1] - cy, m = Math.max(Math.abs(dx) / 270, Math.abs(dy) / 250, 1); g2 = [cx + dx / m, cy + dy / m]; c.beginPath(); c.arc(g2[0], g2[1], 10, 0, Math.PI * 2); c.moveTo(g2[0] + 18, g2[1]); c.arc(g2[0], g2[1], 18, 0, Math.PI * 2); c.lineWidth = 3; c.strokeStyle = 'rgba(238,244,255,.75)'; c.shadowColor = '#eef4ff'; c.shadowBlur = 8; c.stroke(); }
   // the ball's real flight this step: gold when it's coming to you
   const F = fl[k];
@@ -144,7 +158,7 @@ function draw(now) {
   c.beginPath(); c.moveTo(cx, cy - 20); c.lineTo(cx + 14, cy + 14); c.lineTo(cx, cy + 6); c.lineTo(cx - 14, cy + 14); c.closePath(); c.fillStyle = '#ffc75a'; c.shadowColor = '#ffc75a'; c.shadowBlur = 18; c.fill();
   // words: the step, your job
   c.globalCompositeOperation = 'source-over'; c.shadowBlur = 0; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
-  c.fillStyle = '#ffc75a'; c.font = '800 20px system-ui, sans-serif'; c.fillText(`STEP ${k + 1}/${tr.steps.length} · YOU ARE ${tr.name.toUpperCase()}${north ? ' · MAP' : ''}`, 28, 42, 544);
+  c.fillStyle = '#ffc75a'; c.font = '800 20px system-ui, sans-serif'; c.fillText(`STEP ${k + 1}/${tr.steps.length} · YOU ARE ${tr.name.toUpperCase()}${north ? ' · MAP' : ''}${auto ? ' · AUTO' : ''}`, 28, 42, 544);
   c.fillStyle = '#ffffff'; c.font = '800 30px system-ui, sans-serif';
   const words = tr.steps[k].job.split(' '); let ln = '', y = 84;
   for (const w of words) { if (c.measureText(ln + w).width > 540 && ln) { c.fillText(ln.trim(), 28, y); ln = ''; y += 36; if (y > 130) break; } ln += w + ' '; }

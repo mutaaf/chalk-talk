@@ -94,6 +94,9 @@ export function createMinimap(ctx) {
   ctx.root.appendChild(el);
   const M = {}; el.querySelectorAll('[data-m]').forEach(e => { M[e.dataset.m] = e; });
   let sim = null, marks = [], routes = [], tags = [], ball = null, lastK = -2, lastHold = -2;
+  // shown or not, from an observer: reading offsetParent every frame forced a layout right after the board's ink
+  // moved (1.8 s of every 5 under Trace in a profile). Without the observer, assume shown
+  let seen = true; try { new IntersectionObserver(es => { seen = es[es.length - 1].isIntersecting; }).observe(el); } catch (e) {}
   const fold = v => { off = v; el.classList.toggle('off', off); M.fold.textContent = off ? '▸' : '▾'; M.fold.setAttribute('aria-expanded', String(!off)); M.fold.setAttribute('aria-label', off ? 'Show the mini map' : 'Collapse the mini map'); try { localStorage.setItem(KEY, off ? 'off' : 'on'); } catch (e) {} };
   M.fold.onclick = e => { e.stopPropagation(); fold(!off); ctx.track && ctx.track('minimap', { on: off ? 0 : 1 }); };
   let big = false;
@@ -111,7 +114,7 @@ export function createMinimap(ctx) {
     lastK = -2; lastHold = -2;
   }
   function tick(t) {
-    if (!sim || off || el.offsetParent === null) return;
+    if (!sim || off || !seen) return;
     const P = sim.posAt(t);
     for (const g of marks) { const p = P[+g.dataset.i]; if (p) g.setAttribute('transform', `translate(${p[0].toFixed(2)} ${p[1].toFixed(2)})`); }
     const b = sim.ballAt ? sim.ballAt(t) : null; if (ball && b) { ball.setAttribute('cx', b[0].toFixed(2)); ball.setAttribute('cy', b[1].toFixed(2)); }
