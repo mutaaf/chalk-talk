@@ -40,7 +40,9 @@
 <script async src="/ads/v1/ads.js" data-app="chalktalk" data-slots="library:banner:menu"></script>
 <script type="importmap">{ "imports": { "aurora-field": "./vendor/aurora-field.mjs" } }</script>
 </head>
-<body>
+<!-- Box Office: data-private masks every text in session replays and ph-sensitive keeps click text out of autocapture,
+     so player names, what the coach says and codes never leave the device. -->
+<body data-private class="ph-sensitive">
 <div id="app"></div>
 <script type="module">
   import { mount } from './src/index.js';
@@ -78,5 +80,8 @@
     });
   }
 </script>
+<!-- Box Office usage analytics (mutaaf/box-office; CLAUDE.md → Analytics). The stub queues src/track.js boxoffice() events until it loads. -->
+<script>window.boxoffice = window.boxoffice || { q: [], track: function () { this.q.push([].slice.call(arguments)); } };</script>
+<script async src="/boxoffice/v1/insights.js"></script>
 </body>
 </html>

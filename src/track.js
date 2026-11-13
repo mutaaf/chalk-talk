@@ -17,6 +17,14 @@ export function track(name, props) {
   clearTimeout(timer); timer = setTimeout(flush, 1500);
   if (q.length >= 20) flush();
 }
+// Box Office (mutaafaziz.com's analytics, mutaaf/box-office): a few headline events go to it too, but only where the
+// host page set it up (the standalone index.html defines window.boxoffice); a host that mounts the package (CourtIQ)
+// never does, so this is a no-op there. Off with the rest (development, mount({ analytics: false })). Enums and
+// numbers only: never a name, words or a key.
+export function boxoffice(name, props) {
+  if (!on || !base || typeof window === 'undefined' || !window.boxoffice) return;
+  try { window.boxoffice.track(name, props || {}); } catch (e) {}
+}
 function flush() {
   if (!q.length) return;
   const body = JSON.stringify({ ctx: Object.assign({}, ctx, ctx.live ? ctx.live() : {}), events: q.splice(0, 40) });

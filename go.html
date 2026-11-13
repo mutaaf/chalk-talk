@@ -28,7 +28,9 @@
   #msg.bad { color: #ff9a8a; }
 </style>
 </head>
-<body>
+<!-- Box Office: data-private masks every text in session replays and ph-sensitive keeps click text out of autocapture,
+     so player names, what the coach says and codes never leave the device. -->
+<body data-private class="ph-sensitive">
 <main>
   <h1>Chalk Talk Trace</h1>
   <p>Enter the code from Trace on your phone or computer (Any glasses → Send to a headset).</p>
@@ -63,5 +65,6 @@
   addEventListener('keydown', e => { if (/^\d$/.test(e.key)) key(e.key); else if (e.key === 'Backspace') key('back'); else if (e.key === 'Enter') key('go'); });
   const q = new URLSearchParams(location.search).get('c'); if (q && /^\d{4}$/.test(q)) { code = q; show(); go(); } else show();
 </script>
+<script async src="/boxoffice/v1/insights.js"></script>
 </body>
 </html>

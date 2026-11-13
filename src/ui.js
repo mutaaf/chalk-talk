@@ -24,7 +24,7 @@ import { analyze } from './analyst.js';
 import { analyst } from './ai.js';
 import { heal, recall, voiceLog, teach as learnPhrase, correct, log as logVoice, mark as markVoice, vocabulary, share, sharing, setSharing, refreshLexicon } from './learn.js';
 import { chime, soundOn, setSound } from './sound.js';
-import { startTracking, track } from './track.js';
+import { startTracking, track, boxoffice } from './track.js';
 import { strip } from './engine/strip.js';
 import { buildPlaybook, openPlaybook } from './playbook.js';
 import { bestReads } from './engine/reads.js';
@@ -920,7 +920,7 @@ export function mount(root, options) {
     closePanel(); history.touch(id); track('history_play'); load(entry.raw, { say: entry.raw.reply || entry.title, keepAI: true }); showAI(entry.raw, null);
     R.status.innerHTML = 'From My plays · instant, no AI used' + howChip('ears');
   }
-  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.daily) { track('iq_cta', { at: 'library' }); iq.open('daily'); return; } if (b.dataset.concept) { track('lesson_cta', { at: 'library' }); openConcepts(b.dataset.concept); return; } if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) teach(b.dataset.key); });
+  R.lib.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.daily) { track('iq_cta', { at: 'library' }); iq.open('daily'); return; } if (b.dataset.concept) { track('lesson_cta', { at: 'library' }); openConcepts(b.dataset.concept); return; } if (b.dataset.mine) myPlays(); else if (b.dataset.hist) runHistory(b.dataset.hist); else if (b.dataset.key) { boxoffice('play_open', { sport: state.sport.id, from: 'library' }); teach(b.dataset.key); } });
   function teach(k) { const p = state.sport.plays.find(x => x.key === k); if (p) track('play', { key: k }); if (p) load(p, { key: k, say: p.title + '. ' + p.summary }); }
   function renderLegend() {
     const fb = !!state.sport.kinds.route, soc = /^soccer/.test(state.sport.id);
@@ -1148,7 +1148,7 @@ export function mount(root, options) {
     if (state.quiz) return;
     if (!o.sketch) {
       const u = understand(text, state.sport.aliases);
-      const done = (path, extra) => { const ms = performance.now() - t0; if (live.mode) live.done(path === 'command' ? 'Done ✓' : `Instant ✓ ${Math.max(1, Math.round(ms))} ms`); track('voice', { path, ms: Math.round(ms), ok: 1 }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.innerHTML = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms` + howChip('ears'); };
+      const done = (path, extra) => { const ms = performance.now() - t0; if (live.mode) live.done(path === 'command' ? 'Done ✓' : `Instant ✓ ${Math.max(1, Math.round(ms))} ms`); track('voice', { path, ms: Math.round(ms), ok: 1 }); if (path !== 'command') boxoffice('play_drawn', { sport: state.sport.id, input: o.source === 'voice' ? 'voice' : 'text', path }); logVoice(Object.assign({ sport: state.sport.id, path, ms, ok: true, text: text.slice(0, 200) }, extra)); R.status.innerHTML = `Instant · understood on this device in ${Math.max(1, Math.round(ms))} ms` + howChip('ears'); };
       if (u.cmd) { act(u.cmd); done('command'); return; }
       if (u.concept) { teach(u.concept); done('library'); return; }
       const learned = recall(state.sport.id, text);   // a phrase this coach taught it before
@@ -1169,12 +1169,13 @@ export function mount(root, options) {
       if (ctl !== state.busy || dead || sport !== state.sport) return;
       const ms = performance.now() - t0, secs = (ms / 1000).toFixed(1) + ' s';
       live.done(`${o.sketch ? 'Taken over' : 'Drawn'} in ${secs} ✓`);
-      if (o.sketch) { history.add({ sport: sport.id, said: 'Sketch: ' + (raw.title || 'my play'), board: hashOf(JSON.stringify(o.mine && o.mine.beats)), source: 'sketch', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); film(); return; }
+      if (o.sketch) { history.add({ sport: sport.id, said: 'Sketch: ' + (raw.title || 'my play'), board: hashOf(JSON.stringify(o.mine && o.mine.beats)), source: 'sketch', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); offer(raw, o.mine); R.status.textContent = (raw.reply || '') + ` · the AI took over in ${secs}`; logVoice({ sport: sport.id, path: 'sketch', ms, ok: true }); boxoffice('play_drawn', { sport: sport.id, input: 'sketch', path: 'ai', secs: Math.round(ms / 100) / 10 }); film(); return; }
       load(raw, { say: raw.reply, keepAI: true });
       showAI(raw, null);
       R.status.innerHTML = esc(raw.reply || '') + ` · drawn in ${secs}, then checked by the engine` + howChip('engine');
       // learn: if the coach keeps what was drawn for this phrase, it becomes instant next time
       track('voice', { path: 'ai', ms: Math.round(ms), ok: 1 });
+      boxoffice('play_drawn', { sport: sport.id, input: o.source === 'voice' ? 'voice' : 'text', path: 'ai', secs: Math.round(ms / 100) / 10 });
       history.add({ sport: sport.id, said: text, board, source: o.source || 'text', raw, title: raw.title, concept: raw.concept, ms: Math.round(ms) }); renderLibrary();
       const li = logVoice({ sport: sport.id, path: 'ai', ms, ok: true, text: text.slice(0, 200), recognized: raw.recognized || null });
       const shown = state.raw;
@@ -1238,7 +1239,7 @@ export function mount(root, options) {
     const sk = state.sketch; state.sketch = null;
     root.classList.remove('ct-sketch'); R.sketchBtn.classList.remove('on'); R.tbSketch.classList.remove('on');
     if (!sk.raw.beats.length) { R.caption.textContent = ''; return; }
-    track('sketch_done', { beats: sk.raw.beats.length });
+    track('sketch_done', { beats: sk.raw.beats.length }); boxoffice('sketch_done', { sport: state.sport.id, beats: sk.raw.beats.length });
     const mine = JSON.parse(JSON.stringify(sk.raw));
     load(mine, { quiet: true }); state.sim.seek(0); state.sim.playing(true);
     const like = recognize(mine);
@@ -1635,7 +1636,7 @@ export function mount(root, options) {
     },
     hint(q) { if (q.type === 'pass') state.reveal = { hint: [q.answer].concat(q.also) }; else if (q.type === 'spot') state.reveal = { spot: q.answer, tol: q.tol * 1.6 }; }
   });
-  R.iqBtn.onclick = () => { if (dailyOpen()) track('iq_cta', { at: 'pill' }); iq.open(dailyOpen() ? 'daily' : null); };
+  R.iqBtn.onclick = () => { boxoffice('iq_open', { sport: state.sport.id, daily: dailyOpen() ? 1 : 0 }); if (dailyOpen()) track('iq_cta', { at: 'pill' }); iq.open(dailyOpen() ? 'daily' : null); };
   R.ink.addEventListener('pointerdown', e => {   // IQ: tap the spot
     if (!state.quiz || !iq.wantsSpot()) return;   // player taps go on to the player's own handler
     e.stopPropagation(); e.preventDefault();

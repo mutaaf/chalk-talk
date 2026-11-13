@@ -143,6 +143,11 @@ Read README.md first. Zero-build ES modules; the only dependency is aurora-field
 - `/tutor` (IQ tutor, age band only, never a nickname) and `/analyst` (booth lines) run on the brain chain. `/hear` gets a sport vocabulary `initial_prompt` (`?sport=`).
 - Tests: `test/worker.test.mjs` (stub AI + D1). Live checks used a route-less preview Worker (`BENCH=1` honours an `x-ct-model` header to force a model); it was deleted afterwards.
 
+## Box Office analytics (owner decision 2026-11-12, "analytics across all apps")
+- The visitor pages (`index.html`, `glasses.html`, `go.html`, `guide/`) end `<body>` with `<script async src="/boxoffice/v1/insights.js">`: Box Office (mutaaf/box-office), the owner's same-origin PostHog relay (pages, autocapture, heatmaps, city-level location from a truncated IP, masked replays; GPC/DNT honoured). Never on `admin/`, never in `src/`.
+- Player names never leave the device, so the board pages' `<body>` carries `data-private` (replays mask every text under it) and `ph-sensitive` (autocapture keeps no element text). Keep both on any new page that shows names or the coach's words.
+- Events: `src/track.js` `boxoffice(name, props)` forwards only when `track()` is on and the page defined `window.boxoffice` (index.html's stub), so CourtIQ and localhost send nothing. Now: `play_drawn` {sport, input: voice|text|sketch, path, secs?}, `sketch_done`, `play_open`, `iq_open`. Enums and numbers only. `sw.js` never caches `/boxoffice/*`. `test/ads.test.mjs` guards all of this.
+
 ## Ads (owner decision 2026-10-30)
 - Mutaaf decided on 2026-10-30 to monetize the whole collection through Marquee (mutaafaziz.com/ads; contract in the marquee repo's AGENTS.md), split by audience. Chalk Talk is general audience.
 - Only `index.html` (the standalone page) loads `/ads/v1/ads.js` (`data-app="chalktalk"`, slot `library:banner:menu`; Marquee contexts are only `menu`/`gameplay`). It appends the slot plus an "Ads & privacy" link (https://mutaafaziz.com/ads/privacy/) under the Plays list (`.ct-plays` desktop panel, `.ct-playgrid` phone sheet).
