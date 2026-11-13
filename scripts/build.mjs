@@ -10,6 +10,7 @@ copyFileSync('glasses.html', out + '/glasses.html');   // Meta Ray-Ban Display w
 copyFileSync('go.html', out + '/go.html');   // a headset types a 4-digit code here (mutaafaziz.com/chalktalk/go) to open a handed play
 mkdirSync(out + '/guide', { recursive: true }); copyFileSync('guide/index.html', out + '/guide/index.html');   // the coach's guide: plain server-rendered text (mutaafaziz.com/chalktalk/guide/), never cached by the SW
 cpSync('beta', out + '/beta', { recursive: true });   // the public beta's landing page (mutaafaziz.com/chalktalk/beta/): marketing, never cached by the SW
+mkdirSync(out + '/xr', { recursive: true }); copyFileSync('xr/index.html', out + '/xr/index.html');   // mutaafaziz.com/chalktalk/xr: the short link a headset types, into Trace with one tap
 mkdirSync(out + '/admin', { recursive: true }); copyFileSync('admin/index.html', out + '/admin/index.html');   // the owner's analytics (not cached offline)
 cpSync('src', out + '/src', { recursive: true });
 copyFileSync('node_modules/aurora-field/dist/aurora-field.mjs', out + '/vendor/aurora-field.mjs');

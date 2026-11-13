@@ -93,6 +93,11 @@ assert.equal(resStep(1, 40), 0.9); assert.equal(resStep(0.55, 40), 0.5); assert.
 { const bp = readFileSync(new URL('../beta/index.html', import.meta.url), 'utf8'), bd = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
   assert.match(bp, /manifest\.webmanifest/); assert.match(bp, /beforeinstallprompt/); { const hero = bp.slice(bp.indexOf('<body'), bp.indexOf('<section class="duo"')); assert.match(hero, /data-install[^>]*>Get the beta/, 'the install CTA is in the top bar'); assert.match(hero, /class="hero"[\s\S]*Get the beta/, 'and in the hero'); }
   assert.match(bd, /cpSync\('beta'/); assert.match(bd, /!f\.startsWith\('\.\/beta\/'\)/); assert.match(sw, /\\\/beta\(/); }
+// one tap in: /xr goes to Trace with go=auto, a handed code lands on the same button, the launch card exists
+{ const xp = readFileSync(new URL('../xr/index.html', import.meta.url), 'utf8'), src = readFileSync(new URL('../src/trace.js', import.meta.url), 'utf8'), ui = readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(xp, /trace=1&amp;go=auto/); assert.match(xp, /q\.set\('go', 'auto'\)/); assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /xr\/index\.html/);
+  assert.match(readFileSync(new URL('../go.html', import.meta.url), 'utf8'), /&go=auto/); assert.match(src, /function launch\(go/); assert.match(ui, /openTrace\(h\.who \|\| null, opts\.go \|\| 'auto'\)/);
+  assert.match(readFileSync(new URL('../index.html', import.meta.url), 'utf8'), /go: q\.get\('go'\)/); }
 // the code page a headset opens: big keys, the board on a good code
 const go = readFileSync(new URL('../go.html', import.meta.url), 'utf8');
 assert.match(go, /api\/hand\//); assert.match(go, /\?hand=/); assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /go\.html/, 'the build ships the code page');

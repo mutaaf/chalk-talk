@@ -677,12 +677,12 @@ export function mount(root, options) {
     },
     onClose: () => { if (field) field.play(); if (state.sim && tracePaused) state.sim.playing(true); tracePaused = false; } });
   let tracePaused = false;
-  function openTrace(who) {
+  function openTrace(who, go) {
     if (!state.sim || state.quiz) return;
     closePanel(); if (lesson.on) lesson.close();
     if (state.sim) { tracePaused = true; state.sim.playing(false); renderDots(); }
     if (field) field.pause();   // Trace covers the board: its light, ink and map rest until it closes
-    tracer.open(who);
+    tracer.open(who, go);
   }
   // concept lessons (src/lesson.js): a concept from src/concepts drawn on the court, level by level, with a quiz
   const lesson = createLesson({ root, sport: () => state.sport, stage: () => root.querySelector('.ct-stage'), proj: (x, y, h) => { const p = proj(x, y, h); return { x: p.x, y: p.y }; }, unproject: (sx, sy) => unproject(sx, sy),
@@ -2172,10 +2172,10 @@ export function mount(root, options) {
     fetch(ownApi() + '/hand/' + opts.hand).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.error || 'That code didn’t work.'))))).then(h => {
       if (dead) return;
       setSport(sportFor(h.sport)); load(h.play, { quiet: true });
-      track('trace_cta', { at: 'hand' }); setTimeout(() => { if (!dead) openTrace(h.who || null); }, 400);
+      track('trace_cta', { at: 'hand' }); setTimeout(() => { if (!dead) openTrace(h.who || null, opts.go || 'auto'); }, 400);
     }).catch(e => toast((e && e.message) || 'That code didn’t work.'));
   }
-  if (opts.trace) setTimeout(() => { if (!dead) { track('trace_cta', { at: 'link' }); openTrace(opts.trace === '1' || opts.trace === true ? null : String(opts.trace).toUpperCase()); } }, 900);
+  if (opts.trace) setTimeout(() => { if (!dead) { track('trace_cta', { at: 'link' }); openTrace(opts.trace === '1' || opts.trace === true ? null : String(opts.trace).toUpperCase(), opts.go || null); } }, 900);
   if (opts.concept) setTimeout(() => { if (!dead) { track('lesson_cta', { at: 'link' }); openConcepts(opts.concept, opts.level); } }, 700);
   let welcoming = false; try { welcoming = !!(state.sport.welcome && !localStorage.getItem('chalktalk.met.' + state.sport.id) && !opts.trace && !opts.concept && !opts.iq); } catch (e) {}
   if (welcoming) setTimeout(() => { if (!dead && !lesson.on && !tracer.on) welcome(state.sport); }, 1200);

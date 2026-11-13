@@ -200,6 +200,11 @@ const CSS = `
 /* Earbuds: the step big, for a glance at the phone */
 .ct-tr.ear .tr-job { font-size: clamp(22px, 6vw, 34px); }
 .ct-tr .tr-row button.on { background: #ffc75a; color: #04070c; border-color: transparent; }
+/* one tap in: the big button a link lands on */
+.ct-tr .tr-go { position: absolute; left: 50%; top: 52%; translate: -50% -50%; width: min(420px, calc(100% - 32px)); padding: 22px 20px 18px; border-radius: 24px; text-align: center; background: rgba(6, 11, 21, .9); border: 1px solid rgba(255, 199, 90, .4); box-shadow: 0 0 60px rgba(255, 199, 90, .18); display: grid; gap: 12px; z-index: 2; }
+.ct-tr .tr-go p { margin: 0; font-size: 15px; color: #c7d6ee; } .ct-tr .tr-go p b { color: #ffc75a; }
+.ct-tr .tr-go .big { min-height: 64px; font: 900 19px/1.1 var(--display, system-ui), sans-serif; letter-spacing: .02em; background: #ffc75a; color: #04070c; border: 0; border-radius: 18px; }
+.ct-tr .tr-go .alt { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; } .ct-tr .tr-go small { font-size: 12.5px; color: #8fa3c2; }
 /* handheld AR (dom-overlay): the camera is the page; only the card and the top bar sit over it */
 .ct-tr.xr-dom { background: transparent; } .ct-tr.xr-dom canvas, .ct-tr.xr-dom video, .ct-tr.xr-dom .tr-hint, .ct-tr.xr-dom [data-t=xr], .ct-tr.xr-dom [data-a=mode] { display: none; }
 /* the sheet: every other way in, and the code for a headset */
@@ -636,7 +641,7 @@ export function createTrace(ctx) {
     try {
       const r = await ctx.handoff(tr.id); if (!sheet || !box.isConnected) return;
       const base = /^(localhost|127\.)/.test(location.hostname) ? location.origin + location.pathname : 'https://mutaafaziz.com/chalktalk/';
-      box.innerHTML = `<div class="code"><div class="qr">${qrSvg(base + '?hand=' + r.code)}</div><div><div class="num">${esc(r.code)}</div><p>On the headset: <b>mutaafaziz.com/chalktalk/go</b>, then the code. Ray-Ban Display: <b>mutaafaziz.com/chalktalk/glasses</b> → Enter a code. Or scan it with a phone. Good for ${Math.round((r.minutes || 120) / 60)} hours.</p></div></div>`;
+      box.innerHTML = `<div class="code"><div class="qr">${qrSvg(base + '?hand=' + r.code + '&go=auto')}</div><div><div class="num">${esc(r.code)}</div><p>On the headset: <b>mutaafaziz.com/chalktalk/go</b>, then the code. Ray-Ban Display: <b>mutaafaziz.com/chalktalk/glasses</b> → Enter a code. Or scan it with a phone. Good for ${Math.round((r.minutes || 120) / 60)} hours.</p></div></div>`;
       ctx.track && ctx.track('trace_hand', {});
     } catch (e) { box.innerHTML = `<p>${esc((e && e.message) || 'Couldn’t make a code.')}</p>`; }
   }
@@ -741,6 +746,23 @@ export function createTrace(ctx) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
 
+  // ---- one tap in: a link (?trace=1&go=auto, a handed code) lands on one big button that goes straight into the
+  // best way this device has (a browser starts AR/VR only from a tap, so it can't be zero). go: auto, ar, room,
+  // table, vr, cam, ear, glass, glass3d ----
+  function launch(go, s, phone, place) {
+    const ar = !!s['immersive-ar'], vr = !!s['immersive-vr'];
+    const name = { ar: `Walk it on a real ${place}`, room: 'Walk it in this room', table: 'Put it on a table', vr: 'Walk it in VR', cam: 'Walk it through the camera', ear: 'Hear it in my earbuds', glass: 'Show it on my glasses', glass3d: 'Show it on my glasses in 3D', screen: 'Walk it on this screen' };
+    const ok = { ar, room: ar, table: ar || vr, vr, cam: phone, ear: true, glass: true, glass3d: true };
+    let main = go === 'auto' ? (ar ? 'room' : vr ? 'vr' : phone ? 'cam' : 'screen') : ok[go] ? go : (ar ? 'room' : vr ? 'vr' : phone ? 'cam' : 'screen');
+    const more = (ar ? ['ar', 'room', 'table'] : vr ? ['vr', 'table'] : phone ? ['cam', 'ear'] : ['ear', 'glass']).filter(k => k !== main).slice(0, 3);
+    const box = document.createElement('div'); box.className = 'tr-go';
+    box.innerHTML = `<p>You are <b>${esc(tr.name)}</b>${sim.play.title ? ` · ${esc(sim.play.title)}` : ''}</p><button type="button" class="big" data-a="${main === 'screen' ? 'go-x' : main}" data-go="1">${esc(name[main])}</button>
+      ${more.length ? `<div class="alt">${more.map(k => `<button type="button" data-a="${k}" data-go="1">${esc((t2 => t2[0].toUpperCase() + t2.slice(1))(name[k].replace(/^Walk it /, '')))}</button>`).join('')}</div>` : ''}
+      <small>${main === 'ar' || main === 'room' || main === 'vr' ? `Then ${esc(press.toLowerCase())} to start. ` : ''}Another position? Tap it along the top.</small>`;
+    el.appendChild(box); playing = false;
+    ctx.track && ctx.track('trace_go', { go, main });
+  }
+
   // ---- open / close ----
   function pick(i) {
     who = i; tr = trace(sim, i, sport, name); lines = sport.field.lines({ los: sim.play.los }); ver++; track = []; lastTrack = null; t = 0; hold = 0; yaw = null; dYaw = 0; spoken = -1; flown = -1; waiting = false; lates = []; score = null; reps = 0; phoneOff = null;
@@ -750,7 +772,7 @@ export function createTrace(ctx) {
     el.querySelectorAll('.tr-who button').forEach(b => b.classList.toggle('on', +b.dataset.i === i));
     ctx.track && ctx.track('trace_pick', { side: tr.side });
   }
-  async function open(whoId) {
+  async function open(whoId, go) {
     sim = ctx.sim(); sport = ctx.sport(); if (!sim || !sport) return;
     if (!document.querySelector('style[data-chalk-talk-trace]')) { const st = document.createElement('style'); st.dataset.chalkTalkTrace = ''; st.textContent = CSS; document.head.appendChild(st); }
     close();
@@ -767,6 +789,7 @@ export function createTrace(ctx) {
     pick(id >= 0 ? id : busiest(sim));
     el.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.go) { const g = el.querySelector('.tr-go'); if (g) g.remove(); playing = true; t = 0; }
       if (b.dataset.i != null) pick(+b.dataset.i);
       const a = b.dataset.a, n = sim.play.beats.length;
       if (a === 'close') { if (xr) { try { xr.session.end(); } catch (e2) {} } else close(); }
@@ -805,6 +828,7 @@ export function createTrace(ctx) {
       if (phone) b.push('<button type="button" class="tr-xr" data-a="cam">Camera</button>');
       b.push('<button type="button" data-a="ways">Any glasses</button>');
       if (el) el.querySelector('[data-t=xr]').innerHTML = b.join('');
+      if (el && go) launch(go, s, phone, place);
     });
     addEventListener('keydown', onKey, true); document.addEventListener('fullscreenchange', onFs);
     last = 0; playing = true; mode = 'eyes'; speed = 1; raf = requestAnimationFrame(frame);

@@ -52,7 +52,7 @@
       const r = await fetch('api/hand/' + code);
       if (r.status === 404) { msg.className = 'bad'; msg.textContent = 'That code has expired or isn’t right. Make a new one.'; code = ''; show(); return; }
     } catch (e) {}   // offline or no check: let the board try
-    location.href = './?hand=' + code;
+    location.href = './?hand=' + code + '&go=auto';
   }
   function key(k) {
     if (k === 'back') code = code.slice(0, -1);

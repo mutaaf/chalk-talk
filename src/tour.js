@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.43.1';
+export const VERSION = '0.44.0';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.44.0', date: '2026-11-13', title: 'One link, one tap', items: [
+    { title: 'Straight into Trace', call: 'In any headset’s browser, open mutaafaziz.com/chalktalk/xr and tap the big button: it picks the best way your device has (your room, VR, the camera on a phone) and your position, and you’re walking the play. Codes from your phone land on the same button.', show: null }
+  ] },
   { version: '0.43.1', date: '2026-11-13', title: 'Pick your headset', items: [
     { title: 'Set up any headset in four steps', call: 'mutaafaziz.com/chalktalk/beta is now all about Trace: pick your headset, glasses or earbuds and follow the steps to walk your first play, with a section for every sport.', show: null }
   ] },
