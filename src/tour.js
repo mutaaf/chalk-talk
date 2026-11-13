@@ -1,7 +1,7 @@
 // The explainer, called like a broadcast: a first-run tour, and release notes that can show
 // each new feature where it lives. Copy is play-by-play: energetic, clear, professional.
 
-export const VERSION = '0.43.0';
+export const VERSION = '0.43.1';
 
 // a step points at an element (data-r name or a selector) and says what it is, broadcaster-style
 export const TOUR = [
@@ -22,6 +22,9 @@ export const TOUR = [
 
 // newest first; "show" points the spotlight at the feature
 export const RELEASES = [
+  { version: '0.43.1', date: '2026-11-13', title: 'Pick your headset', items: [
+    { title: 'Set up any headset in four steps', call: 'mutaafaziz.com/chalktalk/beta is now all about Trace: pick your headset, glasses or earbuds and follow the steps to walk your first play, with a section for every sport.', show: null }
+  ] },
   { version: '0.43.0', date: '2026-11-13', title: 'Trace, lighter and smarter', items: [
     { title: 'Smooth on every headset', call: 'Trace now draws each frame in a fraction of the time: the field is built once, rings are drawn by the graphics chip, and the board rests behind it. That means steadier light on glasses, cooler phones and longer batteries.', show: null },
     { title: 'Set the play on a real table', call: 'In Tabletop, look at a table or the floor and the whole play rides on it. Pinch and it stays put.', show: null },
